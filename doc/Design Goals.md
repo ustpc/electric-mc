@@ -108,7 +108,7 @@ Central identity is matched by email address in the static configuration.
     pop-out window (see 6.4).
   - **Options page**: sign-in, restyling preferences, activity-tracking opt-in.
 - **Language: TypeScript** (decided by Simson, 2026-10-16).
-- **Proposed stack** (recommended, not yet confirmed):
+- **Extension stack** (approved by Simson, 2026-10-16):
   - WXT (Vite-based extension framework) to build Manifest V3 for Chrome, with
     Edge and Firefox builds available from the same code;
   - Preact for the chat UI and options page (small bundle);
@@ -118,9 +118,17 @@ Central identity is matched by email address in the static configuration.
   - API types generated from the Rust backend (`ts-rs` or an OpenAPI schema)
     so the extension and Lambda agree on request shapes;
   - Vitest for unit tests and Playwright (with the extension loaded) for
-    end-to-end tests against saved copies of Manuscript Central pages.
+    end-to-end tests against saved copies of Manuscript Central pages;
+  - `chrome.sidePanel` for the docked chat and a `chrome.windows` popup for
+    the pop-out, both serving the same page (section 6.4);
+  - `chrome.idle` together with window focus and mouse movement for
+    active-time detection (section 7.2).
 
 ### 4.2 Backend
+
+The backend architecture in this section was approved by Simson on
+2026-10-16. It covers Lambda function URLs, the polling chat (section 6.7),
+and provisioned-capacity DynamoDB (section 8).
 
 - **Language: Rust** for all Lambda functions, built with `cargo-lambda` and the
   `lambda_runtime` crate, for fast cold starts and low memory (decided by
