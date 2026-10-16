@@ -6,6 +6,8 @@ phases of development. Decisions still open are listed in
 
 Related documents:
 
+- [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md): the approved
+  stack, architecture, free-tier budget, and DynamoDB design.
 - [Ideas from the web.md](Ideas%20from%20the%20web.md): complaints about
   Manuscript Central found online that this architecture could address.
 - [publicity.md](publicity.md): where Manuscript Central users gather.
@@ -74,77 +76,10 @@ Central identity is matched by email address in the static configuration.
 
 ## 4. Architecture
 
-```
- Chrome (Manifest V3 extension)                         AWS (one region)
- ┌──────────────────────────────────────────┐        ┌───────────────────────────┐
- │ content script on *.manuscriptcentral.com│        │ Cognito user pool         │
- │  - detects current manuscript ID         │        │  (sign-in, JWTs)          │
- │  - injects restyling CSS                 │        └────────────┬──────────────┘
- │  - activity sensing (mouse, focus)       │                     │ JWT
- │ service worker (background)              │  HTTPS  ┌───────────▼──────────────┐
- │  - auth tokens, API calls, batching      ├────────►│ Lambda function URL: API │
- │  - chrome.idle, chrome.windows focus     │         │  (Rust, cargo-lambda)    │
- │ side panel (chrome.sidePanel)  ◄──┐      │         └───────────┬──────────────┘
- │ pop-out window (chrome.windows)  ─┘ chat │                     │
- └──────────────────────────────────────────┘         ┌───────────▼──────────────┐
-                                                      │ DynamoDB, single table,  │
- Browser ── HTTPS ──► Lambda function URL: dashboard ─►│ provisioned capacity     │
-                       (Rust + minijinja templates)    └──────────────────────────┘
-```
-
-### 4.1 Extension
-
-- Manifest V3, written as a standard WebExtension so that Edge (same engine)
-  is free and Firefox is cheap later. Chrome is the only supported browser for
-  now.
-- Host permissions limited to `https://*.manuscriptcentral.com/*` and the
-  backend's own URLs.
-- Components:
-  - **Content script** on Manuscript Central pages: finds the manuscript being
-    viewed, applies restyling, and senses user activity.
-  - **Service worker**: holds the Cognito session, talks to the backend,
-    batches and retries writes, and tracks which tab and window are focused.
-  - **Chat UI**: one web page used in two places, the Chrome side panel and a
-    pop-out window (see 6.4).
-  - **Options page**: sign-in, restyling preferences, activity-tracking opt-in.
-- **Language: TypeScript** (decided by Simson, 2026-10-16).
-- **Extension stack** (approved by Simson, 2026-10-16):
-  - WXT (Vite-based extension framework) to build Manifest V3 for Chrome, with
-    Edge and Firefox builds available from the same code;
-  - Preact for the chat UI and options page (small bundle);
-  - restyling as plain CSS injected into Manuscript Central pages, with any
-    UI Electric MC adds to those pages (badges, buttons) rendered inside a
-    Shadow DOM so the page's styles and ours cannot interfere;
-  - API types generated from the Rust backend (`ts-rs` or an OpenAPI schema)
-    so the extension and Lambda agree on request shapes;
-  - Vitest for unit tests and Playwright (with the extension loaded) for
-    end-to-end tests against saved copies of Manuscript Central pages;
-  - `chrome.sidePanel` for the docked chat and a `chrome.windows` popup for
-    the pop-out, both serving the same page (section 6.4);
-  - `chrome.idle` together with window focus and mouse movement for
-    active-time detection (section 7.2).
-
-### 4.2 Backend
-
-The backend architecture in this section was approved by Simson on
-2026-10-16. It covers Lambda function URLs, the polling chat (section 6.7),
-and provisioned-capacity DynamoDB (section 8).
-
-- **Language: Rust** for all Lambda functions, built with `cargo-lambda` and the
-  `lambda_runtime` crate, for fast cold starts and low memory (decided by
-  Simson, 2026-10-16). Lambdas run on arm64 (Graviton) at 128 MB unless
-  measurement shows a need for more.
-- **Lambda function URLs** front the Lambdas instead of API Gateway, because
-  function URLs are free and API Gateway's free tier lasts only 12 months.
-  Each request carries a Cognito JWT that the Lambda verifies itself (JWKS
-  fetched once per container and cached).
-- **Two functions** to start: `api` (JSON API for the extension) and
-  `dashboard` (HTML pages). They share one Rust crate for the data layer.
-- **DynamoDB**: one table, provisioned capacity (see section 8).
-- **Cognito**: one user pool; the extension uses the authorization-code flow
-  with PKCE through `chrome.identity.launchWebAuthFlow`. The dashboard uses the
-  Cognito hosted login page and a secure, HTTP-only session cookie.
-- **Infrastructure as code**: AWS SAM or CDK, chosen when we start the backend.
+The technical stack and architecture are in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
+In short: a TypeScript Manifest V3 extension (WXT, Preact) talks over HTTPS to Rust Lambda functions
+behind Lambda function URLs, with Cognito sign-in and one DynamoDB table.
 
 ## 5. G1: Readability and restyling
 
@@ -273,21 +208,12 @@ Rules:
 Later: mentions with email notification, attachments (stored in S3, which
 needs its own free-tier check), reactions, and search.
 
-### 6.7 Updates without a WebSocket
+### 6.7 Updates
 
-API Gateway WebSockets are not free after 12 months, so the chat **polls**.
-To keep polls cheap:
-
-- Each thread has a small "head" item holding a version counter that
-  increments on every new message, edit, or visibility change. A poll is one
-  `GetItem` on that head (0.5 read capacity units, eventually consistent);
-  messages are fetched only if the version changed.
-- The client polls only while the chat is visible: every 15 s while the user
-  is active, every 60 s when the window is unfocused, and not at all when the
-  computer is idle or the panel is closed. Posting a message triggers an
-  immediate refresh.
-- One poll request can cover all threads the user has open (batched), so
-  multiple tabs cost one request.
+New messages, edits, and visibility changes appear for other readers within
+about 15 seconds while their chat is open and they are active. The chat
+doesn't use WebSockets. How polling stays cheap is described in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
 
 ## 7. G3: Opt-in activity tracking
 
@@ -337,58 +263,14 @@ writes per user per hour.
 - Records are kept for one year by default, then expire through a DynamoDB
   TTL attribute (deletion by TTL is free).
 
-## 8. G5: Free-tier budget and efficiency
+## 8. G5: Free-tier operation
 
-The backend must stay inside the AWS **always-free** allowances (not the
-12-month introductory ones):
-
-| Service | Always-free allowance (per month) | How we stay inside it |
-|---------|-----------------------------------|------------------------|
-| Lambda | 1,000,000 requests and 400,000 GB-seconds | Rust on arm64 at 128 MB; polling only while visible; batched writes. |
-| DynamoDB | 25 GB storage, 25 provisioned RCU and 25 WCU | One table in **provisioned** mode (on-demand is not covered by the always-free tier); small items; GSIs counted against the same budget. |
-| Cognito | 10,000 monthly active users on the Lite/Essentials tier (check current pricing at build time) | Far below need. |
-| Lambda function URLs | No extra charge | Used instead of API Gateway. |
-| CloudWatch Logs | 5 GB ingestion | Log errors and summaries, not every request. |
-
-AWS changes these terms; verify them before launch and record the date
-checked.
-
-Rough request budget, assuming 30 active users working 6 hours on 22 days a
-month with the chat visible half that time:
-
-- chat polls at about 4 per minute while visible: 30 × 3 h × 60 × 4 × 22 ≈
-  475,000 requests;
-- activity uploads every 5 minutes: 30 × 6 × 12 × 22 ≈ 48,000;
-- messages, page loads, and dashboard views: well under 50,000.
-
-That totals roughly 575,000 Lambda requests a month, inside the 1,000,000
-allowance with room for growth. Above about 50 heavy users we would lengthen
-poll intervals or add a cheap "anything new?" check served from a cache.
-
-Efficiency rules for all code:
-
-- One table, designed around access patterns (below); no scans in request
-  paths.
-- Eventually consistent reads unless correctness needs a strong read.
-- Batch reads (`BatchGetItem`) and writes (`BatchWriteItem`) where possible.
-- Keep items under 1 KB where possible so each write is one WCU.
-- Every endpoint documents its expected read and write cost.
-
-### 8.1 DynamoDB single-table sketch
-
-| Item | PK | SK | Notes |
-|------|----|----|-------|
-| Person | `PERSON#<sub>` | `PROFILE` | name, email, journals, global roles |
-| Journal config | `JOURNAL#<site>` | `CONFIG` | blind-review settings, selectors version |
-| Role on manuscript | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | static assignments (reviewer, handling AE, editor, assigning editor) |
-| Thread head | `MS#<site>#<baseId>` | `HEAD` | version counter, last message time, title |
-| Message | `MS#<site>#<baseId>` | `MSG#<ulid>` | author, body, visibility set, revision, edit history pointer |
-| Visibility change | `MS#<site>#<baseId>` | `VIS#<ulid>#<ts>` | audit trail |
-| Activity session | `ACT#<sub>` | `<ts>#<site>#<baseId>` | active seconds, TTL |
-| Manuscript attention | `MS#<site>#<baseId>` | `ATTN` | last viewed, last worked, total active seconds (updated on upload) |
-
-A GSI keyed by `JOURNAL#<site>` and "last attention" time supports the
-dashboard's attention list without a scan.
+The whole backend must run within the AWS **always-free** allowances for
+Lambda and DynamoDB (not the 12-month introductory offers). This rules out
+API Gateway, WebSockets, and on-demand DynamoDB, and it means every feature
+needs an estimated request and capacity cost. The budget, the efficiency
+rules, and the table design are in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
 
 ## 9. G4: Attention dashboard
 
@@ -412,12 +294,9 @@ page needs no JavaScript; a small script may add click-to-sort on top.
 
 ### 9.2 How it is built
 
-- Rust, with **minijinja** templates (Jinja2-compatible syntax), compiled into
-  the Lambda binary.
-- Access requires a Cognito login; who can see which journals follows the
-  same roles as chat (EiC, editors, and staff by default).
-- Pages are small, server-rendered HTML with one stylesheet; no front-end
-  framework.
+The dashboard is server-rendered HTML from a Rust Lambda using minijinja
+(Jinja2-compatible) templates, behind a Cognito login. Details are in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
 
 ### 9.3 Where the manuscript list comes from
 

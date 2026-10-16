@@ -134,7 +134,7 @@ Likelihoods are judgements from the pattern above, not vendor commitments.
 
 | Expected change | Likelihood in 1–2 years | Effect on Electric MC |
 |-----------------|-------------------------|-----------------------|
-| **Editor Gateway** generally available: dashboards plus redesigned manuscript views without tabs and menus, gradually replacing legacy editor pages | High | Restyling selectors will break as pages change. Keep selectors as per-journal data updatable from the backend (Design Goals 5.2); expect to support legacy and new pages side by side for a long time. Readability (G1) matters less on new pages. |
+| **Editor Gateway** generally available: dashboards plus redesigned manuscript views without tabs and menus, gradually replacing legacy editor pages | High | Restyling selectors will break as pages change. Keep selectors as per-journal data updatable from the backend (Design Goals section 5, rule 2); expect to support legacy and new pages side by side for a long time. Readability (G1) matters less on new pages. |
 | **Editor dashboards** with status, reviewer activity, and outstanding tasks | High (already rolling out) | Overlaps G4. Electric MC's difference is activity-based attention (who actually worked on what) and cross-journal views. |
 | **In-workflow collaboration** (notes or discussion inside the manuscript) | Medium–high: in user testing in 2026, and `addNote` was added to the API | Directly overlaps G2. Our difference is per-message, retroactive visibility by role, including reviewers. Plan an optional sync into ScholarOne notes through the API. |
 | Native **reviewer recommendation** beyond Prophy | High | Makes discovery less of a gap; reviewer notes (Ideas A5) stay useful. |
