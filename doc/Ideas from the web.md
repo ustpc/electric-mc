@@ -202,6 +202,35 @@ ScholarOne.
   - [ScholarOne Summit 2025 Recap](https://www.silverchair.com/news/scholarone-summit-2025-recap/), 2025-10-27
   - [Features of Four Submission Systems, The Editorial Hub](https://theeditorialhub.com/scholarly-publishing/features-of-four-submission-systems/), 2022-08-05
 
+### A13. Opposed reviewers sit in the same list as suggested ones
+
+An associate editor commenting on Stephen Heard's blog said ScholarOne puts
+reviewers the author asked to exclude in the same queue as suggested
+reviewers. The "Opposed" label is easy to miss, so an editor can invite an
+opposed reviewer with one click.
+
+- Idea: the extension highlights opposed reviewers in red wherever they appear
+  and asks for confirmation before an invitation to one goes ahead.
+- Fit: **High**.
+- Source: [Do editors really use those lists of "recommended reviewers"?, Scientist Sees Squirrel (comment by Chris Mebane)](https://scientistseessquirrel.wordpress.com/2020/07/28/do-editors-really-use-those-lists-of-recommended-reviewers-and-who-should-you-suggest/), comment dated 2020-08-02
+
+### A14. Fake reviewer accounts slip through
+
+Hacker News commenters noted that several 2014 fake peer review cases ran
+through ScholarOne. Authors suggested "reviewers" whose email addresses they
+controlled. ScholarOne's Unusual Activity Detector now flags some of these
+cases, but only where the publisher has enabled it.
+
+- Idea: on reviewer pages, the extension flags author-suggested reviewers
+  whose email domain is a free webmail provider or doesn't match their stated
+  institution. It also flags reviewers with no ORCID iD, and shows
+  "first seen" dates from the backend.
+- Fit: **High** for warnings shown on the page.
+- Sources:
+  - [Hacker News comment by dougmccune on "Publishing: The peer-review scam"](https://news.ycombinator.com/item?id=8664290), 2014-11-26
+  - [Hacker News comment by dougmccune on "Publisher discovers 50 academic papers accepted based on fake peer reviews"](https://news.ycombinator.com/item?id=8658886), 2014-11-25
+  - [The evolution of research integrity solutions in ScholarOne, Silverchair](https://www.silverchair.com/news/research-integrity/), 2025-03-21
+
 ## B. Everyone who uses the editor pages
 
 ### B1. The interface is dated and hard to read
@@ -241,6 +270,7 @@ off pop-up blocking. Anand Sarwate's blog post listed this first.
 - Sources:
   - [Manuscript Central is annoying, Anand Sarwate (ergodicity.net)](https://ergodicity.net/2012/04/19/manuscript-central-is-annoying/), 2012-04-19
   - [ACM TOMCCAP editor info](https://tomccap.hosting.acm.org/editor.html), undated
+  - [Hacker News comment by jampekka on "Don't Publish with IEEE"](https://news.ycombinator.com/item?id=41925085), 2024-10-23: "Manuscript Central still requires pop-ups and can be more or less impossible to use with mobile devices."
 
 ### B4. A separate login for every journal, and duplicate accounts
 
@@ -256,6 +286,7 @@ publisher, but not across publishers and not for editors yet.
 - Fit: **Medium**.
 - Sources:
   - [Manuscript Central is annoying](https://ergodicity.net/2012/04/19/manuscript-central-is-annoying/), 2012-04-19
+  - [Hacker News comment by capnrefsmmat on "I will not log in to your website"](https://news.ycombinator.com/item?id=13907083), 2017-03-19: separate logins per journal despite central hosting
   - [The Manuscript Submission Mess, Scholarly Kitchen](https://scholarlykitchen.sspnet.org/2015/06/15/the-manuscript-submission-mess-brief-notes-from-a-grumpy-author/), 2015-06-15
   - [How do I merge duplicate user accounts on ScholarOne Manuscripts?, IEEE Support](https://supportcenter.ieee.org/app/answers/detail/a_id/2604/~/how-do-i-merge-duplicate-user-accounts-on-scholarone-manuscripts%3F), undated
   - [IEEE TMI Instructions to AEs](https://ieeetmi.org/aes-instructions/), undated
@@ -272,7 +303,9 @@ questions" as a pain point, along with presubmission checks.
   into email or Manuscript Central forms, and a staff view of "manuscripts
   whose authors asked about status" logged in chat.
 - Fit: **Medium**.
-- Source: [ScholarOne Summit 2025 Recap](https://www.silverchair.com/news/scholarone-summit-2025-recap/), 2025-10-27
+- Sources:
+  - [ScholarOne Summit 2025 Recap](https://www.silverchair.com/news/scholarone-summit-2025-recap/), 2025-10-27
+  - [Researchers Left in the Dark, James L. Nuzzo (The Nuzzo Letter)](https://jameslnuzzo.substack.com/p/researchers-left-in-the-dark), 2026-01-13. An author whose paper sat at "under review" for over 10 months complains that the label covers several stages, that the status date doesn't say what happened, and that status queries get templated replies. The portal isn't named, but its labels match ScholarOne's.
 
 ### C2. Repetitive data entry and late validation errors
 
@@ -289,6 +322,20 @@ only at the final step.
 - Sources:
   - [The Academic Publishing System's Most Pointless Bottleneck, Robert M. Kaplan, Academe Blog](https://academeblog.org/2026/03/13/the-academic-publishing-systems-most-pointless-bottleneck/), 2026-03-13
   - [Editorial Manager and ScholarOne: Troubleshooting Common Submission Portal Glitches and Errors, Enago](https://www.enago.com/articles/editorial-manager-vs-scholarone-submission-errors/), 2026-02-23
+
+### C3. Editors can't switch off unneeded submission steps
+
+On the same blog thread as A13, Manu Saunders asked why individual editors
+can't switch off the reviewer-suggestion screen, which adds author work even
+for minor corrections. A 2013 Hacker News comment complained that authors
+must upload images and text separately.
+
+- Idea: author-side, so mostly out of scope. Staff could use the extension to
+  see which configured steps each journal requires, and compare them.
+- Fit: **Low**.
+- Sources:
+  - [Scientist Sees Squirrel (comment by Manu Saunders)](https://scientistseessquirrel.wordpress.com/2020/07/28/do-editors-really-use-those-lists-of-recommended-reviewers-and-who-should-you-suggest/), 2020-07-28
+  - [Hacker News comment by ank286 on "Authorea: Write research papers inside your browser"](https://news.ycombinator.com/item?id=5336225), 2013-03-07
 
 ## D. Reviewers
 
@@ -318,6 +365,13 @@ extra time, which slows reviews.
 ---
 
 ## Notes on the search
+
+- A second pass on 2026-10-16 covered Reddit, X, Bluesky, Mastodon, Hacker
+  News, and academic forums. Reddit and Bluesky couldn't be read directly
+  (blocked, or the API wasn't reachable), and X and Mastodon search need a
+  signed-in account. Little turned up beyond Hacker News comments and blog
+  comment threads, and those were added above (A13, A14, B3, B4, C1, C3).
+  [publicity.md](publicity.md) has details.
 
 - No public bug tracker, user forum, or subreddit dedicated to Manuscript
   Central turned up. Most complaints are in vendor-review sites, journal
