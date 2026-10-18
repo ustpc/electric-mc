@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.10). The version shows
+Semantic versioning, set in `package.json` (now 0.0.11). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out.
 
@@ -63,7 +63,7 @@ build instead.
 - **Capture page HTML** (Page tab, developer mode) saves the current page to
   `Downloads/electric-mc/captures/`. Captures hold confidential manuscript
   data: keep them private and never commit them.
-- **Preferences** (the gear at the top of the side panel). Page layout: use
+- **Settings tab.** Page layout: use
   the full window width (MC's column grows to half an inch from each edge)
   and a bigger text size than MC's 11px. Also each feature's switch, and
   developer mode. Preferences are kept in Chrome's sync storage, so they

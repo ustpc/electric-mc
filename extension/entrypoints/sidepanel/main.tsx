@@ -12,7 +12,7 @@ import type { ParseResult } from '../../parsers/types';
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
 
-type Tab = 'page' | 'seen' | 'notes' | 'log';
+type Tab = 'page' | 'seen' | 'notes' | 'log' | 'settings';
 
 interface TabState {
   result: ParseResult;
@@ -124,7 +124,6 @@ function logFromPanel(level: Level, event: string, data?: unknown) {
 function App() {
   const [tab, setTab] = useState<Tab>('page');
   const [toast, setToast] = useState<string | null>(null);
-  const [prefs, setPrefs] = useState(false);
   const tabId = useCurrentTab();
   const state = useStorage<TabState | null>('session', tabId !== undefined ? KEY.tab(tabId) : null, null);
   const url = useTabUrl(tabId);
@@ -151,7 +150,6 @@ function App() {
         <div class="row">
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
-          <button class={`gear ${prefs ? 'on' : ''}`} onClick={() => setPrefs(!prefs)} title="Preferences" aria-expanded={prefs}>⚙</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -159,12 +157,8 @@ function App() {
         <div class="row" style="margin-top:6px">
           <SiteSwitch url={url} />
         </div>
-        <div class={`prefs ${prefs ? 'open' : ''}`} aria-hidden={!prefs}>
-          <SettingsView />
-          <button class="act" onClick={() => setPrefs(false)}>Done</button>
-        </div>
         <nav>
-          {((dev ? ['page', 'seen', 'notes', 'log'] : ['page', 'seen', 'notes']) as Tab[]).map((t) => (
+          {((dev ? ['page', 'seen', 'notes', 'log', 'settings'] : ['page', 'seen', 'notes', 'settings']) as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
               {t[0]!.toUpperCase() + t.slice(1)}
             </button>
@@ -176,6 +170,7 @@ function App() {
         {tab === 'seen' && <SeenView />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
+        {tab === 'settings' && <SettingsView />}
       </main>
       {toast && <div class="toast">{toast}</div>}
     </>
