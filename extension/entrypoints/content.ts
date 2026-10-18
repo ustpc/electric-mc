@@ -6,7 +6,9 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
-import { KEY, getSettings, isEnabledFor, type CaptureReply, type Msg, type Settings } from '../lib/messages';
+import { addMilestoneRows, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { annotateVersionRow, findVersionLinks, loadInHiddenFrame } from '../lib/versions';
+import { KEY, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
@@ -54,13 +56,70 @@ async function start() {
     last = r;
     const title = settings.rewriteTitle ? titleFor(r) : null;
     if (settings.rewriteTitle) titles.set(title);
-    if (changed || settings.verbose || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
-    if (settings.overlay) (overlay ??= new Overlay()).show(r, title);
+    if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
+    if (settings.developer) (overlay ??= new Overlay()).show(r, title);
     else overlay?.hide();
     if (r.pageType === 'login' && !stopLogin) setUpLogin();
+    if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
+      void earlierVersions(r);
+      // MC sometimes redraws the section; put our rows back.
+      if (milestones?.on === r.manuscript.id && !document.querySelector('tr[data-electric-mc="milestones"]')) addMilestoneRows(document, milestones.info);
+    } else {
+      document.querySelectorAll('tr[data-electric-mc="milestones"]').forEach((tr) => tr.remove());
+    }
     if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
     else clearHighlights(document);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
+  };
+
+  // Earlier versions: show each one's AE in the Version History table, and
+  // add the previous version's dates and editors to Peer Review Milestones,
+  // looking up what we don't know yet. Once per manuscript per page.
+  const looked = new Set<string>();
+  let milestones: { on: string; info: VersionInfo } | null = null;
+  const earlierVersions = async (r: ParseResult) => {
+    const m = r.manuscript!;
+    if (looked.has(m.id)) return;
+    looked.add(m.id);
+    const links = findVersionLinks(document, m, settings.idPattern);
+    if (!links.length) {
+      send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
+      return;
+    }
+    const idCol = (row: HTMLTableRowElement) => Array.from(row.cells).findIndex((c) => c.textContent?.includes(m.baseId));
+    const got = await chrome.storage.local.get(KEY.seen);
+    const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
+    const fromBackend = await askBackend(m.baseId);
+    for (const [i, v] of links.entries()) {
+      const previous = i === 0;
+      let info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
+      info.ae = fromBackend?.[v.ref.id] ?? info.ae ?? known?.aeByVersion?.[v.ref.id];
+      // The previous version also needs its dates and co-chair for the milestones rows.
+      const complete = info.ae && (!previous || (info.submitted && info.responded && info.coChair));
+      if (!complete) {
+        try {
+          const t0 = performance.now();
+          const d = await loadInHiddenFrame(document, v.link);
+          const vr = parsePage(d, d.location.href, { idPattern: settings.idPattern });
+          const vm = vr.manuscript;
+          if (vm && vm.id !== v.ref.id) throw new Error(`loaded ${vm.id}, expected ${v.ref.id}`);
+          const read = versionInfoFrom(d, v.ref.id);
+          info = { ...info, ...Object.fromEntries(Object.entries(read).filter(([, x]) => x)) };
+          const missing = (['submitted', 'responded', 'ae', 'coChair'] as const).filter((k) => !info[k]);
+          send({ type: 'version-info', baseId: m.baseId, id: v.ref.id, ae: info.ae, status: vm?.status, info, source: 'page' });
+          send({ type: 'log', level: 'info', event: 'looked up earlier version', data: { id: v.ref.id, missing, ms: Math.round(performance.now() - t0) } });
+          // Labels only, no values, so we can teach the parser MC's wording.
+          if (missing.length) send({ type: 'log', level: 'debug', event: 'earlier version labels', data: { id: v.ref.id, missing, labels: labelsOn(d) } });
+        } catch (e) {
+          send({ type: 'log', level: 'warn', event: 'earlier version lookup failed', data: { id: v.ref.id, error: String(e) } });
+        }
+      }
+      annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : 'AE: not found');
+      if (previous) {
+        milestones = { on: m.id, info };
+        if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
+      }
+    }
   };
 
   const setUpLogin = () => {
@@ -80,7 +139,10 @@ async function start() {
     // MC sometimes swaps content without a navigation (tabs, expanders, AJAX
     // panels). Re-parse after the page settles.
     observer ??= new MutationObserver((records) => {
-      if (records.every((m) => (m.target as Element).closest?.(`[${MARK}]`))) return;
+      // Ignore changes we made ourselves (badge, notes in the page, hidden frames).
+      const ours = (n: Node) => n.nodeType === 1 && !!(n as Element).closest?.(`[${MARK}]`);
+      if (records.every((m) => ours(m.target) || ([...m.addedNodes, ...m.removedNodes].length > 0 && [...m.addedNodes, ...m.removedNodes].every(ours))))
+        return;
       clearTimeout(timer);
       timer = window.setTimeout(() => run('mutation'), 500);
     });
@@ -93,6 +155,7 @@ async function start() {
     clearTimeout(timer);
     titles.restore();
     clearHighlights(document);
+    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"]`).forEach((e) => e.remove());
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
@@ -135,6 +198,15 @@ async function start() {
       run('settings');
     });
   });
+}
+
+/**
+ * What the backend knows about each version's AE, from the assignment
+ * emails. The backend isn't built yet, so this always falls through to
+ * reading the pages.
+ */
+async function askBackend(_baseId: string): Promise<Record<string, string> | null> {
+  return null;
 }
 
 function idsKey(r: ParseResult): string {

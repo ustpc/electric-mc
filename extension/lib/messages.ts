@@ -3,11 +3,13 @@
 
 import type { ParseResult } from '../parsers/types';
 import type { Level } from './log';
+import type { VersionInfo } from './milestones';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
   | { type: 'log'; level: Level; event: string; data?: unknown }
   | { type: 'disabled' }
+  | { type: 'version-info'; baseId: string; id: string; ae?: string; status?: string; info?: VersionInfo; source: 'backend' | 'page' }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' };
@@ -20,10 +22,13 @@ export interface CaptureReply {
 }
 
 export interface Settings {
-  overlay: boolean;
+  /**
+   * Developer mode: the on-page debug badge, the toolbar page-type badge,
+   * full parse results in the log, the Log tab, capture and raw JSON. Off for
+   * everyone else, who get a quiet extension and a log of problems only.
+   */
+  developer: boolean;
   rewriteTitle: boolean;
-  /** Log every debounced re-parse, not just ones that changed something. */
-  verbose: boolean;
   idPattern?: string;
   /** Hostnames where the extension does nothing. */
   disabledHosts: string[];
@@ -31,15 +36,17 @@ export interface Settings {
   autoSubmitLogin: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
+  /** On a revision, look up the AE of every earlier version in the background. */
+  lookupEarlierVersions: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  overlay: false,
+  developer: false,
   rewriteTitle: true,
-  verbose: false,
   disabledHosts: [],
   autoSubmitLogin: true,
   highlightRevisions: true,
+  lookupEarlierVersions: true,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {
@@ -69,6 +76,10 @@ export interface SeenManuscript {
   reviewers?: number;
   /** Handling AE for each version seen, keyed by the full ID ("…-1111.R1"). */
   aeByVersion?: Record<string, string>;
+  /** Status or decision of each version, when known. */
+  statusByVersion?: Record<string, string>;
+  /** Dates and editors of each earlier version, read from its details page. */
+  versionInfo?: Record<string, VersionInfo>;
   firstSeen: string;
   lastSeen: string;
   seenOn: string[];
@@ -84,5 +95,7 @@ export const KEY = {
 
 export async function getSettings(): Promise<Settings> {
   const got = await chrome.storage.local.get(KEY.settings);
-  return { ...DEFAULT_SETTINGS, ...(got[KEY.settings] as Partial<Settings> | undefined) };
+  // Older builds stored `overlay` and `verbose`; they are ignored now.
+  const { overlay: _o, verbose: _v, ...saved } = (got[KEY.settings] ?? {}) as Partial<Settings> & { overlay?: unknown; verbose?: unknown };
+  return { ...DEFAULT_SETTINGS, ...saved };
 }

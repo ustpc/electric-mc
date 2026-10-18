@@ -36,11 +36,11 @@ const base: ParseResult = {
 
 describe('title', () => {
   it('names the manuscript', () => {
-    expect(titleFor(base)).toBe('MC · CACM-26-03-9002.R2 · Secret Title');
+    expect(titleFor(base)).toBe('CACM-26-03-9002.R2 · Secret Title');
   });
   it('names queue lists', () => {
     expect(titleFor({ ...base, pageType: 'queue-list', manuscript: undefined, context: 'Associate Editor Center', heading: 'Awaiting Reviewer Scores', rows: [] }))
-      .toBe('MC · AE Center · Awaiting Reviewer Scores · 0 manuscripts');
+      .toBe('AE Center · Awaiting Reviewer Scores · 0 manuscripts');
   });
   it('leaves unknown pages alone', () => {
     expect(titleFor({ ...base, pageType: 'unknown' })).toBeNull();

@@ -6,7 +6,6 @@
 import type { ParseResult } from '../parsers/types';
 import { truncate } from './text';
 
-const PREFIX = 'MC';
 
 export function titleFor(r: ParseResult): string | null {
   const parts: string[] = [];
@@ -32,7 +31,7 @@ export function titleFor(r: ParseResult): string | null {
     case 'manuscript':
     case 'popup': {
       const m = r.manuscript;
-      if (!m) return r.pageType === 'popup' ? null : `${PREFIX} · Manuscript`;
+      if (!m) return r.pageType === 'popup' ? null : 'Manuscript';
       parts.push(m.id);
       if (m.title) parts.push(truncate(m.title, 50));
       if (r.pageType === 'popup' && r.heading) parts.push(truncate(r.heading, 30));
@@ -41,7 +40,7 @@ export function titleFor(r: ParseResult): string | null {
     default:
       return null;
   }
-  return [PREFIX, ...parts].join(' · ');
+  return parts.join(' · ');
 }
 
 function shortCenter(s: string): string {

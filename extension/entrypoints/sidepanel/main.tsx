@@ -126,6 +126,8 @@ function App() {
   const tabId = useCurrentTab();
   const state = useStorage<TabState | null>('session', tabId !== undefined ? KEY.tab(tabId) : null, null);
   const url = useTabUrl(tabId);
+  const saved = useStorage<Partial<Settings>>('local', KEY.settings, {});
+  const dev = !!saved.developer;
   const flash = useCallback((s: string) => {
     setToast(s);
     setTimeout(() => setToast(null), 3500);
@@ -146,7 +148,7 @@ function App() {
       <header>
         <div class="row">
           <h1>Electric MC <span class="muted">test build {chrome.runtime.getManifest().version}</span></h1>
-          {state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
+          {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -155,7 +157,7 @@ function App() {
           <SiteSwitch url={url} />
         </div>
         <nav>
-          {(['page', 'seen', 'notes', 'log', 'settings'] as Tab[]).map((t) => (
+          {((dev ? ['page', 'seen', 'notes', 'log', 'settings'] : ['page', 'seen', 'notes', 'settings']) as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
               {t[0]!.toUpperCase() + t.slice(1)}
             </button>
@@ -163,10 +165,10 @@ function App() {
         </nav>
       </header>
       <main>
-        {tab === 'page' && <PageView state={state} tabId={tabId} flash={flash} />}
+        {tab === 'page' && <PageView state={state} tabId={tabId} flash={flash} dev={dev} />}
         {tab === 'seen' && <SeenView />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} />}
-        {tab === 'log' && <LogView flash={flash} />}
+        {tab === 'log' && dev && <LogView flash={flash} />}
         {tab === 'settings' && <SettingsView />}
       </main>
       {toast && <div class="toast">{toast}</div>}
@@ -174,11 +176,11 @@ function App() {
   );
 }
 
-function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: number; flash: (s: string) => void }) {
+function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?: number; flash: (s: string) => void; dev: boolean }) {
   const [raw, setRaw] = useState(false);
   const [saveAs, setSaveAs] = useState(false);
   if (!state) {
-    return <p class="muted">No Manuscript Central page parsed in this tab yet. Open a page on *.manuscriptcentral.com, or press Re-parse.</p>;
+    return <p class="muted">No Manuscript Central page parsed in this tab yet. Open a page on *.manuscriptcentral.com.</p>;
   }
   const r = state.result;
 
@@ -212,11 +214,15 @@ function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: num
 
   return (
     <>
+      {dev && (
       <section class="row" style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="act" onClick={reparse}>Re-parse</button>
         <button class="act" onClick={capture}>Capture page HTML</button>
         <label class="chk"><input type="checkbox" checked={saveAs} onChange={(e) => setSaveAs((e.target as HTMLInputElement).checked)} />Ask where to save</label>
       </section>
+      )}
+      {dev && (
+        <>
       <section>
         <h2>Classification</h2>
         <table>
@@ -235,6 +241,8 @@ function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: num
           <h2>Warnings</h2>
           <ul class="warn">{r.warnings.map((w) => <li>{w}</li>)}</ul>
         </section>
+      )}
+        </>
       )}
       {r.manuscript && (
         <section>
@@ -264,6 +272,8 @@ function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: num
           <table>{r.rows.map((x) => <tr><td>{x.id}</td><td>{x.title ?? '—'}</td><td>{x.status ?? ''}</td></tr>)}</table>
         </section>
       )}
+      {dev && (
+        <>
       <section>
         <h2>Signals</h2>
         <table>{r.signals.map((s) => <tr><td>{s.pageType}</td><td>{s.name}</td><td>+{s.weight}</td><td class="muted">{s.detail ?? ''}</td></tr>)}</table>
@@ -276,6 +286,8 @@ function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: num
         <button class="act" onClick={() => setRaw(!raw)}>{raw ? 'Hide' : 'Show'} raw JSON</button>
         {raw && <pre>{JSON.stringify(r, null, 2)}</pre>}
       </section>
+        </>
+      )}
     </>
   );
 }
@@ -395,7 +407,7 @@ function SettingsView() {
     setS(next);
     void chrome.storage.local.set({ [KEY.settings]: next });
   };
-  const box = (k: 'overlay' | 'rewriteTitle' | 'verbose' | 'autoSubmitLogin' | 'highlightRevisions', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoSubmitLogin' | 'highlightRevisions' | 'lookupEarlierVersions', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
@@ -403,13 +415,14 @@ function SettingsView() {
       <h2>Settings</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoSubmitLogin', 'Log me in once my password manager fills the login form')}
-      {box('overlay', 'Show the debug badge on MC pages')}
+      {box('lookupEarlierVersions', 'On a revision, look up the AEs of earlier versions')}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
-      {box('verbose', 'Log every re-parse, not only changes')}
-      <label>
+      <h2 style="margin-top:12px">Developer</h2>
+      {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
+      {s.developer && <label>
         Manuscript ID pattern (blank for default)
         <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
-      </label>
+      </label>}
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
       <p class="muted">Version {chrome.runtime.getManifest().version}</p>
     </section>

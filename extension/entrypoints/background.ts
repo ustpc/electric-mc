@@ -5,6 +5,7 @@
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
 import { KEY, getSettings, isEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
+import type { VersionInfo } from '../lib/milestones';
 import type { ParseResult } from '../parsers/types';
 
 const BADGE: Record<string, string> = {
@@ -51,9 +52,17 @@ export default defineBackground(() => {
     const tabId = sender.tab?.id;
     if (msg.type === 'parsed' && tabId !== undefined) {
       void onParsed(tabId, msg.result, msg.reason, msg.title);
+    } else if (msg.type === 'version-info') {
+      void rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info);
     } else if (msg.type === 'disabled' && tabId !== undefined) {
       void chrome.storage.session.remove(KEY.tab(tabId));
     } else if (msg.type === 'log') {
+      if (msg.level === 'debug' || msg.level === 'info') {
+        void getSettings().then((s) => {
+          if (s.developer) void log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data });
+        });
+        return false;
+      }
       void log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data });
     }
     return false;
@@ -81,11 +90,32 @@ async function refreshTab(tabId: number) {
 
 async function onParsed(tabId: number, result: ParseResult, reason: string, title: string | null) {
   await chrome.storage.session.set({ [KEY.tab(tabId)]: { result, reason, title, at: Date.now() } });
+  const { developer } = await getSettings();
   const level = result.pageType === 'unknown' || result.warnings.length ? 'warn' : 'info';
-  await log({ level, source: 'content', event: `parsed (${reason})`, tabId, data: result });
-  await chrome.action.setBadgeText({ tabId, text: BADGE[result.pageType] ?? '?' });
+  // Outside developer mode, log only problems, and only their summary.
+  if (developer) await log({ level, source: 'content', event: `parsed (${reason})`, tabId, data: result });
+  else if (level === 'warn') await log({ level, source: 'content', event: 'parse problem', tabId, data: { pageType: result.pageType, warnings: result.warnings, fingerprint: result.fingerprint } });
+  await chrome.action.setBadgeText({ tabId, text: developer ? BADGE[result.pageType] ?? '?' : '' });
   await chrome.action.setBadgeBackgroundColor({ tabId, color: level === 'warn' ? '#b45309' : '#2563eb' });
   await remember(result);
+}
+
+/** AE (and status) of an earlier version, looked up by the content script. */
+function rememberVersion(baseId: string, id: string, ae?: string, status?: string, info?: VersionInfo): Promise<void> {
+  if (!ae && !status && !info) return Promise.resolve();
+  return serial(async () => {
+    const got = await chrome.storage.local.get(KEY.seen);
+    const seen = (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {};
+    const now = new Date().toISOString();
+    const prev = seen[baseId] ?? { baseId, latestId: id, site: null, firstSeen: now, lastSeen: now, seenOn: [] };
+    seen[baseId] = {
+      ...prev,
+      aeByVersion: ae ? { ...prev.aeByVersion, [id]: ae } : prev.aeByVersion,
+      statusByVersion: status ? { ...prev.statusByVersion, [id]: status } : prev.statusByVersion,
+      versionInfo: info ? { ...prev.versionInfo, [id]: info } : prev.versionInfo,
+    };
+    await chrome.storage.local.set({ [KEY.seen]: seen });
+  });
 }
 
 // Storage writes are serialized so concurrent tabs don't drop each other's entries.

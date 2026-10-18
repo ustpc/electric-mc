@@ -2,8 +2,8 @@
 
 A Chrome extension for trying out the Manuscript Central page parsers. It
 parses every `*.manuscriptcentral.com` page you open, rewrites the page title
-so history and the Back menu make sense, shows a small debug badge, and logs
-what it found. Nothing leaves your machine: there is no backend yet.
+so history and the Back menu make sense, highlights revisions, fills in what
+earlier versions of a revision looked like, and logs problems. Nothing leaves your machine: there is no backend yet.
 
 Design notes are in
 [Technical Stack and Architecture.md](../doc/Technical%20Stack%20and%20Architecture.md#65-test-extension-built-2026-10-18).
@@ -32,24 +32,32 @@ build instead.
   without you typing, it presses Log In for you, at most once a minute so a
   wrong saved password can't loop. Turn that off in Settings. The extension
   can't read Chrome's saved passwords: Chrome has no API for that.
-- **Badge.** Off by default now that the side panel shows the same thing.
-  When on (Settings), it's a small pill in the bottom-left corner. Click it
-  for the signals, strategies and warnings; × hides it on that page. The toolbar icon also shows the page type (`MS`, `LIST`,
-  `CTR`, …); it turns orange when there are warnings.
+- **Revisions.** Queue rows for revisions (.R1, .R2, …) are bold on light
+  yellow. Turn it off in Settings.
+- **Earlier versions.** On a revision's details page the extension opens each
+  earlier version in a hidden frame (you stay on the page), writes its AE
+  under its ID in Version History, and adds two rows under Peer Review
+  Milestones: when the previous version was submitted and its decision sent
+  (with the days between), and that version's AE and co-chair. When the
+  backend exists it will answer from the assignment emails first. Everything
+  Electric MC adds to a page is bold in its brown (#b45309).
+- **Developer mode** (Settings, off by default). Turns on the on-page debug
+  pill, the page type on the toolbar icon, full parse results in the log, the
+  Log tab, capture and the raw JSON. With it off, the log holds only problems.
 - **Side panel, Page tab.** Everything parsed from the current tab. **Pop
   out** moves the panel into its own window, which follows whatever MC tab you
   are on; **Pop in** puts it back.
 - **Seen tab.** Manuscripts seen so far, built from the pages you visit. The
   real build will load this from the backend in one query.
 - **Notes tab.** Per-manuscript notes, stored only in this browser.
-- **Log tab.** The debug log. **Export for sharing (redacted)** saves a JSON
+- **Log tab** (developer mode). The debug log. **Export for sharing (redacted)** saves a JSON
   file without names, titles, emails or manuscript IDs; send that one to us.
   **Export full** keeps everything, for your own use only.
-- **Capture page HTML** (Page tab) saves the current page to
+- **Capture page HTML** (Page tab, developer mode) saves the current page to
   `Downloads/electric-mc/captures/`. Captures hold confidential manuscript
   data: keep them private and never commit them.
-- **Settings tab.** Turn the badge or title rewriting off, log every
-  re-parse, or override the manuscript ID pattern.
+- **Settings tab.** Switch each feature off, turn on developer mode, or (in
+  developer mode) override the manuscript ID pattern.
 
 ## Checking the parsers
 
