@@ -154,19 +154,76 @@ Efficiency rules for all code:
 - Keep items under 1 KB where possible, so each write costs one WCU.
 - Document the expected read and write cost of every endpoint.
 
-## 5. DynamoDB single-table design (sketch)
+## 5. DynamoDB schema (proposed)
 
-| Item | PK | SK | Notes |
-|------|----|----|-------|
-| Person | `PERSON#<sub>` | `PROFILE` | name, email, journals, global roles |
-| Journal config | `JOURNAL#<site>` | `CONFIG` | blind-review settings, selectors version |
-| Role on manuscript | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | static assignments (reviewer, handling AE, editor, assigning editor) |
-| Thread head | `MS#<site>#<baseId>` | `HEAD` | version counter, last message time, title |
-| Message | `MS#<site>#<baseId>` | `MSG#<ulid>` | author, body, visibility set, revision, edit history pointer |
-| Visibility change | `MS#<site>#<baseId>` | `VIS#<ulid>#<ts>` | audit trail |
-| Activity session | `ACT#<sub>` | `<ts>#<site>#<baseId>` | active seconds, TTL |
-| Manuscript attention | `MS#<site>#<baseId>` | `ATTN` | last viewed, last worked, total active seconds (updated on upload) |
+### 5.1 Table settings
 
-A GSI keyed on `JOURNAL#<site>` and the "last attention" time lets the
-dashboard build its attention list without a scan. Activity records expire
-through a TTL attribute, and TTL deletion is free.
+| Setting | Value |
+|---------|-------|
+| Table name | `electric-mc` (one per stage, e.g. `electric-mc-prod`) |
+| Keys | `PK` (string, partition), `SK` (string, sort) |
+| Capacity | Provisioned: table 20 RCU / 20 WCU, `GSI1` 3 / 3, `GSI2` 2 / 2 (25 / 25 in total, the always-free limit) |
+| TTL attribute | `expiresAt` (epoch seconds) |
+| Encryption | AWS-owned key (default, free) |
+| Point-in-time recovery | Off at first (costs extra); weekly on-demand backup instead |
+
+Notation: `<site>` is the Manuscript Central site path (e.g. `ieee-tmi`),
+`<baseId>` is the manuscript ID without its revision suffix (e.g.
+`TMI-2026-0123`), `<sub>` is the person's Cognito subject, `<ulid>` is a
+time-sortable unique ID, and `<ts>` is an ISO-8601 UTC timestamp.
+
+### 5.2 Item types
+
+| Item | PK | SK | Main attributes |
+|------|----|----|-----------------|
+| Person | `PERSON#<sub>` | `PROFILE` | `name`, `email`, `mcEmails` (list), `trackingOptIn` (bool) |
+| Journal role | `PERSON#<sub>` | `JOURNAL#<site>` | `roles` (set: `AE`, `EDITOR`, `EIC`, `STAFF`, `ADMIN`) |
+| Journal config | `JOURNAL#<site>` | `CONFIG` | `name`, `blindReview` (`single` / `double`), `attentionDays`, `attentionMinutes`, `selectorsVersion` |
+| Manuscript | `MS#<site>#<baseId>` | `META` | `title`, `status`, `currentRevision`, `submittedAt`, `statusChangedAt`, `lastViewedAt`, `lastViewedBy`, `lastWorkedAt`, `activeSeconds`, `lastMessageAt`, `linkedIds` (resubmission lineage); also `GSI1PK`, `GSI1SK` |
+| Thread head | `MS#<site>#<baseId>` | `HEAD` | `version` (number, incremented on every message, edit or visibility change) |
+| Manuscript role | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | `role` (`REVIEWER`, `HANDLING_AE`, `EDITOR`, `ASSIGNING_EDITOR`), `reviewerNumber` (for reviewers), `assignedAt` |
+| Message | `MS#<site>#<baseId>` | `MSG#<ulid>` | `author` (sub), `body`, `visibility` (set: `REVIEWERS`, `HANDLING_AE`, `ALL_AES`, `EDITOR`, `ASSIGNING_EDITOR`, `EIC`), `revision`, `createdAt`, `editedAt`, `deleted` (bool) |
+| Message history | `MS#<site>#<baseId>` | `HIST#<msgUlid>#<ts>` | `actor`, `change` (`EDIT` / `VISIBILITY` / `DELETE`), `before`, `after` |
+| Activity session | `MS#<site>#<baseId>` | `ACT#<ts>#<sub>` | `start`, `end`, `activeSeconds`, `pageType`, `expiresAt`; also `GSI2PK`, `GSI2SK` |
+
+Notes:
+
+- Role assignments are written by the admin loader from the static
+  configuration (Goals section 3).
+- "All AEs" and "EiC" are journal-level roles, read from the person's journal
+  role items. The other audiences come from the manuscript's role items.
+- Message bodies are capped at 2 KB, so a message costs at most 2 WCU to
+  write.
+- `HEAD` is kept separate from `META`, so the frequent version bumps don't
+  rewrite `META` and its `GSI1` copy.
+
+### 5.3 Indexes
+
+| Index | Partition key | Sort key | Projection | Used for |
+|-------|---------------|----------|------------|----------|
+| `GSI1` | `GSI1PK` = `JOURNAL#<site>` | `GSI1SK` = `<lastAttentionTs>#<baseId>` | INCLUDE: `title`, `status`, `submittedAt`, `lastViewedAt`, `lastViewedBy`, `lastWorkedAt`, `activeSeconds`, `lastMessageAt` | Dashboard attention list for a journal, least-recently-touched first. Only `META` items carry these keys. |
+| `GSI2` | `GSI2PK` = `PERSON#<sub>` | `GSI2SK` = `<ts>#<site>#<baseId>` | KEYS_ONLY plus `activeSeconds` | A person's own activity history, newest first. Only activity sessions carry these keys. |
+
+Other dashboard columns are sorted in the Lambda after the `GSI1` query,
+because a journal has at most a few hundred open manuscripts.
+
+### 5.4 Access patterns and cost
+
+| Operation | DynamoDB calls | Approximate cost |
+|-----------|----------------|------------------|
+| Chat poll (per open thread) | `GetItem` on `HEAD`, eventually consistent | 0.5 RCU |
+| Load a thread | `Query` on `PK = MS#…`, `SK` begins with `MSG#`, plus a `Query` for `ROLE#` items | about 0.5 RCU per 4 KB read |
+| Post a message | `TransactWriteItems`: put `MSG#`, increment `HEAD.version`, update `META.lastMessageAt` | about 2 WCU per item (transactions cost double) |
+| Change a message's visibility | Transaction: update `MSG#`, put `HIST#`, increment `HEAD` | about 6 WCU |
+| Upload activity (every 5 minutes) | `BatchWriteItem` of `ACT#` items, then `UpdateItem` on each touched `META` | 1 WCU per item |
+| Dashboard page | `Query` on `GSI1` for the journal | a few RCU |
+| My history | `Query` on `GSI2` for `PERSON#<sub>` | a few RCU |
+| Who viewed a manuscript, and when | `Query` on `PK = MS#…`, `SK` begins with `ACT#` | a few RCU |
+
+Permission checks happen in the Lambda. It loads the caller's journal roles
+and the manuscript's role items, and returns only messages whose
+`visibility` set includes an audience the caller belongs to. Authors and
+admins see everything (Goals 6.5).
+
+Activity sessions expire after one year through `expiresAt`, and TTL deletion
+is free.
