@@ -51,6 +51,13 @@ Downloads folder. The *redacted* export replaces manuscript IDs with hashes
 and drops names, titles, email addresses and URL query strings, so it is
 safe to send to the developers. The *full* export is for your own use only.
 
+**Preferences sync** through your Chrome profile (`chrome.storage.sync`), so
+they follow you to other computers where you are signed in to Chrome. They
+are only feature switches, layout options, and the list of Manuscript
+Central sites where you turned the extension off. No manuscript data is
+synced: page data and logs stay in `chrome.storage.local`, in that browser
+only.
+
 Details: [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
 
@@ -168,4 +175,4 @@ staff will be switched on later, and this page will say so.
 
 | Date | Change |
 |------|--------|
-| 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. |
+| 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
