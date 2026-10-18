@@ -30,6 +30,9 @@ export function findLoginFields(doc: Document): LoginFields | null {
 
 /** Add the hints password managers look for. Safe to call repeatedly. */
 export function annotateLogin(f: LoginFields): void {
+  // A form marked autocomplete=off tells some password managers to stay away.
+  const form = f.password.form;
+  if (form?.getAttribute('autocomplete') === 'off') form.setAttribute('autocomplete', 'on');
   f.user.setAttribute('autocomplete', 'username');
   f.password.setAttribute('autocomplete', 'current-password');
   if (!f.user.name) f.user.name = 'username';

@@ -8,7 +8,7 @@ pitch to associate editors. "Now" means it works in the test extension today.
 
 - **Your password manager works on the login page (now).** 1Password and
   Chrome's own password manager recognize MC's login form, fill it, and the
-  extension presses Log In for you. No more copying passwords by hand.
+  extension can press Log In for you (optional). No more copying passwords by hand.
 - **Readable tab titles and history (now).** Every page gets a title that
   says what it is ("CACM-24-04-1000.R2 · This is a test!..."), so the Back
   menu, browser history and tab strip are finally useful.

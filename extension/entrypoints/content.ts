@@ -168,7 +168,7 @@ async function start() {
     }
     annotateLogin(f);
     send({ type: 'log', level: 'info', event: 'login form annotated for password managers', data: { submit: !!f.submit, pageType: last?.pageType } });
-    stopLogin = settings.autoSubmitLogin
+    stopLogin = settings.autoLogin
       ? watchForAutofill(f, (how) => send({ type: 'log', level: 'info', event: 'auto-submitted login', data: how }))
       : () => {};
   };
@@ -230,7 +230,7 @@ async function start() {
       if (was && !enabled()) return turnOff();
       if (!was && enabled()) return turnOn();
       if (!s.rewriteTitle) titles.restore();
-      if (!s.autoSubmitLogin) {
+      if (!s.autoLogin) {
         stopLogin?.();
         stopLogin = null;
       }

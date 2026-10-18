@@ -32,8 +32,12 @@ export interface Settings {
   idPattern?: string;
   /** Hostnames where the extension does nothing. */
   disabledHosts: string[];
-  /** Press "Log In" once a password manager has filled the login form. */
-  autoSubmitLogin: boolean;
+  /**
+   * Press "Log In" once a password manager has filled the login form. Off by
+   * default for now. (Builds before 0.0.15 called it autoSubmitLogin, on by
+   * default; that value is dropped so everyone starts with it off.)
+   */
+  autoLogin: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
   /** On a revision, look up the AE of every earlier version in the background. */
@@ -48,7 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   developer: false,
   rewriteTitle: true,
   disabledHosts: [],
-  autoSubmitLogin: true,
+  autoLogin: false,
   highlightRevisions: true,
   lookupEarlierVersions: true,
   fullWidth: false,
@@ -116,7 +120,11 @@ export async function getSettings(): Promise<Settings> {
     }
   }
   // Older builds stored `overlay` and `verbose`; they are ignored now.
-  const { overlay: _o, verbose: _v, ...saved } = (got ?? {}) as Partial<Settings> & { overlay?: unknown; verbose?: unknown };
+  const { overlay: _o, verbose: _v, autoSubmitLogin: _a, ...saved } = (got ?? {}) as Partial<Settings> & {
+    overlay?: unknown;
+    verbose?: unknown;
+    autoSubmitLogin?: unknown;
+  };
   return { ...DEFAULT_SETTINGS, ...saved };
 }
 

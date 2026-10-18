@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.14). The version shows
+Semantic versioning, set in `package.json` (now 0.0.15). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out.
 
@@ -34,9 +34,10 @@ build instead.
   site. The icon goes grey and shows `OFF`, and MC pages are left untouched.
 - **Login.** On the login page the extension adds the hints password
   managers look for (`autocomplete="username"` and `current-password`), so
-  1Password and Chrome should offer to fill it. Once they fill both fields
-  without you typing, it presses Log In for you, at most once a minute so a
-  wrong saved password can't loop. Turn that off in Settings. The extension
+  1Password and Chrome should offer to fill it. The hints go on as the
+  page loads, before the password manager looks. Optionally (Settings, off by
+  default) it presses Log In once they fill both fields, at most once a minute
+  so a wrong saved password can't loop. The extension
   can't read Chrome's saved passwords: Chrome has no API for that.
 - **Revisions.** Queue rows for revisions (.R1, .R2, …) are bold on light
   yellow. Turn it off in Settings.

@@ -413,7 +413,7 @@ function SettingsView() {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoSubmitLogin' | 'highlightRevisions' | 'lookupEarlierVersions', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'highlightRevisions' | 'lookupEarlierVersions', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
@@ -428,7 +428,7 @@ function SettingsView() {
       </label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
-      {box('autoSubmitLogin', 'Log me in once my password manager fills the login form')}
+      {box('autoLogin', 'Log me in once my password manager fills the login form')}
       {box('lookupEarlierVersions', 'On a revision, look up the AEs of earlier versions')}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
       <h2 style="margin-top:12px">Developer</h2>
