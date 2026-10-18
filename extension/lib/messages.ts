@@ -12,7 +12,8 @@ export type Msg =
   | { type: 'version-info'; baseId: string; id: string; ae?: string; status?: string; info?: VersionInfo; source: 'backend' | 'page' }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
-  | { type: 'capture' };
+  | { type: 'capture' }
+  | { type: 'ping' };
 
 export interface CaptureReply {
   url: string;

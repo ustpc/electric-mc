@@ -211,7 +211,9 @@ async function start() {
   });
 
   chrome.runtime.onMessage.addListener((msg: Msg, _sender, reply) => {
-    if (msg.type === 'reparse') {
+    if (msg.type === 'ping') {
+      reply({ version: chrome.runtime.getManifest().version });
+    } else if (msg.type === 'reparse') {
       run('manual');
       reply({ ok: enabled() });
     } else if (msg.type === 'capture') {

@@ -104,6 +104,34 @@ function SiteSwitch({ url }: { url?: string }) {
   );
 }
 
+/**
+ * Chrome doesn't put a new build into tabs that were already open, so they
+ * keep running the old code until reloaded. Ask the tab which version it
+ * runs; no answer from an MC tab means it needs a reload.
+ */
+function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
+  const [stale, setStale] = useState<string | null>(null);
+  useEffect(() => {
+    setStale(null);
+    if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return;
+    const mine = chrome.runtime.getManifest().version;
+    const t = setTimeout(() => {
+      chrome.tabs
+        .sendMessage(tabId, { type: 'ping' })
+        .then((r: { version?: string } | undefined) => setStale(r?.version === mine ? null : r?.version ?? 'an older build'))
+        .catch(() => setStale('an older build'));
+    }, 800);
+    return () => clearTimeout(t);
+  }, [tabId, url]);
+  if (!stale || tabId === undefined) return null;
+  return (
+    <div class="stale">
+      This tab is running {stale.startsWith('an') ? stale : `v${stale}`}.{' '}
+      <button class="act" onClick={() => void chrome.tabs.reload(tabId)}>Reload tab</button>
+    </div>
+  );
+}
+
 async function download(name: string, body: string, type: string, saveAs: boolean) {
   const url = URL.createObjectURL(new Blob([body], { type }));
   try {
@@ -157,6 +185,7 @@ function App() {
         <div class="row" style="margin-top:6px">
           <SiteSwitch url={url} />
         </div>
+        <StaleTab tabId={tabId} url={url} />
         <nav>
           {((dev ? ['page', 'seen', 'notes', 'log', 'settings'] : ['page', 'seen', 'notes', 'settings']) as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
