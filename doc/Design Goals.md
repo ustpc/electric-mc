@@ -116,6 +116,14 @@ Requirements:
    many journals.
 6. An accessibility theme (high contrast, larger type, visible focus outline)
    is part of the first release.
+7. **Page titles** (requested by Simson, 2026-10-18). Manuscript Central gives
+   most pages the same `<title>`, so the history list and the long-press Back
+   menu are a column of identical entries. The extension rewrites each
+   page's title from what it parsed, for example
+   `MC · CACM-26-03-9002.R2 · <short title>` or
+   `MC · AE Center · Awaiting Reviewer Scores · 3 manuscripts`, and puts it
+   back if Manuscript Central's own scripts reset it. Each user can turn this
+   off.
 
 ## 6. G2: Per-manuscript chat
 
@@ -334,6 +342,26 @@ to each come from three sources, in priority order:
 
 Manuscripts known to exist but with no view or work records are the ones the
 dashboard flags as having received no attention.
+
+### 9.4 Alerts
+
+Some events raise an alert automatically (requested by Simson, 2026-10-18):
+
+- **Plagiarism threshold exceeded:** the similarity-check email (Email
+  ingestion catalog row 8) raises an alert with the percentage.
+- **Decision sent:** a decision email (row 7) raises an alert naming the
+  decision.
+- **Anything overdue:** reviewer selection overdue (row 4), recommendation
+  overdue (row 6), and any due date the backend knows about (reviewer
+  selection, review, recommendation) that passes without the matching
+  completion event. A daily scheduled check finds these, so they are caught
+  even when Manuscript Central sends no reminder.
+
+Alerts go to the people who hold the relevant role on the manuscript (the
+assigning editor for plagiarism, the handling AE and assigning editor for
+overdue items). They appear at the top of the dashboard and as a badge and
+list in the side panel, and stay until someone dismisses them or the
+condition clears. Email or chat delivery of alerts can come later.
 
 ## 10. Security and privacy
 

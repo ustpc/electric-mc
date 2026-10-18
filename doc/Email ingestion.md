@@ -24,9 +24,11 @@ Proposed setup:
    record pointing at SES inbound (`inbound-smtp.<region>.amazonaws.com`).
    Receiving is only offered in some regions, including us-east-1, us-west-2
    and eu-west-1, so the stack goes in one of those.
-2. Forward the Manuscript Central mail to an address on that subdomain. The
-   sample mail already reaches `cacm-opn@simson.net` by forwarding, so one
-   more forward from there is enough.
+2. Send the Manuscript Central mail to an address on that subdomain. Today
+   `opinions@` goes to simsong@gmail.com and is forwarded from there, so
+   Simson will forward or redirect it to SES. Later `opinions@cacm.acm.org`
+   can send to the SES address directly. The parser handles all three paths
+   (section 2a).
 3. Receipt rule: accept only that address. Store the raw message in an S3
    bucket under `raw/` with a 30-day lifecycle expiry, then invoke the
    `ingest` Lambda (Rust, like the others) with the S3 key.
@@ -70,6 +72,41 @@ it means storing a mailbox password in AWS.
 - **Article type:** "This is a Opinion submission." (sic) gives the type.
 - **Attachments:** some messages carry a `PDF_Proof.PDF`, reviewer report PDFs,
   or an `.ics` calendar file. The parser ignores attachments.
+
+## 2a. Forwarded, redirected and duplicate mail
+
+The AWS resources (SES rule, S3 bucket, `ingest` Lambda) live in the
+**sabinok** AWS project, where Simson keeps the rest of the AWS setup.
+
+Mail can arrive three ways, and the parser must give the same result for
+each:
+
+- **Direct or redirected** (bounce/resend): the message is unchanged, with
+  the original `From`, `Subject`, `Message-ID` and ScholarOne `X-` headers.
+  Redirects add `Resent-*` headers, which are ignored.
+- **Forwarded inline** (Gmail "Forward"): a new message from the forwarder
+  whose body holds `---------- Forwarded message ---------` and the original
+  `From:`, `Date:`, `Subject:` and `To:` lines. The ScholarOne `X-` headers
+  are lost. The parser detects the marker, takes the original headers and
+  body from below it, and treats `From: … <onbehalfof@manuscriptcentral.com>`
+  as proof of origin in place of `X-PRODUCT`.
+- **Forwarded as attachment** (`message/rfc822`): the parser unwraps the
+  attached message and parses that.
+- **Auto-forwarded** (a Gmail filter): delivered unchanged except for added
+  `Received` and `X-Forwarded-*` headers, so it is handled like a redirect.
+
+Only forwards from configured addresses (Simson's for now) are accepted, so a
+stranger can't inject fake events by forwarding a crafted message.
+
+**Idempotency.** The de-duplication key is, in order: the original
+`Message-ID` (from the inner message for a forward); otherwise `X-S1Info`;
+otherwise a hash of the manuscript ID, normalized subject, recipient and the
+body's first-line date. The `ingest` Lambda records the key with a
+conditional put (`attribute_not_exists`) on `INGEST#<yyyy-mm>` /
+`<key>` before applying the event. A second copy fails the condition and is
+dropped. The same message forwarded, redirected and received directly
+produces one key, so it is applied once. Because updates are also
+order-tolerant (section 4), a retry after a partial failure is safe.
 
 ## 3. Message catalog
 
@@ -122,7 +159,10 @@ restyling selectors.
 - **Role mailboxes.** Some recipients are role accounts, not people (for
   example a section co-chair's shared address). Add an item
   `MAILBOX#<address>` / `MAP` → `{kind: PERSON | ROLE, sub?, role?, site}`, so
-  the parser can map an address to a person or to a journal role. The admin
+  the parser can map an address to a person or to a journal role. The
+  `opinions@` mailbox maps to the **co-chair role**, not to a person, so a
+  future co-chair inherits it (Simson, 2026-10-18). The role currently has
+  one holder, Simson. The admin
   loader fills it, and unknown addresses create a `PERSON` stub with
   `unverified = true`.
 - **Ingest log.** `INGEST#<yyyy-mm>` / `<Message-ID>`: type, manuscript, result,
@@ -131,14 +171,21 @@ restyling selectors.
   `decidedAt`, `similarityPercent`, `recommendationOverdue`.
 - **New role attributes:** `reviewerSelectionDue`, `reviewerSelectionOverdue`,
   `daysWaiting`, `reviewDue`, `reviewSubmittedAt`.
+- **Alerts** (Design Goals 9.4): `MS#<baseId>` / `ALERT#<type>#<at>` with
+  `kind` (`PLAGIARISM`, `DECISION`, `OVERDUE_REVIEWER_SELECTION`,
+  `OVERDUE_RECOMMENDATION`, `OVERDUE_REVIEW`), `detail`, `createdAt` and
+  `dismissedAt`. Open alerts also carry GSI1 keys so the dashboard lists them
+  per journal. A daily EventBridge Scheduler run of the `ingest` Lambda adds
+  overdue alerts for due dates that passed with no completion event.
 - **New role value:** `AUTHOR`, used to hide a person's own submissions from
   their editor views.
 
 ## 6. Open questions
 
-1. Can mail be forwarded from `cacm-opn@simson.net` to an SES address on a
-   subdomain we control, or must we poll IMAP?
-2. Should the co-chair's shared role mailbox map to Simson personally, or to
-   the role (so a future co-chair inherits it)? The default is the role.
-3. Do we want the decision letters' decision type only, or also the date the
+1. ~~Can mail reach SES, or must we poll IMAP?~~ Answered 2026-10-18: SES,
+   in the sabinok AWS project, by forward or redirect for now.
+2. ~~Role mailbox or person?~~ Answered 2026-10-18: the co-chair role.
+3. Which domain and region does sabinok use for the SES receiving
+   subdomain?
+4. Do we want the decision letters' decision type only, or also the date the
    author is due to send a revision?

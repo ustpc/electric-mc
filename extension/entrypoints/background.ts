@@ -1,0 +1,93 @@
+// Background service worker: keeps the latest parse for each tab, the debug
+// log, and the "seen manuscripts" index that a later build will preload from
+// the backend in one query.
+
+import { defineBackground } from 'wxt/utils/define-background';
+import { appendCapped, type LogEntry } from '../lib/log';
+import { KEY, type Msg, type SeenManuscript } from '../lib/messages';
+import type { ParseResult } from '../parsers/types';
+
+const BADGE: Record<string, string> = {
+  login: 'LOG',
+  'main-menu': 'MENU',
+  'role-center': 'CTR',
+  'queue-list': 'LIST',
+  manuscript: 'MS',
+  popup: 'POP',
+  unknown: '?',
+};
+
+export default defineBackground(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
+  chrome.runtime.onInstalled.addListener((d) => {
+    void log({ level: 'info', source: 'background', event: 'installed', data: { reason: d.reason, version: chrome.runtime.getManifest().version } });
+  });
+
+  chrome.runtime.onMessage.addListener((msg: Msg, sender) => {
+    const tabId = sender.tab?.id;
+    if (msg.type === 'parsed' && tabId !== undefined) {
+      void onParsed(tabId, msg.result, msg.reason, msg.title);
+    } else if (msg.type === 'log') {
+      void log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data });
+    }
+    return false;
+  });
+
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    void chrome.storage.session.remove(KEY.tab(tabId));
+  });
+});
+
+async function onParsed(tabId: number, result: ParseResult, reason: string, title: string | null) {
+  await chrome.storage.session.set({ [KEY.tab(tabId)]: { result, reason, title, at: Date.now() } });
+  const level = result.pageType === 'unknown' || result.warnings.length ? 'warn' : 'info';
+  await log({ level, source: 'content', event: `parsed (${reason})`, tabId, data: result });
+  await chrome.action.setBadgeText({ tabId, text: BADGE[result.pageType] ?? '?' });
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: level === 'warn' ? '#b45309' : '#2563eb' });
+  await remember(result);
+}
+
+// Storage writes are serialized so concurrent tabs don't drop each other's entries.
+let chain: Promise<unknown> = Promise.resolve();
+function serial<T>(fn: () => Promise<T>): Promise<T> {
+  const p = chain.then(fn, fn);
+  chain = p.catch(() => {});
+  return p;
+}
+
+function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
+  return serial(async () => {
+    const got = await chrome.storage.local.get(KEY.log);
+    const list = (got[KEY.log] as LogEntry[] | undefined) ?? [];
+    await chrome.storage.local.set({ [KEY.log]: appendCapped(list, { ts: new Date().toISOString(), ...e }) });
+  });
+}
+
+function remember(r: ParseResult): Promise<void> {
+  const updates: Array<Partial<SeenManuscript> & { baseId: string; latestId: string }> = [];
+  if (r.manuscript) {
+    const m = r.manuscript;
+    updates.push({ baseId: m.baseId, latestId: m.id, title: m.title, status: m.status, reviewers: m.reviewers.length });
+  }
+  for (const row of r.rows ?? []) {
+    updates.push({ baseId: row.baseId, latestId: row.id, title: row.title, status: row.status, queue: r.heading ?? undefined });
+  }
+  if (!updates.length) return Promise.resolve();
+  return serial(async () => {
+    const got = await chrome.storage.local.get(KEY.seen);
+    const seen = (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {};
+    const now = new Date().toISOString();
+    for (const u of updates) {
+      const prev = seen[u.baseId];
+      const merged: SeenManuscript = {
+        ...(prev ?? { baseId: u.baseId, latestId: u.latestId, site: r.site, firstSeen: now, lastSeen: now, seenOn: [] }),
+      };
+      for (const [k, v] of Object.entries(u)) if (v !== undefined && v !== '') (merged as unknown as Record<string, unknown>)[k] = v;
+      merged.lastSeen = now;
+      if (!merged.seenOn.includes(r.pageType)) merged.seenOn = [...merged.seenOn, r.pageType];
+      seen[u.baseId] = merged;
+    }
+    await chrome.storage.local.set({ [KEY.seen]: seen });
+  });
+}

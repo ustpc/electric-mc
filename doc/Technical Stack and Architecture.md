@@ -315,3 +315,39 @@ manuscript IDs it found, and (on request) the page's HTML, which it saves to a
 local download. That HTML stays on the user's machine and is used to build
 and test selectors. It must never be committed, because it contains
 confidential manuscript data.
+
+### 6.5 Test extension (built 2026-10-18)
+
+The test build in [`extension/`](../extension/README.md) implements the page
+parsers, title rewriting, capture mode and a shareable debug log, with no
+backend yet.
+
+- **Parsers anchor on text, not markup.** Page type comes from weighted
+  signals (a password field, links to several "… Center" pages, queue names
+  with counts, a table whose rows hold manuscript IDs, manuscript labels such
+  as "Manuscript ID:" and "Reviewer List"). Fields are found by their visible
+  labels and column headers, never by class or ID. Each extractor has
+  fallbacks and records which one worked.
+- **Robustness tests.** Every synthetic fixture is re-parsed after simulated
+  template changes: classes and IDs stripped or renamed, tables wrapped in
+  divs, labels upper-cased, `<th>` turned into `<td><b>`, bold labels turned
+  into spans, label rows turned into `<dl>`, columns reversed, non-breaking
+  spaces and extra whitespace, curly quotes and missing colons, and banner
+  and sidebar noise. The parse must not change. The same mutations run
+  against real captures with `npm run validate -- --mutate`.
+- **Fingerprint.** A hash of the page's tag structure (no text) is logged on
+  every parse. When ScholarOne changes a template, the fingerprint changes,
+  and the log shows which pages changed and whether parsing still worked.
+- **Log sharing.** The log is a ring buffer of 2,000 entries in
+  `chrome.storage.local`. The side panel exports it to
+  `Downloads/electric-mc/logs/` in two forms. The redacted export keeps page
+  types, signals, strategies, warnings, fingerprints, counts and field
+  labels, and replaces manuscript IDs with hashes. It drops names, titles,
+  email addresses and query strings, so users can send it to us. The full
+  export is for the user's own debugging.
+- **Local files.** An extension can't write to an arbitrary path. It can save
+  into the Downloads folder (or wherever the user picks in a Save dialog)
+  through `chrome.downloads`, which the test build uses. A later build could
+  use the File System Access API from the side panel to write into a folder
+  the user picks once, but Chrome asks for permission again each session.
+  The backend upload of redacted logs comes with M0.

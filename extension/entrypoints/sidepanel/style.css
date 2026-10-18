@@ -1,0 +1,34 @@
+:root {
+  --bg: #ffffff; --fg: #111827; --muted: #6b7280; --line: #e5e7eb; --accent: #2563eb; --warn: #b45309; --panel: #f9fafb;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #111827; --fg: #f3f4f6; --muted: #9ca3af; --line: #374151; --accent: #60a5fa; --warn: #fbbf24; --panel: #1f2937; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 system-ui, sans-serif; }
+header { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--line); padding: 8px 10px; z-index: 1; }
+header .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+h1 { font-size: 14px; margin: 0; flex: 1; }
+nav { display: flex; gap: 2px; margin-top: 6px; }
+nav button { border: 0; background: none; padding: 4px 8px; border-radius: 6px; color: var(--muted); cursor: pointer; font: inherit; }
+nav button.on { background: var(--panel); color: var(--fg); font-weight: 600; }
+main { padding: 10px; }
+button.act { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+button.act:hover { border-color: var(--accent); }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: white; font-weight: 600; font-size: 12px; }
+.pill.warn { background: var(--warn); }
+.muted { color: var(--muted); }
+.warn { color: var(--warn); }
+section { margin-bottom: 14px; }
+h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 4px; }
+table { border-collapse: collapse; width: 100%; }
+td, th { text-align: left; vertical-align: top; padding: 2px 6px 2px 0; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+pre { background: var(--panel); padding: 6px; border-radius: 6px; overflow: auto; font: 11px/1.4 ui-monospace, monospace; max-height: 50vh; }
+textarea { width: 100%; min-height: 90px; font: inherit; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.log td { font: 11px ui-monospace, monospace; }
+.log tr.warn td { color: var(--warn); }
+.log tr.error td { color: #dc2626; }
+label.chk { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.toast { position: fixed; bottom: 8px; left: 8px; right: 8px; background: var(--fg); color: var(--bg); padding: 6px 10px; border-radius: 6px; }
