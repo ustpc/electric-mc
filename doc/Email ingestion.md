@@ -22,8 +22,8 @@ Proposed setup:
 
 1. Create a receiving subdomain, for example `in.<our domain>`, with its MX
    record pointing at SES inbound (`inbound-smtp.<region>.amazonaws.com`).
-   Receiving is only offered in some regions, including us-east-1, us-west-2
-   and eu-west-1, so the stack goes in one of those.
+   Receiving is only offered in some regions. us-east-2 (Ohio) has had it
+   since 2023-09, so the stack goes there, in the sabinok AWS account.
 2. Send the Manuscript Central mail to an address on that subdomain. Today
    `opinions@` goes to simsong@gmail.com and is forwarded from there, so
    Simson will forward or redirect it to SES. Later `opinions@cacm.acm.org`
@@ -76,7 +76,7 @@ it means storing a mailbox password in AWS.
 ## 2a. Forwarded, redirected and duplicate mail
 
 The AWS resources (SES rule, S3 bucket, `ingest` Lambda) live in the
-**sabinok** AWS project, where Simson keeps the rest of the AWS setup.
+**sabinok** AWS account in us-east-2, where Simson keeps the rest of the AWS setup.
 
 Mail can arrive three ways, and the parser must give the same result for
 each:
@@ -185,7 +185,7 @@ restyling selectors.
 1. ~~Can mail reach SES, or must we poll IMAP?~~ Answered 2026-10-18: SES,
    in the sabinok AWS project, by forward or redirect for now.
 2. ~~Role mailbox or person?~~ Answered 2026-10-18: the co-chair role.
-3. Which domain and region does sabinok use for the SES receiving
-   subdomain?
+3. Which domain should the SES receiving subdomain use? (Region answered
+   2026-10-18: us-east-2, in the sabinok account.)
 4. Do we want the decision letters' decision type only, or also the date the
    author is due to send a revision?
