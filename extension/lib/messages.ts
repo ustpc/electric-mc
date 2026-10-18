@@ -67,6 +67,8 @@ export interface SeenManuscript {
   status?: string;
   queue?: string;
   reviewers?: number;
+  /** Handling AE for each version seen, keyed by the full ID ("…-1111.R1"). */
+  aeByVersion?: Record<string, string>;
   firstSeen: string;
   lastSeen: string;
   seenOn: string[];

@@ -108,7 +108,8 @@ function remember(r: ParseResult): Promise<void> {
   const updates: Array<Partial<SeenManuscript> & { baseId: string; latestId: string }> = [];
   if (r.manuscript) {
     const m = r.manuscript;
-    updates.push({ baseId: m.baseId, latestId: m.id, title: m.title, status: m.status, reviewers: m.reviewers.length });
+    const ae = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
+    updates.push({ baseId: m.baseId, latestId: m.id, title: m.title, status: m.status, reviewers: m.reviewers.length, aeByVersion: ae ? { [m.id]: ae } : undefined });
   }
   for (const row of r.rows ?? []) {
     updates.push({ baseId: row.baseId, latestId: row.id, title: row.title, status: row.status, queue: r.heading ?? undefined });
@@ -123,11 +124,20 @@ function remember(r: ParseResult): Promise<void> {
       const merged: SeenManuscript = {
         ...(prev ?? { baseId: u.baseId, latestId: u.latestId, site: r.site, firstSeen: now, lastSeen: now, seenOn: [] }),
       };
-      for (const [k, v] of Object.entries(u)) if (v !== undefined && v !== '') (merged as unknown as Record<string, unknown>)[k] = v;
+      const { aeByVersion, latestId, ...rest } = u;
+      for (const [k, v] of Object.entries(rest)) if (v !== undefined && v !== '') (merged as unknown as Record<string, unknown>)[k] = v;
+      // Keep the highest revision seen, and every version's AE.
+      if (!prev || revisionOf(latestId) >= revisionOf(prev.latestId)) merged.latestId = latestId;
+      if (aeByVersion) merged.aeByVersion = { ...prev?.aeByVersion, ...aeByVersion };
       merged.lastSeen = now;
       if (!merged.seenOn.includes(r.pageType)) merged.seenOn = [...merged.seenOn, r.pageType];
       seen[u.baseId] = merged;
     }
     await chrome.storage.local.set({ [KEY.seen]: seen });
   });
+}
+
+function revisionOf(id: string): number {
+  const m = /\.R(\d+)$/.exec(id);
+  return m ? Number(m[1]) : 0;
 }

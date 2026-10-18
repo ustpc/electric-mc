@@ -247,6 +247,7 @@ function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: num
             <tr><th>Submitted</th><td>{r.manuscript.submitted ?? '—'}</td></tr>
             <tr><th>Authors</th><td>{r.manuscript.authors ?? '—'}</td></tr>
             <tr><th>Editor</th><td>{r.manuscript.handlingEditor ?? '—'}</td></tr>
+            <EarlierAes baseId={r.manuscript.baseId} current={r.manuscript.id} />
             <tr><th>Reviewers</th><td>{r.manuscript.reviewers.map((p) => `${p.name}${p.status ? ` (${p.status})` : ''}`).join('; ') || '—'}</td></tr>
           </table>
         </section>
@@ -276,6 +277,21 @@ function PageView({ state, tabId, flash }: { state: TabState | null; tabId?: num
         {raw && <pre>{JSON.stringify(r, null, 2)}</pre>}
       </section>
     </>
+  );
+}
+
+/** AEs of earlier versions of this manuscript, from pages seen before. */
+function EarlierAes({ baseId, current }: { baseId: string; current: string }) {
+  const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});
+  const byVersion = seen[baseId]?.aeByVersion ?? {};
+  const earlier = Object.entries(byVersion).filter(([id]) => id !== current).sort(([a], [b]) => b.localeCompare(a));
+  return (
+    <tr>
+      <th>Earlier AEs</th>
+      <td>
+        {earlier.length ? earlier.map(([id, ae]) => <div>{id.slice(baseId.length) || 'original'}: {ae}</div>) : <span class="muted">none seen yet</span>}
+      </td>
+    </tr>
   );
 }
 
