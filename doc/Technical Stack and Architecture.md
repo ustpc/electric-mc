@@ -1,8 +1,9 @@
 # Electric MC: Technical Stack and Architecture
 
 Status: approved by Simson on 2026-10-16. That covers the extension stack, the
-Rust backend, Lambda function URLs, polling chat, and provisioned-capacity
-DynamoDB. The requirements this design serves are in
+Rust backend, Lambda function URLs, polling chat, and DynamoDB. DynamoDB uses
+on-demand capacity; Simson decided on 2026-10-18 not to pre-allocate RCU and
+WCU. The requirements this design serves are in
 [Design Goals.md](Design%20Goals.md); section references such as "Goals 6.4"
 point there.
 
@@ -22,7 +23,7 @@ point there.
  │ pop-out window (chrome.windows)  ─┘ chat │                     │
  └──────────────────────────────────────────┘         ┌───────────▼──────────────┐
                                                       │ DynamoDB, single table,  │
- Browser ── HTTPS ──► Lambda function URL: dashboard ─►│ provisioned capacity     │
+ Browser ── HTTPS ──► Lambda function URL: dashboard ─►│ on-demand capacity       │
                        (Rust + minijinja templates)    └──────────────────────────┘
 ```
 
@@ -80,7 +81,7 @@ validated before use.
   once per container and cached.
 - **Functions:** two to start. `api` serves the JSON API for the extension and
   `dashboard` serves HTML pages. They share one Rust crate for the data layer.
-- **Database:** one DynamoDB table in provisioned-capacity mode (section 5).
+- **Database:** one DynamoDB table in on-demand capacity mode (section 5).
 - **Auth:** one Cognito user pool. The extension uses the authorization-code
   flow with PKCE through `chrome.identity.launchWebAuthFlow`. The dashboard
   uses the Cognito hosted login page and a secure, HTTP-only session cookie.
@@ -121,13 +122,22 @@ The backend must stay inside the AWS **always-free** allowances, not the
 | Service | Always-free allowance (per month) | How we stay inside it |
 |---------|-----------------------------------|------------------------|
 | Lambda | 1,000,000 requests and 400,000 GB-seconds | Rust on arm64 at 128 MB, polling only while the chat is visible, and batched writes. |
-| DynamoDB | 25 GB storage, 25 provisioned RCU and 25 WCU | One table in **provisioned** mode, because on-demand isn't covered by the always-free tier. Items stay small, and GSIs count against the same budget. |
+| DynamoDB | 25 GB storage. Read and write capacity is free only in provisioned mode, which we don't use. | One table in **on-demand** mode, so requests are billed at cents per month (see below). Items stay small, and index writes are counted. |
 | Cognito | 10,000 monthly active users on the Lite/Essentials tier (check current pricing at build time) | We need far fewer. |
 | Lambda function URLs | No extra charge | Used instead of API Gateway. |
 | CloudWatch Logs | 5 GB ingestion | Log errors and summaries, not every request. |
 
 AWS changes these terms. Verify them before launch and record the date you
 checked.
+
+**DynamoDB on-demand cost.** On-demand capacity isn't part of the always-free
+tier, so DynamoDB requests are the one small bill. With the request budget
+below, a month uses roughly 0.5 million read request units (polls are
+eventually consistent and cost half a unit each) and under 0.3 million write
+request units. At us-east-1 list prices when this was written (about $0.125
+per million reads and $0.625 per million writes), that's under $0.50 a month.
+Check current prices before launch. On-demand also means no throttling when
+a busy hour exceeds a fixed allocation.
 
 The rough request budget below assumes 30 active users who each work 6 hours a
 day on 22 days a month, with the chat visible for half that time:
@@ -151,7 +161,8 @@ Efficiency rules for all code:
 - Use eventually consistent reads unless correctness needs a strongly
   consistent read.
 - Batch reads (`BatchGetItem`) and writes (`BatchWriteItem`) where possible.
-- Keep items under 1 KB where possible, so each write costs one WCU.
+- Keep items under 1 KB where possible, so each write costs one write request
+  unit.
 - Document the expected read and write cost of every endpoint.
 
 ## 5. DynamoDB schema (proposed)
@@ -162,10 +173,10 @@ Efficiency rules for all code:
 |---------|-------|
 | Table name | `electric-mc` (one per stage, e.g. `electric-mc-prod`) |
 | Keys | `PK` (string, partition), `SK` (string, sort) |
-| Capacity | Provisioned: table 20 RCU / 20 WCU, `GSI1` 3 / 3, `GSI2` 2 / 2 (25 / 25 in total, the always-free limit) |
+| Capacity | On-demand (`PAY_PER_REQUEST`) for the table and all indexes. No pre-allocated RCU or WCU. |
 | TTL attribute | `expiresAt` (epoch seconds) |
 | Encryption | AWS-owned key (default, free) |
-| Point-in-time recovery | Off at first (costs extra); weekly on-demand backup instead |
+| Point-in-time recovery | Off at first (costs extra); weekly backup instead |
 
 Notation: `<site>` is the Manuscript Central site path (e.g. `ieee-tmi`),
 `<baseId>` is the manuscript ID without its revision suffix (e.g.
@@ -181,7 +192,7 @@ time-sortable unique ID, and `<ts>` is an ISO-8601 UTC timestamp.
 | Journal config | `JOURNAL#<site>` | `CONFIG` | `name`, `blindReview` (`single` / `double`), `attentionDays`, `attentionMinutes`, `selectorsVersion` |
 | Manuscript | `MS#<site>#<baseId>` | `META` | `title`, `status`, `currentRevision`, `submittedAt`, `statusChangedAt`, `lastViewedAt`, `lastViewedBy`, `lastWorkedAt`, `activeSeconds`, `lastMessageAt`, `linkedIds` (resubmission lineage); also `GSI1PK`, `GSI1SK` |
 | Thread head | `MS#<site>#<baseId>` | `HEAD` | `version` (number, incremented on every message, edit or visibility change) |
-| Manuscript role | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | `role` (`REVIEWER`, `HANDLING_AE`, `EDITOR`, `ASSIGNING_EDITOR`), `reviewerNumber` (for reviewers), `assignedAt` |
+| Manuscript role | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | `role` (`REVIEWER`, `HANDLING_AE`, `EDITOR`, `ASSIGNING_EDITOR`), `reviewerNumber` (for reviewers), `assignedAt`, `active` (bool, false after a final decision or when the person is removed), `title`, `status` (copied from `META`), this person's `lastWorkedAt` and `activeSeconds` on this manuscript; while active, also `GSI3PK`, `GSI3SK` |
 | Message | `MS#<site>#<baseId>` | `MSG#<ulid>` | `author` (sub), `body`, `visibility` (set: `REVIEWERS`, `HANDLING_AE`, `ALL_AES`, `EDITOR`, `ASSIGNING_EDITOR`, `EIC`), `revision`, `createdAt`, `editedAt`, `deleted` (bool) |
 | Message history | `MS#<site>#<baseId>` | `HIST#<msgUlid>#<ts>` | `actor`, `change` (`EDIT` / `VISIBILITY` / `DELETE`), `before`, `after` |
 | Activity session | `MS#<site>#<baseId>` | `ACT#<ts>#<sub>` | `start`, `end`, `activeSeconds`, `pageType`, `expiresAt`; also `GSI2PK`, `GSI2SK` |
@@ -192,8 +203,8 @@ Notes:
   configuration (Goals section 3).
 - "All AEs" and "EiC" are journal-level roles, read from the person's journal
   role items. The other audiences come from the manuscript's role items.
-- Message bodies are capped at 2 KB, so a message costs at most 2 WCU to
-  write.
+- Message bodies are capped at 2 KB, so a message costs at most 2 write
+  request units.
 - `HEAD` is kept separate from `META`, so the frequent version bumps don't
   rewrite `META` and its `GSI1` copy.
 
@@ -203,6 +214,7 @@ Notes:
 |-------|---------------|----------|------------|----------|
 | `GSI1` | `GSI1PK` = `JOURNAL#<site>` | `GSI1SK` = `<lastAttentionTs>#<baseId>` | INCLUDE: `title`, `status`, `submittedAt`, `lastViewedAt`, `lastViewedBy`, `lastWorkedAt`, `activeSeconds`, `lastMessageAt` | Dashboard attention list for a journal, least-recently-touched first. Only `META` items carry these keys. |
 | `GSI2` | `GSI2PK` = `PERSON#<sub>` | `GSI2SK` = `<ts>#<site>#<baseId>` | KEYS_ONLY plus `activeSeconds` | A person's own activity history, newest first. Only activity sessions carry these keys. |
+| `GSI3` | `GSI3PK` = `ASSIGN#<site>#<role>` | `GSI3SK` = `<sub>#<baseId>` | INCLUDE: `title`, `status`, `assignedAt`, `lastWorkedAt`, `activeSeconds` | Current workload. One query on `ASSIGN#<site>#HANDLING_AE` lists every AE's current manuscripts, grouped by AE; adding `GSI3SK` begins with `<sub>#` narrows it to one AE. The same works for editors and reviewers. It's a sparse index: the loader removes `GSI3PK` and `GSI3SK` when a manuscript reaches a final decision or the assignment ends, so only current work is indexed. |
 
 Other dashboard columns are sorted in the Lambda after the `GSI1` query,
 because a journal has at most a few hundred open manuscripts.
@@ -211,14 +223,16 @@ because a journal has at most a few hundred open manuscripts.
 
 | Operation | DynamoDB calls | Approximate cost |
 |-----------|----------------|------------------|
-| Chat poll (per open thread) | `GetItem` on `HEAD`, eventually consistent | 0.5 RCU |
-| Load a thread | `Query` on `PK = MS#…`, `SK` begins with `MSG#`, plus a `Query` for `ROLE#` items | about 0.5 RCU per 4 KB read |
-| Post a message | `TransactWriteItems`: put `MSG#`, increment `HEAD.version`, update `META.lastMessageAt` | about 2 WCU per item (transactions cost double) |
-| Change a message's visibility | Transaction: update `MSG#`, put `HIST#`, increment `HEAD` | about 6 WCU |
-| Upload activity (every 5 minutes) | `BatchWriteItem` of `ACT#` items, then `UpdateItem` on each touched `META` | 1 WCU per item |
-| Dashboard page | `Query` on `GSI1` for the journal | a few RCU |
-| My history | `Query` on `GSI2` for `PERSON#<sub>` | a few RCU |
-| Who viewed a manuscript, and when | `Query` on `PK = MS#…`, `SK` begins with `ACT#` | a few RCU |
+| Chat poll (per open thread) | `GetItem` on `HEAD`, eventually consistent | 0.5 read unit |
+| Load a thread | `Query` on `PK = MS#…`, `SK` begins with `MSG#`, plus a `Query` for `ROLE#` items | 0.5 read unit per 4 KB read |
+| Post a message | `TransactWriteItems`: put `MSG#`, increment `HEAD.version`, update `META.lastMessageAt` | about 2 write units per item (transactions cost double) |
+| Change a message's visibility | Transaction: update `MSG#`, put `HIST#`, increment `HEAD` | about 6 write units |
+| Upload activity (every 5 minutes) | `BatchWriteItem` of `ACT#` items, then `UpdateItem` on each touched `META` and on the person's `ROLE#` item for that manuscript | 1 write unit per item |
+| Dashboard page | `Query` on `GSI1` for the journal | a few read units |
+| My history | `Query` on `GSI2` for `PERSON#<sub>` | a few read units |
+| Who viewed a manuscript, and when | `Query` on `PK = MS#…`, `SK` begins with `ACT#` | a few read units |
+| What every AE is working on now | `Query` on `GSI3`, `GSI3PK = ASSIGN#<site>#HANDLING_AE` | a few read units per journal |
+| What one AE is working on now | `Query` on `GSI3`, same key, `GSI3SK` begins with `<sub>#`; repeat per journal for an AE on several journals | under 1 read unit per journal |
 
 Permission checks happen in the Lambda. It loads the caller's journal roles
 and the manuscript's role items, and returns only messages whose

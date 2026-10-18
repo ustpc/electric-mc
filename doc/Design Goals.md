@@ -266,9 +266,10 @@ writes per user per hour.
 ## 8. G5: Free-tier operation
 
 The whole backend must run within the AWS **always-free** allowances for
-Lambda and DynamoDB (not the 12-month introductory offers). This rules out
-API Gateway, WebSockets, and on-demand DynamoDB, and it means every feature
-needs an estimated request and capacity cost. The budget, the efficiency
+Lambda (not the 12-month introductory offers), with DynamoDB in on-demand
+mode at a cost of cents per month. Capacity is not pre-allocated (Simson,
+2026-10-18). This rules out API Gateway and WebSockets, and it means every
+feature needs an estimated request cost. The budget, the efficiency
 rules, and the table design are in
 [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
 
@@ -291,6 +292,21 @@ received no or little attention. Columns:
 The list is **sortable** by any column and filterable by journal, role, and
 flag. Sorting and filtering work with query parameters (server-side) so the
 page needs no JavaScript; a small script may add click-to-sort on top.
+
+### 9.1a AE workload view
+
+A second dashboard page shows what associate editors are working on now
+(requested by Simson, 2026-10-18):
+
+- **All AEs:** every AE in the journal, each with the manuscripts currently
+  assigned to them. For each AE it shows the count, and for each manuscript
+  its status, days since assignment, when that AE last worked on it, and
+  their total active time on it.
+- **One AE:** the same list for a single chosen AE, across all journals they
+  serve.
+- "Currently working on" means assigned and without a final decision. The
+  activity columns show whether the AE is actually working on each one.
+- The same view works for editors and for reviewers.
 
 ### 9.2 How it is built
 
