@@ -120,13 +120,16 @@ function looksLikeHeader(cells: Element[]): boolean {
   return hits >= 2 && texts.every((t) => t.length < 40);
 }
 
+// Cookie-consent headings, in case a consent tool's markup slips past IGNORE_SEL.
+const THIRD_PARTY_HEADING = /privacy preference|cookie (settings|preferences|policy)|manage consent|your privacy/i;
+
 /** Visible headings, most prominent first. */
 export function headings(doc: Document): string[] {
   const out: string[] = [];
   for (const sel of ['h1', 'h2', '[role=heading]', 'h3', '.pagetitle, .pageTitle, .page-title']) {
     for (const el of Array.from(doc.querySelectorAll(sel))) {
       const t = textOf(el);
-      if (t && t.length < 120 && !out.includes(t)) out.push(t);
+      if (t && t.length < 120 && !out.includes(t) && !THIRD_PARTY_HEADING.test(t)) out.push(t);
     }
   }
   return out;
@@ -154,7 +157,8 @@ export function skeleton(doc: Document): string {
 // OneTrust cookie dialog (present but hidden on every page), other hidden
 // elements, and our own overlay.
 const IGNORE_SEL = [
-  '#onetrust-consent-sdk', '[id^=onetrust]', '.ot-sdk-container', '[class*=cookie-banner]',
+  '#onetrust-consent-sdk', '[id^=onetrust]', '[id^=ot-]', '[class^="ot-"]', '[class*=" ot-"]', '.ot-sdk-container',
+  '[class*=cookie-banner]', '[id*=cookie-consent]',
   '[hidden]', '[aria-hidden=true]', 'script', 'style', 'noscript', 'template', '[data-electric-mc]',
 ].join(',');
 

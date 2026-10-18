@@ -379,12 +379,13 @@ function SettingsView() {
     setS(next);
     void chrome.storage.local.set({ [KEY.settings]: next });
   };
-  const box = (k: 'overlay' | 'rewriteTitle' | 'verbose' | 'autoSubmitLogin', label: string) => (
+  const box = (k: 'overlay' | 'rewriteTitle' | 'verbose' | 'autoSubmitLogin' | 'highlightRevisions', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
     <section>
       <h2>Settings</h2>
+      {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoSubmitLogin', 'Log me in once my password manager fills the login form')}
       {box('overlay', 'Show the debug badge on MC pages')}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}

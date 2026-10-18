@@ -60,6 +60,12 @@ const CHECKS: Record<string, { pageType: PageType; check: (r: ParseResult) => vo
       expect(r.breadcrumb.slice(0, 2)).toEqual(['Co-Chair Dashboard', 'Awaiting Co-Chair Recommendation']);
     },
   },
+  'queue-rowspan.html': {
+    pageType: 'queue-list',
+    check: (r) => {
+      expect(r.rows?.map((x) => x.id)).toEqual(['XYZJ-26-03-1111.R2', 'XYZJ-26-09-9005', 'XYZJ-26-08-9006.R1']);
+    },
+  },
   'popup.html': {
     pageType: 'popup',
     check: (r) => expect(r.manuscript?.id).toBe('CACM-26-10-9003'),

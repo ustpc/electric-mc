@@ -29,6 +29,8 @@ export interface Settings {
   disabledHosts: string[];
   /** Press "Log In" once a password manager has filled the login form. */
   autoSubmitLogin: boolean;
+  /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
+  highlightRevisions: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -37,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   verbose: false,
   disabledHosts: [],
   autoSubmitLogin: true,
+  highlightRevisions: true,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {

@@ -4,6 +4,7 @@
 // when MC changes the page in place. Nothing runs on sites switched off.
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
 import { KEY, getSettings, isEnabledFor, type CaptureReply, type Msg, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
@@ -34,6 +35,13 @@ async function start() {
   const enabled = () => isEnabledFor(settings, location.href);
 
   const run = (reason: string) => {
+    // After the extension is reloaded, this copy keeps running in open tabs
+    // until they are reloaded. Stop it so it can't fight the new version.
+    if (!chrome.runtime?.id) {
+      observer?.disconnect();
+      titles.restore();
+      return;
+    }
     if (!enabled()) return;
     let r: ParseResult;
     try {
@@ -50,6 +58,8 @@ async function start() {
     if (settings.overlay) (overlay ??= new Overlay()).show(r, title);
     else overlay?.hide();
     if (r.pageType === 'login' && !stopLogin) setUpLogin();
+    if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
+    else clearHighlights(document);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -82,6 +92,7 @@ async function start() {
     observer?.disconnect();
     clearTimeout(timer);
     titles.restore();
+    clearHighlights(document);
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
