@@ -4,6 +4,8 @@ import pkg from './package.json' with { type: 'json' };
 
 // Electric MC test extension. See doc/Technical Stack and Architecture.md.
 export default defineConfig({
+  // Builds go to build/chrome-mv3 (WXT's default is .output/).
+  outDir: 'build',
   manifest: {
     // Semantic versioning; the version lives in package.json.
     name: `Electric MC (test build v${pkg.version})`,

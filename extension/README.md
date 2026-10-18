@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.11). The version shows
+Semantic versioning, set in `package.json` (now 0.0.12). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out.
 
@@ -19,11 +19,11 @@ Bump it with every build you hand out.
 ```sh
 cd extension
 npm install
-npm run build          # writes .output/chrome-mv3
+npm run build          # writes build/chrome-mv3
 ```
 
 In Chrome, open `chrome://extensions`, turn on **Developer mode**, click
-**Load unpacked**, and pick `extension/.output/chrome-mv3`. Pin the extension
+**Load unpacked**, and pick `extension/build/chrome-mv3`. Pin the extension
 and click its icon to open the side panel. `npm run dev` gives a live-reloading
 build instead.
 
