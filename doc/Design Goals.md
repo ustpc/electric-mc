@@ -8,6 +8,8 @@ Related documents:
 
 - [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md): the approved
   stack, architecture, free-tier budget, and DynamoDB design.
+- [Email ingestion.md](Email%20ingestion.md): filling the database from
+  Manuscript Central notification emails.
 - [Ideas from the web.md](Ideas%20from%20the%20web.md): complaints about
   Manuscript Central found online that this architecture could address.
 - [publicity.md](publicity.md): where Manuscript Central users gather.
@@ -316,13 +318,19 @@ The dashboard is server-rendered HTML from a Rust Lambda using minijinja
 
 ### 9.3 Where the manuscript list comes from
 
-Electric MC cannot query Manuscript Central directly unless the publisher
-grants API access. The list of manuscripts therefore comes from:
+Electric MC can't query Manuscript Central directly unless the publisher
+grants API access. The list of manuscripts, their status, and who is assigned
+to each come from three sources, in priority order:
 
-1. the static configuration (staff upload a manuscript list and assignments
-   exported from Manuscript Central reports); and, later,
-2. what the extension sees: when an editor opens a queue page, the extension
-   can send the IDs, titles, and statuses on that page to the backend.
+1. **Notification emails** (required, added 2026-10-18). Manuscript Central's
+   notification emails are forwarded to the backend, which parses them to
+   create manuscripts, record AE and reviewer assignments, track status, and
+   close manuscripts on a final decision. See
+   [Email ingestion.md](Email%20ingestion.md).
+2. **What the extension sees.** Queue and manuscript pages the user opens fill
+   in and correct details (Technical Stack and Architecture section 6).
+3. **Static configuration**, loaded by staff, for people, roles, and role
+   mailboxes.
 
 Manuscripts known to exist but with no view or work records are the ones the
 dashboard flags as having received no attention.

@@ -241,3 +241,77 @@ admins see everything (Goals 6.5).
 
 Activity sessions expire after one year through `expiresAt`, and TTL deletion
 is free.
+
+## 6. Extension page flow and data loading
+
+Status: proposed, 2026-10-18. The page sequence below comes from journal
+editor guides and the links in the sample notification emails, not from
+captured page HTML. Before the selectors are written, the prototype's capture
+mode (6.4) must confirm it.
+
+### 6.1 The order Manuscript Central shows pages
+
+1. **Login** at `https://mc.manuscriptcentral.com/<site>`, or a deep link
+   `…/<site>?URL_MASK=<hex>` from an email, which goes to login first and then
+   straight to that manuscript.
+2. **Welcome or main menu**, with one entry per role the account holds:
+   Author, Reviewer, Associate Editor Center, and the editor, chair or admin
+   centers.
+3. **Role center dashboard.** A list of queues with counts, for example
+   "Select Reviewers", "Invite Reviewers", "Awaiting Reviewer Scores",
+   "Awaiting AE Recommendation" and "Awaiting Decision".
+4. **Queue list.** A table of the manuscripts in one queue, with ID, title,
+   dates, status and a "Take Action" control.
+5. **Manuscript page.** Details, authors, the reviewer list with statuses,
+   companion papers, the recommendation or decision form, and history.
+   Reviewer details, letters and the PDF proof open in **pop-up windows**.
+6. The user goes back to the queue list or dashboard and repeats steps 4
+   and 5.
+
+Manuscript Central navigates with form posts and opaque, encrypted URL
+parameters, so **the URL doesn't identify the page.** The content script
+identifies each page from the DOM: page heading, breadcrumb, queue name, and
+the manuscript ID shown on the page. The page fingerprints are per-journal
+data, like the restyling selectors.
+
+### 6.2 Queries, in page order
+
+| When | Extension does | Backend calls | DynamoDB |
+|------|----------------|---------------|----------|
+| First Manuscript Central page in a browser session (normally login or the welcome page), or when the cache is more than 15 minutes old | **Preload:** one `GET /v1/bootstrap?site=<site>` | `api` Lambda | Editors who see the whole journal (co-chair, EiC, staff): one `Query` on `GSI1` for the journal's active manuscripts. AEs: one `Query` on `GSI3` for their own assignments. Both are followed by `BatchGetItem` on those manuscripts' `HEAD` items (100 per call) for thread versions. |
+| Role center dashboard | Draws badges (notes, overdue, untouched) from the cache. Sends the queue counts it sees as observations. | None to read. One batched `POST /v1/observations`, only if something differs from the cache. | One `UpdateItem` per changed manuscript. |
+| Queue list | Matches each row's manuscript ID against the cache and adds badges and a "last worked" column. Records each row's queue and status. | None to read. Observations batched as above. | Updates only for differences. |
+| Manuscript page | Switches the chat panel to this manuscript. Loads messages only if the cached version is older than the cached `HEAD` version. Scrapes the AE, reviewers and dates for observations. Starts activity timing. | `GET /v1/threads/<id>?since=<version>`, only when needed | One `Query` on `MSG#` items. |
+| While the chat is visible | Polls the versions of all open threads in one call | `POST /v1/poll` with up to ~20 thread IDs | `BatchGetItem` on `HEAD` items, 0.5 read unit each |
+| Posting or changing a message | Optimistic update in the panel | `POST /v1/threads/<id>/messages` or `PATCH …` | Transaction (section 5.4) |
+| Every 5 minutes, or when the browser goes idle | Uploads activity | `POST /v1/activity` | Batch write (section 5.4) |
+
+The **bootstrap response** is one compact JSON document with one row per
+active manuscript: ID, revision, title, status, the caller's roles on it, the
+handling AE's name, deep link, thread version, message count, and the caller's
+own last-worked time. A few hundred manuscripts come to well under 100 KB.
+
+### 6.3 Extension memory
+
+- The bootstrap result lives in `chrome.storage.session`. It survives
+  service-worker restarts and is cleared when the browser closes, so
+  confidential manuscript data never sits on disk. A journal-level change
+  counter (`JOURNAL#<site>` / `VERSION`, incremented by every write) lets a
+  refresh be one `GetItem` when nothing has changed.
+- Message bodies for threads the user has opened are cached the same way,
+  keyed by thread version.
+- The last version each user has read is kept in `chrome.storage.local`, which
+  drives the unread badges. Moving it to the backend, so it follows a person
+  across devices, is a later option.
+- Observations go into a small outbox queue and are sent in one batch at
+  most every 30 seconds, so moving quickly through queue pages doesn't
+  produce a burst of requests.
+
+### 6.4 Prototype capture mode
+
+The first extension prototype has a developer "capture mode". On every
+Manuscript Central page it records the page fingerprint it computed, the
+manuscript IDs it found, and (on request) the page's HTML, which it saves to a
+local download. That HTML stays on the user's machine and is used to build
+and test selectors. It must never be committed, because it contains
+confidential manuscript data.
