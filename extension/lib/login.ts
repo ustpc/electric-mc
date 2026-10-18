@@ -67,7 +67,8 @@ export function watchForAutofill(f: LoginFields, onSubmit: (how: string) => void
       if (f.submit) {
         f.submit.click();
         onSubmit('button');
-      } else if (f.password.form) {
+      } else if (f.password.form && f.password.ownerDocument.querySelectorAll('input[type=password]').length === 1) {
+        // No "Log In" button: submit the form, but never a sign-up form with a confirm field.
         f.password.form.requestSubmit();
         onSubmit('form');
       }

@@ -60,7 +60,9 @@ async function start() {
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
     if (settings.developer) (overlay ??= new Overlay()).show(r, title);
     else overlay?.hide();
-    if (r.pageType === 'login' && !stopLogin) setUpLogin();
+    // Any page with one password field gets login help, whatever the classifier
+    // thought (a maintenance notice can make the login page look like something else).
+    if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
     recordLetters(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
@@ -165,7 +167,7 @@ async function start() {
       return;
     }
     annotateLogin(f);
-    send({ type: 'log', level: 'info', event: 'login form annotated for password managers', data: { submit: !!f.submit } });
+    send({ type: 'log', level: 'info', event: 'login form annotated for password managers', data: { submit: !!f.submit, pageType: last?.pageType } });
     stopLogin = settings.autoSubmitLogin
       ? watchForAutofill(f, (how) => send({ type: 'log', level: 'info', event: 'auto-submitted login', data: how }))
       : () => {};
