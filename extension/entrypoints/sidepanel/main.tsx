@@ -5,7 +5,7 @@
 import { render } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, getSettings, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, getSettings, isEnabledFor, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import type { ParseResult } from '../../parsers/types';
 
 const params = new URLSearchParams(location.search);
@@ -70,6 +70,39 @@ function useCurrentTab(): number | undefined {
   return id;
 }
 
+/** URL of the tracked tab, refreshed as it navigates. */
+function useTabUrl(tabId: number | undefined): string | undefined {
+  const [url, setUrl] = useState<string | undefined>();
+  useEffect(() => {
+    if (tabId === undefined) return setUrl(undefined);
+    void chrome.tabs.get(tabId).then((t) => setUrl(t.url)).catch(() => setUrl(undefined));
+    const on = (id: number, ch: chrome.tabs.OnUpdatedInfo) => id === tabId && ch.url && setUrl(ch.url);
+    chrome.tabs.onUpdated.addListener(on);
+    return () => chrome.tabs.onUpdated.removeListener(on);
+  }, [tabId]);
+  return url;
+}
+
+/** The per-site on/off switch at the top of the panel. */
+function SiteSwitch({ url }: { url?: string }) {
+  const settings = useStorage<Partial<Settings>>('local', KEY.settings, {});
+  let host: string | null = null;
+  try {
+    host = url ? new URL(url).hostname : null;
+  } catch {
+    host = null;
+  }
+  if (!host || !/(^|\.)manuscriptcentral\.com$/.test(host)) return <span class="muted">Not an MC page</span>;
+  const on = isEnabledFor({ ...DEFAULT_SETTINGS, ...settings }, url);
+  return (
+    <label class="switch" title={`Electric MC on ${host}`}>
+      <input type="checkbox" checked={on} onChange={() => void setHostEnabled(host!, !on)} />
+      <span class="track"><span class="knob" /></span>
+      {on ? 'On' : 'Off'} for this site
+    </label>
+  );
+}
+
 async function download(name: string, body: string, type: string, saveAs: boolean) {
   const url = URL.createObjectURL(new Blob([body], { type }));
   try {
@@ -92,6 +125,7 @@ function App() {
   const [toast, setToast] = useState<string | null>(null);
   const tabId = useCurrentTab();
   const state = useStorage<TabState | null>('session', tabId !== undefined ? KEY.tab(tabId) : null, null);
+  const url = useTabUrl(tabId);
   const flash = useCallback((s: string) => {
     setToast(s);
     setTimeout(() => setToast(null), 3500);
@@ -116,6 +150,9 @@ function App() {
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
+        </div>
+        <div class="row" style="margin-top:6px">
+          <SiteSwitch url={url} />
         </div>
         <nav>
           {(['page', 'seen', 'notes', 'log', 'settings'] as Tab[]).map((t) => (
@@ -342,12 +379,13 @@ function SettingsView() {
     setS(next);
     void chrome.storage.local.set({ [KEY.settings]: next });
   };
-  const box = (k: 'overlay' | 'rewriteTitle' | 'verbose', label: string) => (
+  const box = (k: 'overlay' | 'rewriteTitle' | 'verbose' | 'autoSubmitLogin', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
     <section>
       <h2>Settings</h2>
+      {box('autoSubmitLogin', 'Log me in once my password manager fills the login form')}
       {box('overlay', 'Show the debug badge on MC pages')}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
       {box('verbose', 'Log every re-parse, not only changes')}
@@ -355,6 +393,7 @@ function SettingsView() {
         Manuscript ID pattern (blank for default)
         <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
       </label>
+      {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
       <p class="muted">Version {chrome.runtime.getManifest().version}</p>
     </section>
   );

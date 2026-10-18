@@ -5,7 +5,7 @@
 import { findManuscriptIds, parseManuscriptId } from '../lib/ids';
 import { labelKey, normalize, textOf, truncate } from '../lib/text';
 import { queueEntries } from './classify';
-import { dataTables, labeledValues, pick, type SimpleTable } from './dom';
+import { breadcrumb, dataTables, labeledValues, pick, type SimpleTable } from './dom';
 import type { ManuscriptDetails, Person, QueueCount, QueueRow } from './types';
 
 export interface Extracted<T> {
@@ -98,6 +98,14 @@ export function extractRows(doc: Document, idPattern?: string): Extracted<QueueR
 
 // ---------- manuscript page ----------
 
+const DATE = /\b\d{1,2}-[A-Z][a-z]{2}-\d{4}\b/;
+
+/** "09-Sep-2026; Last Updated: …" → "09-Sep-2026". */
+function firstDate(s: string | undefined): string | undefined {
+  if (!s) return s;
+  return DATE.exec(s)?.[0] ?? s;
+}
+
 const F = {
   id: [/^manuscript id$/, /^manuscript #$/, /^id$/],
   title: [/^title$/, /^manuscript title$/],
@@ -126,10 +134,20 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
   const idField = take('id');
   if (idField) ref = parseManuscriptId(idField, idPattern);
   if (!ref) {
-    // Fall back to the most frequent ID on the page.
-    const ids = findManuscriptIds(textOf(doc.body), idPattern).sort((a, b) => b.count - a.count);
-    if (ids[0]) {
-      ref = { id: ids[0].id, baseId: ids[0].baseId, revision: ids[0].revision };
+    const crumbs = breadcrumb(doc);
+    const last = crumbs?.[crumbs.length - 1];
+    if (last && /^details for\b/i.test(last)) ref = parseManuscriptId(last, idPattern);
+    if (ref) strategies.id = 'breadcrumb';
+  }
+  if (!ref) {
+    // Fall back to the most frequent manuscript, at its highest revision.
+    const ids = findManuscriptIds(textOf(doc.body), idPattern);
+    const byBase = new Map<string, number>();
+    for (const m of ids) byBase.set(m.baseId, (byBase.get(m.baseId) ?? 0) + m.count);
+    const base = [...byBase].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const top = ids.filter((m) => m.baseId === base).sort((a, b) => b.revision - a.revision)[0];
+    if (top) {
+      ref = { id: top.id, baseId: top.baseId, revision: top.revision };
       strategies.id = 'most frequent id';
     }
   }
@@ -146,6 +164,19 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
       strategies.title = 'heading next to id';
     }
   }
+  if (!title) {
+    // Newer layout: the ID on its own line, the title on the next one.
+    const idEl = Array.from(doc.querySelectorAll('strong,b,span,div,li,td,h1,h2,h3,h4'))
+      .find((e) => textOf(e) === ref!.id && e.children.length <= 1);
+    const item = idEl?.closest('li,tr,p,div');
+    let next = item?.nextElementSibling;
+    while (next && !textOf(next)) next = next.nextElementSibling;
+    const t = textOf(next);
+    if (t && t.length > 8 && t.length < 400 && !findManuscriptIds(t, idPattern).length) {
+      title = t;
+      strategies.title = 'line after id';
+    }
+  }
   if (!title) warnings.push('manuscript: no title');
 
   const value: ManuscriptDetails = {
@@ -153,7 +184,7 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
     title,
     status: take('status'),
     type: take('type'),
-    submitted: take('submitted'),
+    submitted: firstDate(take('submitted')),
     authors: take('authors'),
     handlingEditor: take('handlingEditor'),
     reviewers: extractReviewers(doc, strategies, warnings),
@@ -204,6 +235,25 @@ function extractReviewers(doc: Document, strategies: Record<string, string>, war
     }
     if (people.length) {
       strategies.reviewers = 'rows under reviewer list';
+      return people;
+    }
+  }
+  // Strategy 3 (newer layout): a "Reviews" panel listing each reviewer's
+  // name as a link, followed by their recommendation.
+  const panel = Array.from(doc.querySelectorAll('div,th,td,h2,h3,h4,span'))
+    .find((e) => /^reviews$/.test(labelKey(textOf(e))) && e.children.length === 0);
+  if (panel) {
+    const scope = panel.parentElement;
+    const people: Person[] = [];
+    for (const a of Array.from(scope?.querySelectorAll('a') ?? [])) {
+      const name = textOf(a);
+      if (!/^[^,]{2,60}, [^,]{1,60}$/.test(name)) continue;
+      const after = a.nextElementSibling;
+      const status = after ? textOf(after.querySelector('li') ?? after).replace(/\bview review\b.*$/i, '').trim() : '';
+      people.push({ name, role: 'reviewer', status: status || undefined });
+    }
+    if (people.length) {
+      strategies.reviewers = 'reviews panel';
       return people;
     }
   }

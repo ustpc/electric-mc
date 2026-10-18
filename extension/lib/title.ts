@@ -23,7 +23,7 @@ export function titleFor(r: ParseResult): string | null {
     }
     case 'queue-list': {
       const ctx = r.context ? shortCenter(r.context) : null;
-      const queue = r.heading && r.heading !== r.context ? r.heading : null;
+      const queue = r.breadcrumb[1] ?? (r.heading && r.heading !== r.context ? r.heading : null);
       if (ctx) parts.push(ctx);
       if (queue) parts.push(truncate(queue, 40));
       parts.push(`${r.rows?.length ?? 0} manuscripts`);

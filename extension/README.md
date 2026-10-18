@@ -23,9 +23,18 @@ build instead.
 
 ## Using it
 
-- **Badge.** Each MC page gets a dark badge in the bottom-right corner: the
-  page type, confidence, and IDs found. Click it for the signals, strategies
-  and warnings. The toolbar icon also shows the page type (`MS`, `LIST`,
+- **On/off per site.** The switch at the top of the side panel, or
+  right-clicking the toolbar icon, turns the extension off for the current
+  site. The icon goes grey and shows `OFF`, and MC pages are left untouched.
+- **Login.** On the login page the extension adds the hints password
+  managers look for (`autocomplete="username"` and `current-password`), so
+  1Password and Chrome should offer to fill it. Once they fill both fields
+  without you typing, it presses Log In for you, at most once a minute so a
+  wrong saved password can't loop. Turn that off in Settings. The extension
+  can't read Chrome's saved passwords: Chrome has no API for that.
+- **Badge.** Off by default now that the side panel shows the same thing.
+  When on (Settings), it's a small pill in the bottom-left corner. Click it
+  for the signals, strategies and warnings; × hides it on that page. The toolbar icon also shows the page type (`MS`, `LIST`,
   `CTR`, …); it turns orange when there are warnings.
 - **Side panel, Page tab.** Everything parsed from the current tab. **Pop
   out** moves the panel into its own window, which follows whatever MC tab you

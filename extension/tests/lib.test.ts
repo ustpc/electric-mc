@@ -29,7 +29,7 @@ describe('text', () => {
 const base: ParseResult = {
   parserVersion: 't', parsedAt: '2026-10-18T00:00:00Z', url: 'https://mc.manuscriptcentral.com/cacm?URL_MASK=0123456789abcdef0123456789abcdef',
   host: 'mc.manuscriptcentral.com', site: 'cacm', pageType: 'manuscript', confidence: 0.9, alternatives: [], signals: [],
-  heading: 'Manuscript Information', context: null, manuscriptIds: [{ id: 'CACM-26-03-9002.R2', baseId: 'CACM-26-03-9002', revision: 2, count: 3 }],
+  heading: 'Manuscript Information', context: null, breadcrumb: [], manuscriptIds: [{ id: 'CACM-26-03-9002.R2', baseId: 'CACM-26-03-9002', revision: 2, count: 3 }],
   manuscript: { id: 'CACM-26-03-9002.R2', baseId: 'CACM-26-03-9002', revision: 2, title: 'Secret Title', reviewers: [{ name: 'Reviewer, Robin', status: 'Agreed' }], fields: { title: 'Secret Title', 'author(s)': 'alex@example.org' } },
   fingerprint: 'abcd', strategies: {}, warnings: ['contact alex@example.org'], elapsedMs: 1,
 };

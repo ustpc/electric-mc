@@ -4,7 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
-import { KEY, type Msg, type SeenManuscript } from '../lib/messages';
+import { KEY, getSettings, isEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { ParseResult } from '../parsers/types';
 
 const BADGE: Record<string, string> = {
@@ -22,12 +22,37 @@ export default defineBackground(() => {
 
   chrome.runtime.onInstalled.addListener((d) => {
     void log({ level: 'info', source: 'background', event: 'installed', data: { reason: d.reason, version: chrome.runtime.getManifest().version } });
+    // Right-click the toolbar icon to switch the extension off or on for this site.
+    chrome.contextMenus.create({ id: MENU_TOGGLE, title: 'Turn off on this site', contexts: ['action'] }, () => void chrome.runtime.lastError);
+  });
+
+  chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId !== MENU_TOGGLE || !tab?.url) return;
+    void (async () => {
+      const host = new URL(tab.url!).hostname;
+      const enabled = isEnabledFor(await getSettings(), tab.url);
+      await setHostEnabled(host, !enabled);
+      await log({ level: 'info', source: 'background', event: enabled ? 'turned off for site' : 'turned on for site', data: host });
+    })();
+  });
+
+  // Keep the icon (blue on, grey off) and the menu label in step with the current tab.
+  chrome.tabs.onActivated.addListener(({ tabId }) => void refreshTab(tabId));
+  chrome.tabs.onUpdated.addListener((tabId, change) => {
+    if (change.url || change.status === 'complete') void refreshTab(tabId);
+  });
+  chrome.storage.onChanged.addListener((ch, area) => {
+    if (area === 'local' && ch[KEY.settings]) {
+      void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
+    }
   });
 
   chrome.runtime.onMessage.addListener((msg: Msg, sender) => {
     const tabId = sender.tab?.id;
     if (msg.type === 'parsed' && tabId !== undefined) {
       void onParsed(tabId, msg.result, msg.reason, msg.title);
+    } else if (msg.type === 'disabled' && tabId !== undefined) {
+      void chrome.storage.session.remove(KEY.tab(tabId));
     } else if (msg.type === 'log') {
       void log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data });
     }
@@ -38,6 +63,21 @@ export default defineBackground(() => {
     void chrome.storage.session.remove(KEY.tab(tabId));
   });
 });
+
+const MENU_TOGGLE = 'toggle-site';
+const ICON = (dir: string) => ({ 16: `${dir}/16.png`, 32: `${dir}/32.png`, 48: `${dir}/48.png`, 128: `${dir}/128.png` });
+
+async function refreshTab(tabId: number) {
+  const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+  if (!tab) return;
+  const onMc = !!tab.url && /^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(tab.url);
+  const enabled = isEnabledFor(await getSettings(), tab.url);
+  await chrome.action.setIcon({ tabId, path: ICON(onMc && !enabled ? 'icon-off' : 'icon') }).catch(() => {});
+  if (onMc && !enabled) await chrome.action.setBadgeText({ tabId, text: 'OFF' }).catch(() => {});
+  if (tab.active) {
+    chrome.contextMenus.update(MENU_TOGGLE, { title: enabled ? 'Turn off on this site' : 'Turn on for this site', enabled: onMc }, () => void chrome.runtime.lastError);
+  }
+}
 
 async function onParsed(tabId: number, result: ParseResult, reason: string, title: string | null) {
   await chrome.storage.session.set({ [KEY.tab(tabId)]: { result, reason, title, at: Date.now() } });

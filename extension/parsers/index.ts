@@ -5,7 +5,7 @@
 import { findManuscriptIds } from '../lib/ids';
 import { fnv1a, textOf } from '../lib/text';
 import { classify } from './classify';
-import { headings, skeleton } from './dom';
+import { breadcrumb, cleanDocument, headings, skeleton } from './dom';
 import { extractManuscript, extractQueues, extractRows } from './extract';
 import { PARSER_VERSION, type ParseResult, type ParserConfig } from './types';
 
@@ -22,7 +22,7 @@ export function siteFromUrl(url: string): string | null {
   }
 }
 
-export function parsePage(doc: Document, url: string, config: ParserConfig = {}): ParseResult {
+export function parsePage(live: Document, url: string, config: ParserConfig = {}): ParseResult {
   const t0 = now();
   const warnings: string[] = [];
   const strategies: Record<string, string> = {};
@@ -45,6 +45,7 @@ export function parsePage(doc: Document, url: string, config: ParserConfig = {})
     signals: [],
     heading: null,
     context: null,
+    breadcrumb: [],
     manuscriptIds: [],
     fingerprint: '',
     strategies,
@@ -61,14 +62,17 @@ export function parsePage(doc: Document, url: string, config: ParserConfig = {})
     }
   };
 
-  step('fingerprint', () => (base.fingerprint = fnv1a(skeleton(doc))));
+  step('fingerprint', () => (base.fingerprint = fnv1a(skeleton(live))));
+  // Parse a copy without the hidden cookie dialog and other hidden elements.
+  const doc = step('clean', () => cleanDocument(live)) ?? live;
   step('headings', () => {
     const h = headings(doc);
+    base.breadcrumb = breadcrumb(doc) ?? [];
     base.heading = h[0] ?? null;
-    base.context = h.find((x) => /center/i.test(x)) ?? null;
+    base.context = base.breadcrumb[0] ?? h.find((x) => /center|dashboard/i.test(x)) ?? null;
   });
   step('ids', () => (base.manuscriptIds = findManuscriptIds(textOf(doc.body), config.idPattern)));
-  const c = step('classify', () => classify(doc, config.idPattern));
+  const c = step('classify', () => classify(doc, config.idPattern, live.defaultView));
   if (c) Object.assign(base, c);
 
   const merge = (x: { strategies: Record<string, string>; warnings: string[] } | undefined, prefix: string) => {

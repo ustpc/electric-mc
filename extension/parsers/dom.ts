@@ -17,12 +17,22 @@ export function labeledValues(root: ParentNode): Map<string, string> {
   for (const el of Array.from(els)) {
     // A label is the element's own text, or the text of a single child ("<td><b>Title:</b></td>").
     const raw = ownText(el) || (el.children.length <= 1 ? textOf(el) : '');
+
+    // "Label: value" inside one element, possibly several separated by
+    // semicolons ("Submitted: 09-Sep-2026; Last Updated: 09-Sep-2026").
+    if (el.children.length <= 3) {
+      for (const seg of textOf(el).split(/;\s+(?=[A-Z][A-Za-z ()/'&#-]{1,40}:)/)) {
+        const inline = /^([A-Za-z][A-Za-z ()/'&#-]{1,40}):\s*(.+)$/.exec(seg);
+        if (inline && inline[1] && inline[2]) setIfAbsent(out, labelKey(inline[1]), normalize(inline[2]));
+      }
+    }
     if (!raw || raw.length > 60) continue;
 
-    // "Label: value" inside one element.
-    const inline = /^([A-Za-z][A-Za-z ()/'&#-]{1,40}):\s*(.+)$/.exec(textOf(el));
-    if (inline && inline[1] && inline[2] && el.children.length <= 3) {
-      setIfAbsent(out, labelKey(inline[1]), normalize(inline[2]));
+    // "AE <a>Editor, Pat</a>": a short label followed by a single link.
+    const own = ownText(el);
+    const kids = Array.from(el.children);
+    if (own && own.length <= 25 && kids.length === 1 && kids[0]!.tagName === 'A' && textOf(el).startsWith(own)) {
+      setIfAbsent(out, labelKey(own), textOf(kids[0]));
     }
 
     if (!/[:]\s*$/.test(raw) && el.tagName !== 'TH' && el.tagName !== 'DT' && el.tagName !== 'LABEL') {
@@ -138,4 +148,69 @@ export function skeleton(doc: Document): string {
   };
   if (doc.body) walk(doc.body, 0);
   return parts.join(',');
+}
+
+// Things on the page that aren't part of Manuscript Central's content: the
+// OneTrust cookie dialog (present but hidden on every page), other hidden
+// elements, and our own overlay.
+const IGNORE_SEL = [
+  '#onetrust-consent-sdk', '[id^=onetrust]', '.ot-sdk-container', '[class*=cookie-banner]',
+  '[hidden]', '[aria-hidden=true]', 'script', 'style', 'noscript', 'template', '[data-electric-mc]',
+].join(',');
+
+/**
+ * A copy of the document without hidden and third-party elements, so their
+ * headings and links can't confuse the classifier. Elements hidden by CSS
+ * are found on the live page (checkVisibility) before copying.
+ */
+export function cleanDocument(doc: Document): Document {
+  const MARK = 'data-emc-drop';
+  const marked: Element[] = [];
+  const body = doc.body;
+  if (body) {
+    for (const el of Array.from(body.children)) markHidden(el, 0);
+  }
+  function markHidden(el: Element, depth: number) {
+    if (el.matches(IGNORE_SEL) || isCssHidden(el)) {
+      el.setAttribute(MARK, '');
+      marked.push(el);
+      return;
+    }
+    if (depth < 4) for (const c of Array.from(el.children)) markHidden(c, depth + 1);
+  }
+  const copy = doc.implementation.createHTMLDocument('');
+  copy.replaceChild(copy.importNode(doc.documentElement, true), copy.documentElement);
+  for (const el of marked) el.removeAttribute(MARK);
+  copy.querySelectorAll(`[${MARK}], ${IGNORE_SEL}`).forEach((e) => e.remove());
+  return copy;
+}
+
+function isCssHidden(el: Element): boolean {
+  const s = (el as HTMLElement).style;
+  if (s && (s.display === 'none' || s.visibility === 'hidden')) return true;
+  const check = (el as Element & { checkVisibility?: (o?: object) => boolean }).checkVisibility;
+  // jsdom has no layout, so only trust checkVisibility in a real browser.
+  if (typeof check === 'function' && typeof navigator !== 'undefined' && !/jsdom/i.test(navigator.userAgent)) {
+    return !check.call(el, { visibilityProperty: true });
+  }
+  return false;
+}
+
+/**
+ * The breadcrumb trail ("Co-Chair Dashboard / Awaiting Co-Chair
+ * Recommendation / Details for X"), if the page has one.
+ */
+export function breadcrumb(doc: Document): string[] | null {
+  const cands = Array.from(doc.querySelectorAll('ol,ul,nav,div,td,p,span'));
+  let best: string[] | null = null;
+  for (const el of cands) {
+    const t = textOf(el);
+    if (t.length > 250 || !t.includes('/')) continue;
+    const parts = t.split(/\s+\/\s+|\s*\/\s+|\s+\/\s*/).map((x) => x.replace(/\s*\+\s*search$/i, '').trim()).filter(Boolean);
+    if (parts.length < 2 || parts.length > 6 || parts.some((x) => x.length > 80)) continue;
+    if (!/dashboard|center|home|main menu/i.test(parts[0]!)) continue;
+    // Prefer the smallest element that holds the whole trail.
+    if (!best || parts.join('').length <= best.join('').length) best = parts;
+  }
+  return best;
 }

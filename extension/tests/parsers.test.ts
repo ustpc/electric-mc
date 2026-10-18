@@ -47,6 +47,19 @@ const CHECKS: Record<string, { pageType: PageType; check: (r: ParseResult) => vo
       expect(m.reviewers.length).toBe(2);
     },
   },
+  'manuscript-modern.html': {
+    pageType: 'manuscript',
+    check: (r) => {
+      const m = r.manuscript!;
+      expect(m.id).toBe('XYZJ-26-07-1234.R1');
+      expect(m.title).toBe('An Invented Essay on Synthetic Machines');
+      expect(m.submitted).toBe('09-Sep-2026');
+      expect(m.handlingEditor).toBe('Editor, Pat');
+      expect(m.reviewers.map((p) => p.name)).toEqual(['Reviewer, Alpha', 'Reviewer, Beta']);
+      expect(r.heading ?? '').not.toMatch(/privacy/i);
+      expect(r.breadcrumb.slice(0, 2)).toEqual(['Co-Chair Dashboard', 'Awaiting Co-Chair Recommendation']);
+    },
+  },
   'popup.html': {
     pageType: 'popup',
     check: (r) => expect(r.manuscript?.id).toBe('CACM-26-10-9003'),

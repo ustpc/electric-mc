@@ -5,7 +5,7 @@
 
 import { findManuscriptIds } from '../lib/ids';
 import { labelKey, normalize, ownText, textOf } from '../lib/text';
-import { dataTables, headings, labeledValues } from './dom';
+import { breadcrumb, dataTables, headings, labeledValues } from './dom';
 import type { PageType, Signal } from './types';
 
 export interface Classification {
@@ -32,7 +32,7 @@ const MS_LABELS = [
 ];
 const QUEUE_HEADERS = /^(manuscript id|id|title|status|submitted|date submitted|due|due date|take action|action|days|days in folder|associate editor|decision)$/;
 
-export function classify(doc: Document, idPattern?: string): Classification {
+export function classify(doc: Document, idPattern?: string, view: Window | null = doc.defaultView): Classification {
   const signals: Signal[] = [];
   const add = (pageType: PageType, name: string, weight: number, detail?: string) =>
     signals.push({ pageType, name, weight, detail });
@@ -50,7 +50,9 @@ export function classify(doc: Document, idPattern?: string): Classification {
   if (/\bcreate an account\b|\breset password\b/i.test(text)) add('login', 'account links', 1);
 
   // main menu: links to several role centers
+  // Links inside a dropdown menu are on every page, so they don't count.
   const centerLinks = Array.from(doc.querySelectorAll('a,button,[role=tab],li'))
+    .filter((el) => !el.closest('.dropdown-menu,[role=menu],nav ul ul,li ul'))
     .map((el) => textOf(el))
     .filter((t) => t.length < 60 && CENTER_RE.test(t));
   const distinctCenters = new Set(centerLinks.map((t) => t.toLowerCase()));
@@ -67,17 +69,26 @@ export function classify(doc: Document, idPattern?: string): Classification {
   if (queueCounts >= 2) add('role-center', 'queue counts', Math.min(4, queueCounts), `${queueCounts} queues`);
   if (queueCounts >= 2 && ids.length === 0) add('role-center', 'no manuscript ids', 1);
 
-  // queue list: a data table whose rows carry manuscript IDs
+  // breadcrumb: "Dashboard / Queue / Details for <id>" names the page outright
+  const crumbs = breadcrumb(doc);
+  const lastCrumb = crumbs?.[crumbs.length - 1] ?? '';
+  if (/^details for\b/i.test(lastCrumb)) add('manuscript', 'breadcrumb details', 6, lastCrumb);
+  else if (crumbs && crumbs.length >= 2) add('queue-list', 'breadcrumb queue', 2, crumbs.join(' / '));
+  else if (crumbs && crumbs.length === 1) add('role-center', 'breadcrumb dashboard', 1, crumbs[0]);
+
+  // queue list: a data table whose rows carry different manuscript IDs.
+  // Tables of notes or versions repeat one manuscript's ID, so count distinct IDs.
   const tables = dataTables(doc);
   let bestRows = 0;
   let bestHeaders = 0;
   for (const t of tables) {
-    const rowsWithId = t.rows.filter((r) => findManuscriptIds(r.map((c) => textOf(c)).join(' '), idPattern).length > 0).length;
+    const distinct = new Set(t.rows.flatMap((r) => findManuscriptIds(r.map((c) => textOf(c)).join(' '), idPattern).slice(0, 1).map((m) => m.baseId)));
+    const rowsWithId = distinct.size;
     const headerHits = t.headers.filter((h) => QUEUE_HEADERS.test(h)).length;
     if (rowsWithId > bestRows) bestRows = rowsWithId;
     if (rowsWithId > 0 && headerHits > bestHeaders) bestHeaders = headerHits;
   }
-  if (bestRows >= 2) add('queue-list', 'table rows with ids', Math.min(5, 1 + bestRows), `${bestRows} rows`);
+  if (bestRows >= 2) add('queue-list', 'table rows with ids', Math.min(5, 1 + bestRows), `${bestRows} distinct ids`);
   else if (bestRows === 1 && bestHeaders >= 2) add('queue-list', 'one-row queue table', 2);
   if (bestHeaders >= 2) add('queue-list', 'queue headers', bestHeaders >= 3 ? 2 : 1, `${bestHeaders} matching headers`);
 
@@ -85,13 +96,13 @@ export function classify(doc: Document, idPattern?: string): Classification {
   const fields = labeledValues(body);
   const labelHits = MS_LABELS.filter((re) => [...fields.keys()].some((k) => re.test(k))).length;
   if (labelHits >= 3) add('manuscript', 'manuscript labels', Math.min(5, labelHits), `${labelHits} labels`);
-  if (ids.length >= 1 && ids.length <= 2 && bestRows < 2) add('manuscript', 'single manuscript id', 2, ids[0]?.id);
+  const baseIds = new Set(ids.map((m) => m.baseId));
+  if (baseIds.size === 1 && bestRows < 2) add('manuscript', 'single manuscript id', 2, ids[0]?.id);
   if (/\b(make (a )?recommendation|make decision|reviewer list|view (full )?abstract|manuscript information)\b/i.test(text))
     add('manuscript', 'manuscript actions', 1);
   if (fields.has('manuscript id')) add('manuscript', 'manuscript id label', 2);
 
   // popup: opened by MC with window.open, or a "Close Window" button
-  const view = doc.defaultView;
   let opener = false;
   try {
     opener = !!view && !!view.opener && view.opener !== view;

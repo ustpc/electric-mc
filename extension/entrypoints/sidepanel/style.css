@@ -16,8 +16,8 @@ nav button.on { background: var(--panel); color: var(--fg); font-weight: 600; }
 main { padding: 10px; }
 button.act { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--fg); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
 button.act:hover { border-color: var(--accent); }
-.pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: white; font-weight: 600; font-size: 12px; }
-.pill.warn { background: var(--warn); }
+.pill { display: inline-block; padding: 1px 7px; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 600; font-size: 12px; white-space: nowrap; line-height: 18px; }
+.pill.warn { background: var(--warn); color: #fff; }
 .muted { color: var(--muted); }
 .warn { color: var(--warn); }
 section { margin-bottom: 14px; }
@@ -32,3 +32,11 @@ textarea { width: 100%; min-height: 90px; font: inherit; background: var(--panel
 .log tr.error td { color: #dc2626; }
 label.chk { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 .toast { position: fixed; bottom: 8px; left: 8px; right: 8px; background: var(--fg); color: var(--bg); padding: 6px 10px; border-radius: 6px; }
+
+.switch { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .track { width: 30px; height: 16px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+.switch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: left .15s; }
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track .knob { left: 16px; }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }

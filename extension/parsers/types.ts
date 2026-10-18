@@ -1,6 +1,6 @@
 import type { ManuscriptRef } from '../lib/ids';
 
-export const PARSER_VERSION = '0.1.0';
+export const PARSER_VERSION = '0.2.0';
 
 export type PageType =
   | 'login'
@@ -64,6 +64,8 @@ export interface ParseResult {
   heading: string | null;
   /** The role center or queue this page belongs to, when we can tell. */
   context: string | null;
+  /** Breadcrumb trail, when the page has one. */
+  breadcrumb: string[];
   manuscriptIds: Array<ManuscriptRef & { count: number }>;
   manuscript?: ManuscriptDetails;
   queues?: QueueCount[];
