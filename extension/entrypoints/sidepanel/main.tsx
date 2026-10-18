@@ -145,7 +145,7 @@ function App() {
     <>
       <header>
         <div class="row">
-          <h1>Electric MC <span class="muted">test build</span></h1>
+          <h1>Electric MC <span class="muted">test build {chrome.runtime.getManifest().version}</span></h1>
           {state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}

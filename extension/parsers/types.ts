@@ -1,6 +1,6 @@
 import type { ManuscriptRef } from '../lib/ids';
 
-export const PARSER_VERSION = '0.2.1';
+export const PARSER_VERSION = '0.2.2';
 
 export type PageType =
   | 'login'

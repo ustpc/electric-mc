@@ -52,15 +52,18 @@ function setIfAbsent(m: Map<string, string>, k: string, v: string) {
 }
 
 function valueAfter(el: Element): string {
-  // Next cell in the same row, or the dd after a dt.
+  // Next cell in the same row, or the dd after a dt. A header cell next to a
+  // header cell is a column header row ("Title | Date Submitted"), not a value.
   let sib = el.nextElementSibling;
   while (sib && !textOf(sib)) sib = sib.nextElementSibling;
+  if (sib && sib.tagName === 'TH') return '';
   if (sib) return textOf(sib);
   // Label wrapped in a cell: use the next cell of the parent row.
   const cell = el.closest('td,th');
   if (cell && cell !== el) {
     let next = cell.nextElementSibling;
     while (next && !textOf(next)) next = next.nextElementSibling;
+    if (next && next.tagName === 'TH') return '';
     if (next) return textOf(next);
   }
   // Value as trailing text in the parent element.

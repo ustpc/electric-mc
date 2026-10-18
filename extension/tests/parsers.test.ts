@@ -130,3 +130,17 @@ describe('never throws', () => {
     expect(r.warnings.some((w) => /failed/.test(w))).toBe(true);
   });
 });
+
+describe('titles are never field names', () => {
+  it('skips a "Title | Date Submitted" header row', () => {
+    const html = `<html><body><a href="#">Log Out</a>
+      <ol><li>Co-Chair Dashboard</li><li>/ Details for XYZJ-26-10-9007</li></ol>
+      <table><tr><th>Manuscript ID</th><th>Title</th><th>Date Submitted</th></tr>
+      <tr><td>XYZJ-26-10-9007</td><td>A Made-Up Paper Title Here</td><td>01-Oct-2026</td></tr></table>
+      <p>Make Recommendation</p></body></html>`;
+    const dom = new JSDOM(html, { url: URL });
+    const r = parsePage(dom.window.document, URL);
+    expect(r.pageType).toBe('manuscript');
+    expect(r.manuscript?.title ?? '').not.toMatch(/date submitted/i);
+  });
+});

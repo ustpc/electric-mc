@@ -98,6 +98,16 @@ export function extractRows(doc: Document, idPattern?: string): Extracted<QueueR
 
 // ---------- manuscript page ----------
 
+// Field names that turn up where a title should be ("Date Submitted").
+const LABEL_WORDS = /^(date submitted|date|submitted|status|manuscript (id|type|status|title)|title|author\(?s\)?|keywords?|abstract|type|decision|due|days|reviewers?|associate editor|editor|take action|action|actions)\b/i;
+
+export function looksLikeLabel(s: string): boolean {
+  const t = s.trim();
+  if (/:$/.test(t)) return true;
+  if (DATE.test(t) && t.length < 20) return true;
+  return LABEL_WORDS.test(t) && t.split(/\s+/).length <= 4;
+}
+
 const DATE = /\b\d{1,2}-[A-Z][a-z]{2}-\d{4}\b/;
 
 /** "09-Sep-2026; Last Updated: …" → "09-Sep-2026". */
@@ -154,6 +164,10 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
   if (!ref) return { value: undefined, strategies, warnings: ['manuscript: no manuscript id'] };
 
   let title = take('title');
+  if (title && looksLikeLabel(title)) {
+    warnings.push(`manuscript: rejected title "${truncate(title, 40)}" (looks like a label)`);
+    title = undefined;
+  }
   if (!title) {
     // Title often sits right after the ID in a heading.
     const h = Array.from(doc.querySelectorAll('h1,h2,h3,b,strong'))
@@ -170,11 +184,14 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
       .find((e) => textOf(e) === ref!.id && e.children.length <= 1);
     const item = idEl?.closest('li,tr,p,div');
     let next = item?.nextElementSibling;
-    while (next && !textOf(next)) next = next.nextElementSibling;
-    const t = textOf(next);
-    if (t && t.length > 8 && t.length < 400 && !findManuscriptIds(t, idPattern).length) {
-      title = t;
-      strategies.title = 'line after id';
+    for (let i = 0; next && i < 3; i++, next = next.nextElementSibling) {
+      const t = textOf(next);
+      if (!t) continue;
+      if (t.length > 8 && t.length < 400 && !findManuscriptIds(t, idPattern).length && !looksLikeLabel(t)) {
+        title = t;
+        strategies.title = 'line after id';
+      }
+      break;
     }
   }
   if (!title) warnings.push('manuscript: no title');
