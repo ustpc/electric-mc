@@ -38,6 +38,10 @@ export interface Settings {
   highlightRevisions: boolean;
   /** On a revision, look up the AE of every earlier version in the background. */
   lookupEarlierVersions: boolean;
+  /** Widen MC's fixed-width column to the window, less half an inch each side. */
+  fullWidth: boolean;
+  /** MC body text size in px (MC's own is 11); 0 leaves it alone. */
+  fontSize: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -47,6 +51,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoSubmitLogin: true,
   highlightRevisions: true,
   lookupEarlierVersions: true,
+  fullWidth: false,
+  fontSize: 0,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {
@@ -62,7 +68,7 @@ export function isEnabledFor(s: Settings, url: string | undefined): boolean {
 export async function setHostEnabled(host: string, enabled: boolean): Promise<void> {
   const s = await getSettings();
   const others = s.disabledHosts.filter((h) => h !== host);
-  await chrome.storage.local.set({ [KEY.settings]: { ...s, disabledHosts: enabled ? others : [...others, host] } });
+  await saveSettings({ ...s, disabledHosts: enabled ? others : [...others, host] });
 }
 
 /** Everything we've learned about one manuscript, built up as pages are seen. */
@@ -93,9 +99,27 @@ export const KEY = {
   tab: (id: number) => `tab:${id}`,
 } as const;
 
+/**
+ * Settings live in chrome.storage.sync, so they follow the person's Chrome
+ * profile to every computer they sign in to, with no Electric MC account.
+ * Builds before 0.2.6 kept them in storage.local; those are copied over once.
+ */
+export const SETTINGS_AREA = 'sync' as const;
+
 export async function getSettings(): Promise<Settings> {
-  const got = await chrome.storage.local.get(KEY.settings);
+  let got = (await chrome.storage.sync.get(KEY.settings))[KEY.settings] as Record<string, unknown> | undefined;
+  if (!got) {
+    got = (await chrome.storage.local.get(KEY.settings))[KEY.settings] as Record<string, unknown> | undefined;
+    if (got) {
+      await chrome.storage.sync.set({ [KEY.settings]: got }).catch(() => {});
+      await chrome.storage.local.remove(KEY.settings);
+    }
+  }
   // Older builds stored `overlay` and `verbose`; they are ignored now.
-  const { overlay: _o, verbose: _v, ...saved } = (got[KEY.settings] ?? {}) as Partial<Settings> & { overlay?: unknown; verbose?: unknown };
+  const { overlay: _o, verbose: _v, ...saved } = (got ?? {}) as Partial<Settings> & { overlay?: unknown; verbose?: unknown };
   return { ...DEFAULT_SETTINGS, ...saved };
+}
+
+export function saveSettings(s: Settings): Promise<void> {
+  return chrome.storage.sync.set({ [KEY.settings]: s });
 }

@@ -4,7 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
-import { KEY, getSettings, isEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
+import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import type { ParseResult } from '../parsers/types';
 
@@ -43,7 +43,7 @@ export default defineBackground(() => {
     if (change.url || change.status === 'complete') void refreshTab(tabId);
   });
   chrome.storage.onChanged.addListener((ch, area) => {
-    if (area === 'local' && ch[KEY.settings]) {
+    if (area === SETTINGS_AREA && ch[KEY.settings]) {
       void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
     }
   });

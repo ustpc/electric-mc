@@ -57,8 +57,12 @@ build instead.
 - **Capture page HTML** (Page tab, developer mode) saves the current page to
   `Downloads/electric-mc/captures/`. Captures hold confidential manuscript
   data: keep them private and never commit them.
-- **Settings tab.** Switch each feature off, turn on developer mode, or (in
-  developer mode) override the manuscript ID pattern.
+- **Preferences** (the gear at the top of the side panel). Page layout: use
+  the full window width (MC's column grows to half an inch from each edge)
+  and a bigger text size than MC's 11px. Also each feature's switch, and
+  developer mode. Preferences are kept in Chrome's sync storage, so they
+  follow your Chrome profile to other computers; no Electric MC account is
+  needed.
 
 ## Checking the parsers
 

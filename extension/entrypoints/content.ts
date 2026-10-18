@@ -5,10 +5,11 @@
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
+import { applyRestyle, clearRestyle } from '../lib/restyle';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
 import { annotateVersionRow, findVersionLinks, loadInHiddenFrame } from '../lib/versions';
-import { KEY, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
+import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
@@ -70,6 +71,7 @@ async function start() {
     }
     if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
     else clearHighlights(document);
+    applyRestyle(document, settings);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -189,6 +191,7 @@ async function start() {
     clearTimeout(timer);
     titles.restore();
     clearHighlights(document);
+    clearRestyle(document);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"]`).forEach((e) => e.remove());
     overlay?.hide();
     stopLogin?.();
@@ -218,7 +221,7 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !changes[KEY.settings]) return;
+    if (area !== SETTINGS_AREA || !changes[KEY.settings]) return;
     void getSettings().then((s) => {
       const was = enabled();
       settings = s;

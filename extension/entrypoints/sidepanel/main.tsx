@@ -5,13 +5,14 @@
 import { render } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, getSettings, isEnabledFor, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
 
-type Tab = 'page' | 'seen' | 'notes' | 'log' | 'settings';
+type Tab = 'page' | 'seen' | 'notes' | 'log';
 
 interface TabState {
   result: ParseResult;
@@ -32,7 +33,7 @@ async function currentTabId(): Promise<number | undefined> {
   return t?.id;
 }
 
-function useStorage<T>(area: 'local' | 'session', key: string | null, fallback: T): T {
+function useStorage<T>(area: 'local' | 'session' | 'sync', key: string | null, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
   useEffect(() => {
     if (!key) {
@@ -85,7 +86,7 @@ function useTabUrl(tabId: number | undefined): string | undefined {
 
 /** The per-site on/off switch at the top of the panel. */
 function SiteSwitch({ url }: { url?: string }) {
-  const settings = useStorage<Partial<Settings>>('local', KEY.settings, {});
+  const settings = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
   let host: string | null = null;
   try {
     host = url ? new URL(url).hostname : null;
@@ -123,10 +124,11 @@ function logFromPanel(level: Level, event: string, data?: unknown) {
 function App() {
   const [tab, setTab] = useState<Tab>('page');
   const [toast, setToast] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState(false);
   const tabId = useCurrentTab();
   const state = useStorage<TabState | null>('session', tabId !== undefined ? KEY.tab(tabId) : null, null);
   const url = useTabUrl(tabId);
-  const saved = useStorage<Partial<Settings>>('local', KEY.settings, {});
+  const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
   const dev = !!saved.developer;
   const flash = useCallback((s: string) => {
     setToast(s);
@@ -149,6 +151,7 @@ function App() {
         <div class="row">
           <h1>Electric MC <span class="muted">test build {chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
+          <button class={`gear ${prefs ? 'on' : ''}`} onClick={() => setPrefs(!prefs)} title="Preferences" aria-expanded={prefs}>⚙</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -156,8 +159,12 @@ function App() {
         <div class="row" style="margin-top:6px">
           <SiteSwitch url={url} />
         </div>
+        <div class={`prefs ${prefs ? 'open' : ''}`} aria-hidden={!prefs}>
+          <SettingsView />
+          <button class="act" onClick={() => setPrefs(false)}>Done</button>
+        </div>
         <nav>
-          {((dev ? ['page', 'seen', 'notes', 'log', 'settings'] : ['page', 'seen', 'notes', 'settings']) as Tab[]).map((t) => (
+          {((dev ? ['page', 'seen', 'notes', 'log'] : ['page', 'seen', 'notes']) as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
               {t[0]!.toUpperCase() + t.slice(1)}
             </button>
@@ -169,7 +176,6 @@ function App() {
         {tab === 'seen' && <SeenView />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
-        {tab === 'settings' && <SettingsView />}
       </main>
       {toast && <div class="toast">{toast}</div>}
     </>
@@ -402,17 +408,30 @@ function summary(d: unknown): string {
 function SettingsView() {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
   useEffect(() => void getSettings().then(setS), []);
+  // Changes made elsewhere (the toolbar menu, another window) show up here too.
+  const synced = useStorage<Partial<Settings> | null>(SETTINGS_AREA, KEY.settings, null);
+  useEffect(() => {
+    if (synced) setS({ ...DEFAULT_SETTINGS, ...synced });
+  }, [synced]);
   const update = (p: Partial<Settings>) => {
     const next = { ...s, ...p };
     setS(next);
-    void chrome.storage.local.set({ [KEY.settings]: next });
+    void saveSettings(next);
   };
   const box = (k: 'developer' | 'rewriteTitle' | 'autoSubmitLogin' | 'highlightRevisions' | 'lookupEarlierVersions', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
     <section>
-      <h2>Settings</h2>
+      <h2>Page layout</h2>
+      <label class="chk"><input type="checkbox" checked={s.fullWidth} onChange={(e) => update({ fullWidth: (e.target as HTMLInputElement).checked })} />Use the full window width (half an inch margin)</label>
+      <label class="chk">
+        Text size
+        <select value={String(s.fontSize)} onChange={(e) => update({ fontSize: Number((e.target as HTMLSelectElement).value) })}>
+          {FONT_CHOICES.map((n) => <option value={String(n)}>{n ? `${n}px` : `MC default (${MC_FONT_PX}px)`}</option>)}
+        </select>
+      </label>
+      <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoSubmitLogin', 'Log me in once my password manager fills the login form')}
       {box('lookupEarlierVersions', 'On a revision, look up the AEs of earlier versions')}
@@ -424,7 +443,7 @@ function SettingsView() {
         <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
       </label>}
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
-      <p class="muted">Version {chrome.runtime.getManifest().version}</p>
+      <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version {chrome.runtime.getManifest().version}</p>
     </section>
   );
 }

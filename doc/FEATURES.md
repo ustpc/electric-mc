@@ -20,6 +20,9 @@ pitch to associate editors. "Now" means it works in the test extension today.
   days it took, and its AE and co-chair to Peer Review Milestones, and puts
   each earlier version's AE next to it in Version History. No clicking
   through every version.
+- **Use your whole screen (now).** MC's narrow fixed column can stretch to
+  the window, half an inch from each edge, and its 11px text can be made
+  bigger. Preferences follow your Chrome profile; no account needed.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site (now).** Right-click the toolbar icon, or use the
