@@ -6,7 +6,7 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
-import { addMilestoneRows, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
 import { annotateVersionRow, findVersionLinks, loadInHiddenFrame } from '../lib/versions';
 import { KEY, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
@@ -60,6 +60,7 @@ async function start() {
     if (settings.developer) (overlay ??= new Overlay()).show(r, title);
     else overlay?.hide();
     if (r.pageType === 'login' && !stopLogin) setUpLogin();
+    recordLetters(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
       // MC sometimes redraws the section; put our rows back.
@@ -105,6 +106,7 @@ async function start() {
           if (vm && vm.id !== v.ref.id) throw new Error(`loaded ${vm.id}, expected ${v.ref.id}`);
           const read = versionInfoFrom(d, v.ref.id);
           info = { ...info, ...Object.fromEntries(Object.entries(read).filter(([, x]) => x)) };
+          if (previous) info.responded = (await decisionSent(v.ref.id)) ?? info.responded;
           const missing = (['submitted', 'responded', 'ae', 'coChair'] as const).filter((k) => !info[k]);
           send({ type: 'version-info', baseId: m.baseId, id: v.ref.id, ae: info.ae, status: vm?.status, info, source: 'page' });
           send({ type: 'log', level: 'info', event: 'looked up earlier version', data: { id: v.ref.id, missing, ms: Math.round(performance.now() - t0) } });
@@ -121,6 +123,38 @@ async function start() {
       }
     }
   };
+
+  // When the previous version's decision letter went out, from the Audit
+  // Trail: on this page if it's there, else the Audit Trail tab in a frame.
+  const decisionSent = async (id: string): Promise<string | undefined> => {
+    const here = decisionLettersIn(document, settings.idPattern).get(id);
+    if (here) return here;
+    const link = findAuditTrailLink(document);
+    if (!link) return undefined;
+    try {
+      const d = await loadInHiddenFrame(document, link, 10_000);
+      return decisionLettersIn(d, settings.idPattern).get(id);
+    } catch (e) {
+      send({ type: 'log', level: 'warn', event: 'audit trail lookup failed', data: String(e) });
+      return undefined;
+    }
+  };
+
+  // Any Audit Trail on screen tells us when decisions were sent; keep them.
+  const recordLetters = (r: ParseResult) => {
+    const bases = new Set(r.manuscriptIds.map((m) => m.baseId));
+    for (const [id, responded] of decisionLettersIn(document, settings.idPattern)) {
+      const baseId = id.replace(/\.R\d+$/, '');
+      if (!bases.has(baseId) || sentLetters.get(id) === responded) continue;
+      sentLetters.set(id, responded);
+      send({ type: 'version-info', baseId, id, info: { id, responded }, source: 'page' });
+      if (milestones?.info.id === id && milestones.info.responded !== responded) {
+        milestones.info = { ...milestones.info, responded };
+        addMilestoneRows(document, milestones.info);
+      }
+    }
+  };
+  const sentLetters = new Map<string, string>();
 
   const setUpLogin = () => {
     const f = findLoginFields(document);

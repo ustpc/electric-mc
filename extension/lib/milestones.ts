@@ -4,6 +4,7 @@
 // mistaken for ScholarOne's own content.
 
 import { labeledValues } from '../parsers/dom';
+import { parseManuscriptId } from './ids';
 import { labelKey, textOf } from './text';
 
 /** The E-MC color: the brown of the side panel's warning pill. */
@@ -33,9 +34,6 @@ const RESPONDED = [
   /^(date )?response sent$/,
   /^decision date$/,
   /^date of decision$/,
-  /^decision letter$/,
-  /^decision$/,
-  /decision/,
 ];
 const AE = [/^associate editor$/, /^ae$/, /^handling editor$/];
 const CO_CHAIR = [/^co-chair$/, /^cc$/];
@@ -152,4 +150,50 @@ export function addMilestoneRows(doc: Document, v: VersionInfo): boolean {
     after = tr;
   }
   return true;
+}
+
+/**
+ * Decision letters in an Audit Trail table, keyed by the manuscript ID in
+ * the letter's subject ("Decision on Manuscript ID CACM-26-03-1111.R1").
+ * The date is when MC sent it. Only letters MC reports as sent count.
+ */
+export function decisionLettersIn(root: ParentNode, idPattern?: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const table of Array.from(root.querySelectorAll('table'))) {
+    const rows = Array.from(table.rows).filter((tr) => !tr.querySelector('table'));
+    const header = rows.find((tr) => {
+      const h = Array.from(tr.cells).map((c) => labelKey(textOf(c)));
+      return h.some((x) => /^date/.test(x)) && h.includes('event');
+    });
+    if (!header) continue;
+    const dateCol = Array.from(header.cells).findIndex((c) => /^date/.test(labelKey(textOf(c))));
+    const eventCol = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'event');
+    // Header cells and data cells can be offset by a grouping column (the R1 bar).
+    const shift = (tr: HTMLTableRowElement) => Math.max(0, tr.cells.length - header.cells.length);
+    for (const tr of rows) {
+      if (tr === header) continue;
+      const s = shift(tr);
+      const event = textOf(tr.cells[eventCol + s]);
+      const at = event.search(/Decision on Manuscript ID/i);
+      if (at < 0 || !/successfully sent/i.test(event)) continue;
+      const ref = parseManuscriptId(event.slice(at).replace(/-\s+/g, '-'), idPattern);
+      const date = DATE.exec(textOf(tr.cells[dateCol + s]))?.[0];
+      // Newest first in MC's list; keep the first (latest) letter per version.
+      if (ref && date && !out.has(ref.id)) out.set(ref.id, date);
+    }
+  }
+  return out;
+}
+
+/** The "Audit Trail" tab on a manuscript's details page, if there is one. */
+export function findAuditTrailLink(doc: Document): HTMLElement | null {
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>('a, [onclick], img[alt], img[title]'))) {
+    const label = normalizeLabel(textOf(el) || el.getAttribute('alt') || el.getAttribute('title') || '');
+    if (label === 'audit trail') return el.closest<HTMLElement>('a, [onclick]') ?? el;
+  }
+  return null;
+}
+
+function normalizeLabel(s: string): string {
+  return labelKey(s).replace(/\s+/g, ' ');
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { addMilestoneRows, daysBetween, EMC_COLOR, findMilestonesRow, versionInfoFrom, versionName } from '../lib/milestones';
+import { addMilestoneRows, daysBetween, decisionLettersIn, findAuditTrailLink, EMC_COLOR, findMilestonesRow, versionInfoFrom, versionName } from '../lib/milestones';
 
 // Synthetic markup shaped like MC's details page (names are made up).
 const MILESTONES = `
@@ -59,5 +59,20 @@ describe('milestones', () => {
 
   it('does nothing without a milestones section', () => {
     expect(addMilestoneRows(doc('<table><tr><td>Date Submitted:</td><td>x</td></tr></table>'), { id: 'A-26-01-1.R1' })).toBe(false);
+  });
+
+  it('reads decision letters from the Audit Trail', () => {
+    // Shaped like MC's Audit Trail: a grouping cell (the R1 bar) spans the rows.
+    const d = doc(`<a href="#" onclick="go()">Audit Trail</a>
+      <table><tr><th>Date / Time</th><th>Event</th><th>Manuscript Status</th></tr>
+      <tr><td>12-Oct-2026 2:22 PM EDT</td><td>A revision of this manuscript was created by Author, A (Author)</td><td>Revision</td></tr>
+      <tr><td rowspan="3">R1</td><td>06-Oct-2026 7:52 PM EDT<br>06-Oct-2026 11:52 PM GMT</td>
+        <td>To: author@example.org From: eic@example.org Subject: Journal - Decision on Manuscript ID CACM-26-
+        03-1234.R1 Results: Successfully sent. Template Name: RW - EIC Minor Revision</td><td></td></tr>
+      <tr><td>06-Oct-2026 7:52 PM EDT</td><td>A decision of Minor Revision was made by Editor, E</td><td>Decisioned</td></tr>
+      <tr><td>05-Oct-2026 1:00 PM EDT</td><td>Subject: Decision on Manuscript ID CACM-26-03-1234 Results: Failed.</td><td></td></tr>
+      </table>`);
+    expect([...decisionLettersIn(d)]).toEqual([['CACM-26-03-1234.R1', '06-Oct-2026']]);
+    expect(findAuditTrailLink(d)?.tagName).toBe('A');
   });
 });

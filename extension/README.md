@@ -38,7 +38,8 @@ build instead.
   earlier version in a hidden frame (you stay on the page), writes its AE
   under its ID in Version History, and adds two rows under Peer Review
   Milestones: when the previous version was submitted and its decision sent
-  (with the days between), and that version's AE and co-chair. When the
+  (with the days between), and that version's AE and co-chair. The decision
+  date comes from the decision letter in the Audit Trail. When the
   backend exists it will answer from the assignment emails first. Everything
   Electric MC adds to a page is bold in its brown (#b45309).
 - **Developer mode** (Settings, off by default). Turns on the on-page debug

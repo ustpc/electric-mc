@@ -112,10 +112,15 @@ function rememberVersion(baseId: string, id: string, ae?: string, status?: strin
       ...prev,
       aeByVersion: ae ? { ...prev.aeByVersion, [id]: ae } : prev.aeByVersion,
       statusByVersion: status ? { ...prev.statusByVersion, [id]: status } : prev.statusByVersion,
-      versionInfo: info ? { ...prev.versionInfo, [id]: info } : prev.versionInfo,
+      // Merge, so a later partial update (just the decision date) keeps what we knew.
+      versionInfo: info ? { ...prev.versionInfo, [id]: { ...prev.versionInfo?.[id], ...defined(info) } } : prev.versionInfo,
     };
     await chrome.storage.local.set({ [KEY.seen]: seen });
   });
+}
+
+function defined<T extends object>(o: T): T {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 }
 
 // Storage writes are serialized so concurrent tabs don't drop each other's entries.
