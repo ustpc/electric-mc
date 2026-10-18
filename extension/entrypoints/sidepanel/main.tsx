@@ -149,7 +149,7 @@ function App() {
     <>
       <header>
         <div class="row">
-          <h1>Electric MC <span class="muted">test build {chrome.runtime.getManifest().version}</span></h1>
+          <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class={`gear ${prefs ? 'on' : ''}`} onClick={() => setPrefs(!prefs)} title="Preferences" aria-expanded={prefs}>⚙</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
@@ -443,7 +443,7 @@ function SettingsView() {
         <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
       </label>}
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
-      <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version {chrome.runtime.getManifest().version}</p>
+      <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version v{chrome.runtime.getManifest().version}</p>
     </section>
   );
 }

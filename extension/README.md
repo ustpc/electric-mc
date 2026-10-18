@@ -8,6 +8,12 @@ earlier versions of a revision looked like, and logs problems. Nothing leaves yo
 Design notes are in
 [Technical Stack and Architecture.md](../doc/Technical%20Stack%20and%20Architecture.md#65-test-extension-built-2026-10-18).
 
+## Version
+
+Semantic versioning, set in `package.json` (now 0.0.10). The version shows
+in the extension's name, the toolbar tooltip and the side panel header.
+Bump it with every build you hand out.
+
 ## Build and load
 
 ```sh
