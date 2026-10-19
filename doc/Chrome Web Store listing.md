@@ -13,14 +13,14 @@ Dashboard: <https://chrome.google.com/webstore/devconsole>
 | Item | Status |
 |------|--------|
 | Developer account, 2-Step Verification, contact email | Done (2026-10-19) |
-| Store build without "(test build …)" in the name | Needed. The name and the 132-character summary come from `extension/wxt.config.ts` (see section 1). |
-| Public privacy policy URL | Needed: `doc/Privacy Policy.md` must be on `main` (see section 4). |
+| Store build without "(test build …)" in the name | Done in 0.0.21: `npm run zip:store` (same as `STORE=1 npm run zip`). |
+| Public privacy policy URL | Merge PR #13 so `doc/Privacy Policy.md` is on `main` (see section 3). |
 | Screenshots | One placeholder from synthetic test data (`doc/store/`). Better ones are listed in section 2. |
-| Package | `cd extension && npm run zip` writes `build/electric-mc-extension-<version>-chrome.zip`. Upload that file. |
+| Package | `cd extension && npm run zip:store` writes `build/electric-mc-extension-<version>-chrome.zip`. Upload that file. |
 
 ## 1. Package (from the manifest)
 
-These come from `extension/wxt.config.ts`, not from the dashboard, so they
+These come from `extension/wxt.config.ts` in a store build (`STORE=1`), not from the dashboard, so they
 change only with a new upload.
 
 - **Name:** `Electric MC`
@@ -125,5 +125,5 @@ to determine creditworthiness.
 ## 5. Submitting and updating
 
 1. Upload the zip on the Package tab, fill in the tabs above, and click **Submit for review**. Review usually takes from a few days to a few weeks.
-2. For each update, bump `version` in `extension/package.json`, then run `npm run zip` and upload on the Package tab. Chrome rejects an upload whose version isn't higher than the published one.
+2. For each update, bump `version` in `extension/package.json`, then run `npm run zip:store` and upload on the Package tab. Chrome rejects an upload whose version isn't higher than the published one.
 3. Adding a permission makes Chrome disable the extension for existing users until they accept it. Avoid adding permissions in small updates.
