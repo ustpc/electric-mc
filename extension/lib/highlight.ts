@@ -4,7 +4,7 @@
 // after an ID row that carry no ID of their own are highlighted with it.
 
 import { parseManuscriptId } from './ids';
-import { textOf } from './text';
+import { textOf, isLayoutRow } from './text';
 
 const ATTR = 'data-emc-revision';
 const STYLE_ID = 'emc-highlight-style';
@@ -22,7 +22,7 @@ export function highlightRevisions(doc: Document, idPattern?: string): number {
   }
   let marked = 0;
   for (const table of Array.from(doc.querySelectorAll('table'))) {
-    const rows = Array.from(table.rows).filter((tr) => !tr.querySelector('table'));
+    const rows = Array.from(table.rows).filter((tr) => !isLayoutRow(tr));
     let inRevision = false;
     let span = 0;
     for (const tr of rows) {

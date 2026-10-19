@@ -5,7 +5,7 @@
 
 import { labeledValues } from '../parsers/dom';
 import { parseManuscriptId } from './ids';
-import { labelKey, textOf } from './text';
+import { labelKey, textOf, isLayoutRow } from './text';
 
 /** The E-MC color: the brown of the side panel's warning pill. */
 export const EMC_COLOR = '#b45309';
@@ -90,7 +90,7 @@ export function versionName(id: string): string {
 /** The row in the Peer Review Milestones table labeled "Date Submitted". */
 export function findMilestonesRow(doc: Document): HTMLTableRowElement | null {
   for (const table of Array.from(doc.querySelectorAll('table'))) {
-    const rows = Array.from(table.rows).filter((tr) => !tr.querySelector('table'));
+    const rows = Array.from(table.rows).filter((tr) => !isLayoutRow(tr));
     const row = rows.find((tr) => {
       const first = tr.cells[0];
       return !!first && labelKey(textOf(first)) === 'date submitted' && tr.cells.length >= 2;
@@ -106,7 +106,7 @@ export function findMilestonesRow(doc: Document): HTMLTableRowElement | null {
 }
 
 /**
- * Add (or refresh) our two rows under "Date Submitted". Rows copy the look
+ * Add (or refresh) our two rows at the bottom of the milestones table. Rows copy the look
  * of MC's own four-cell rows when the table has one. Returns whether the
  * rows are on the page.
  */
@@ -131,7 +131,9 @@ export function addMilestoneRows(doc: Document, v: VersionInfo): boolean {
   ];
 
   const template = Array.from(table.rows).find((tr) => tr.cells.length === 4 && !tr.hasAttribute('data-electric-mc'));
-  let after: HTMLTableRowElement = anchor;
+  // At the bottom of the table, after MC's own rows (Simson's choice).
+  const own = Array.from(table.rows).filter((tr) => tr.closest('table') === table && !tr.hasAttribute('data-electric-mc'));
+  let after: HTMLTableRowElement = own[own.length - 1] ?? anchor;
   for (const [left, right] of pairs) {
     const tr = (template ?? anchor).cloneNode(false) as HTMLTableRowElement;
     tr.setAttribute('data-electric-mc', 'milestones');
@@ -160,7 +162,7 @@ export function addMilestoneRows(doc: Document, v: VersionInfo): boolean {
 export function decisionLettersIn(root: ParentNode, idPattern?: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const table of Array.from(root.querySelectorAll('table'))) {
-    const rows = Array.from(table.rows).filter((tr) => !tr.querySelector('table'));
+    const rows = Array.from(table.rows).filter((tr) => !isLayoutRow(tr));
     const header = rows.find((tr) => {
       const h = Array.from(tr.cells).map((c) => labelKey(textOf(c)));
       return h.some((x) => /^date/.test(x)) && h.includes('event');

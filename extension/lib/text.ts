@@ -70,3 +70,17 @@ export function fnv1a(s: string): string {
   }
   return h.toString(16).padStart(8, '0');
 }
+
+/**
+ * A table row that only wraps a nested layout table, as opposed to a data
+ * row whose cells happen to hold small tables (MC puts each Status bullet,
+ * "Make Immediate Decision", in a table of its own).
+ */
+export function isLayoutRow(tr: Element): boolean {
+  const nested = Array.from(tr.querySelectorAll('table'));
+  if (!nested.length) return false;
+  const outer = nested.filter((t) => !nested.some((o) => o !== t && o.contains(t)));
+  const total = textOf(tr).length;
+  const inner = outer.reduce((n, t) => n + textOf(t).length, 0);
+  return total === 0 || inner >= total * 0.6;
+}

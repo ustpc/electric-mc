@@ -15,6 +15,8 @@ export interface VersionLink {
   ref: ManuscriptRef;
   row: HTMLTableRowElement;
   link: HTMLElement;
+  /** The version's "Date Submitted" from the table, when it has that column. */
+  submitted?: string;
 }
 
 /** Earlier versions listed in the Version History table, newest first. */
@@ -27,13 +29,15 @@ export function findVersionLinks(doc: Document, current: ManuscriptRef, idPatter
     const idCol = headers.findIndex((h) => h === 'manuscript id');
     const switchCol = headers.findIndex((h) => h.startsWith('switch'));
     if (idCol < 0 || switchCol < 0) continue;
+    const dateCol = headers.findIndex((h) => h === 'date submitted' || h === 'submitted');
     for (const tr of Array.from(table.rows)) {
       if (tr === headerRow) continue;
       const ref = findManuscriptIds(textOf(tr.cells[idCol] ?? null), idPattern)[0];
       if (!ref || ref.baseId !== current.baseId || ref.id === current.id) continue;
       const cell = tr.cells[switchCol];
       const link = cell?.querySelector<HTMLElement>('a, button, input[type=image], img[onclick]');
-      if (link) out.push({ ref: { id: ref.id, baseId: ref.baseId, revision: ref.revision }, row: tr, link });
+      const submitted = dateCol >= 0 ? /\b\d{1,2}-[A-Z][a-z]{2}-\d{4}\b/.exec(textOf(tr.cells[dateCol] ?? null))?.[0] : undefined;
+      if (link) out.push({ ref: { id: ref.id, baseId: ref.baseId, revision: ref.revision }, row: tr, link, submitted });
     }
   }
   return out.sort((a, b) => b.ref.revision - a.ref.revision);

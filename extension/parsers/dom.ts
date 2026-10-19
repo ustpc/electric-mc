@@ -2,7 +2,7 @@
 // anchor on visible text (labels, headers) and on structure that has to be
 // there for the page to make sense (tables with rows, label/value pairs).
 
-import { labelKey, normalize, ownText, textOf } from '../lib/text';
+import { labelKey, normalize, ownText, textOf, isLayoutRow } from '../lib/text';
 
 const LABEL_TAGS = 'td,th,span,b,strong,label,dt,div,p,font,li';
 
@@ -101,7 +101,7 @@ export function dataTables(root: ParentNode): SimpleTable[] {
     const rows: Element[][] = [];
     let headers: string[] = [];
     for (const tr of trs) {
-      if (tr.querySelector('table')) continue;
+      if (isLayoutRow(tr)) continue;
       const cells = Array.from(tr.children).filter((c) => c.tagName === 'TD' || c.tagName === 'TH');
       if (cells.length === 0) continue;
       // A single cell spanning the table is a caption ("Reviewer List"), not data.

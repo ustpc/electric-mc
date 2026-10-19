@@ -4,7 +4,7 @@
 // signal is returned so the debug log shows why a page was classified.
 
 import { findManuscriptIds } from '../lib/ids';
-import { labelKey, normalize, ownText, textOf } from '../lib/text';
+import { labelKey, normalize, ownText, textOf, isLayoutRow } from '../lib/text';
 import { breadcrumb, dataTables, headings, labeledValues } from './dom';
 import type { PageType, Signal } from './types';
 
@@ -158,7 +158,7 @@ export function queueEntries(doc: Document): Array<{ name: string; count: number
 
   // Rows: name in one cell, count in another.
   for (const tr of Array.from(doc.querySelectorAll('tr'))) {
-    if (tr.querySelector('table')) continue;
+    if (isLayoutRow(tr)) continue;
     const cells = Array.from(tr.children).filter((c) => c.tagName === 'TD' || c.tagName === 'TH');
     if (cells.length < 2 || cells.length > 4) continue;
     const texts = cells.map((c) => textOf(c));

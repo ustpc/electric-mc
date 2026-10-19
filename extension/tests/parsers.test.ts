@@ -35,6 +35,13 @@ const CHECKS: Record<string, { pageType: PageType; check: (r: ParseResult) => vo
       expect(rev?.title?.toLowerCase()).toContain('software supply chains');
     },
   },
+  // Status cells hold small tables; those rows are still data rows.
+  'queue-status-tables.html': {
+    pageType: 'queue-list',
+    check: (r) => {
+      expect(r.rows?.map((x) => x.id)).toEqual(['TEST-26-10-9007', 'TEST-26-10-9008', 'TEST-26-03-1111.R2']);
+    },
+  },
   'manuscript.html': {
     pageType: 'manuscript',
     check: (r) => {

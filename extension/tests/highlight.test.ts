@@ -19,6 +19,12 @@ describe('revision highlighting', () => {
     ]);
     expect(doc.getElementById('emc-highlight-style')).not.toBeNull();
   });
+  it('marks revisions whose Status cell holds small tables', () => {
+    const doc = load('queue-status-tables.html');
+    expect(highlightRevisions(doc)).toBe(1);
+    const marked = Array.from(doc.querySelectorAll('tr[data-emc-revision]')).map((tr) => (tr as HTMLTableRowElement).cells[0]!.textContent!.trim());
+    expect(marked).toEqual(['TEST-26-03-1111.R2', 'Opinion']);
+  });
   it('works on single-row queues and clears', () => {
     const doc = load('queue-list.html');
     expect(highlightRevisions(doc)).toBe(1);

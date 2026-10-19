@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.16). The version shows
+Semantic versioning, set in `package.json` (now 0.0.17). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out.
 
@@ -43,7 +43,7 @@ build instead.
   yellow. Turn it off in Settings.
 - **Earlier versions.** On a revision's details page the extension opens each
   earlier version in a hidden frame (you stay on the page), writes its AE
-  under its ID in Version History, and adds two rows under Peer Review
+  under its ID in Version History, and adds two rows at the bottom of Peer Review
   Milestones: when the previous version was submitted and its decision sent
   (with the days between), and that version's AE and co-chair. The decision
   date comes from the decision letter in the Audit Trail. When the

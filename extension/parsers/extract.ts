@@ -3,7 +3,7 @@
 // whose page changed shows which fallback kicked in.
 
 import { findManuscriptIds, parseManuscriptId } from '../lib/ids';
-import { labelKey, normalize, textOf, truncate } from '../lib/text';
+import { labelKey, normalize, textOf, truncate, isLayoutRow } from '../lib/text';
 import { queueEntries } from './classify';
 import { breadcrumb, dataTables, labeledValues, pick, type SimpleTable } from './dom';
 import type { ManuscriptDetails, Person, QueueCount, QueueRow } from './types';
@@ -243,7 +243,7 @@ function extractReviewers(doc: Document, strategies: Record<string, string>, war
     const scope = anchor.closest('table') ?? anchor.parentElement;
     const people: Person[] = [];
     for (const tr of Array.from(scope?.querySelectorAll('tr') ?? [])) {
-      if (tr.querySelector('table')) continue;
+      if (isLayoutRow(tr)) continue;
       const t = textOf(tr);
       const st = REVIEWER_STATUS.exec(t);
       if (!st) continue;

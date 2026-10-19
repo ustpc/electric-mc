@@ -48,3 +48,17 @@ describe('restyle', () => {
     expect(d.querySelector('[data-emc-fs]')).toBeNull();
   });
 });
+
+describe('restyle on a captured page shape', () => {
+  it('picks the centered 760px table, not the hidden dialog or scripts', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const html = readFileSync(join(__dirname, 'fixtures', 'queue-status-tables.html'), 'utf8');
+    document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html>/, '').replace(/<\/html>\s*$/, '');
+    for (const el of Array.from(document.body.querySelectorAll('*'))) {
+      const w = el.getAttribute('width');
+      (el as HTMLElement).getBoundingClientRect = () => ({ width: w === '760' ? 760 : w === '350' ? 350 : 100 }) as DOMRect;
+    }
+    expect(findColumn(document)?.getAttribute('width')).toBe('760');
+  });
+});

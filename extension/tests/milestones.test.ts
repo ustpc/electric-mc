@@ -44,13 +44,14 @@ describe('milestones', () => {
     expect(addMilestoneRows(d, info)).toBe(true);
     expect(addMilestoneRows(d, info)).toBe(true);
     const rows = Array.from(d.querySelectorAll('table.milestones tr'));
+    // Ours go last, after MC's Co-Chair row.
     expect(rows).toHaveLength(5);
-    const texts = rows.slice(1, 3).map((tr) => Array.from((tr as HTMLTableRowElement).cells).map((c) => c.textContent));
+    const texts = rows.slice(3, 5).map((tr) => Array.from((tr as HTMLTableRowElement).cells).map((c) => c.textContent));
     expect(texts).toEqual([
       ['Date R1 submitted:', '01-Aug-2026', 'Date R1 response sent:', '29-Aug-2026 (28 days)'],
       ['R1 Associate Editor:', 'Editor, Sam', 'R1 Co-Chair:', 'Chair, Pat'],
     ]);
-    const cell = (rows[1] as HTMLTableRowElement).cells[0]!;
+    const cell = (rows[3] as HTMLTableRowElement).cells[0]!;
     expect(cell.className).toBe('lbl');
     expect(cell.style.fontWeight).toBe('700');
     expect(cell.style.color).toBe('rgb(180, 83, 9)');

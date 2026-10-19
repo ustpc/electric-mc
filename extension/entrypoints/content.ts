@@ -99,6 +99,7 @@ async function start() {
       const previous = i === 0;
       let info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
       info.ae = fromBackend?.[v.ref.id] ?? info.ae ?? known?.aeByVersion?.[v.ref.id];
+      info.submitted ??= v.submitted;
       // The previous version also needs its dates and co-chair for the milestones rows.
       const complete = info.ae && (!previous || (info.submitted && info.responded && info.coChair));
       if (!complete) {

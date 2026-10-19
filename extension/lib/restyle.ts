@@ -4,8 +4,10 @@
 // the text up.
 //
 // MC's classes and IDs aren't stable, so the column is found by layout: the
-// outermost element that is fixed narrower than the window and centered, or
-// given a width in its markup, and holds most of the page's text.
+// element that is fixed narrower than the window and centered, or given a
+// width in its markup, and holds the most text.
+
+import { textOf } from './text';
 
 const WIDE = 'data-emc-wide';
 const FONT = 'data-emc-fs';
@@ -68,16 +70,25 @@ function unwiden(doc: Document) {
 /** The page's fixed-width main column, if it has one. */
 export function findColumn(doc: Document): HTMLElement | null {
   const view = doc.documentElement.clientWidth || doc.defaultView?.innerWidth || 0;
-  const total = (doc.body?.textContent ?? '').length;
-  if (!view || !total) return null;
+  if (!view || !doc.body) return null;
+  // The candidate holding the most text wins. Raw textContent can't be the
+  // yardstick: MC pages carry large scripts and hidden dialogs (session
+  // timeout, cookie consent) that dwarf the visible page.
+  let best: HTMLElement | null = null;
+  let bestText = 0;
   for (const el of Array.from(doc.body.querySelectorAll<HTMLElement>('table, div, form, center'))) {
     const w = el.getBoundingClientRect().width;
     if (w < 600 || w > view - 100) continue;
     if (!isFixed(el) && !isCentered(el)) continue;
-    if ((el.textContent ?? '').length < total * 0.5) continue;
-    return el; // document order, so the first hit is the outermost
+    if (best?.contains(el)) continue; // the outer one already counts this text
+    if (doc.defaultView?.getComputedStyle(el).visibility === 'hidden') continue;
+    const n = textOf(el).length;
+    if (n > bestText) {
+      best = el;
+      bestText = n;
+    }
   }
-  return null;
+  return best;
 }
 
 function isFixed(el: HTMLElement): boolean {
