@@ -5,6 +5,20 @@ Electric MC collects, where it is kept, who can see it, and what it never
 does. It is updated whenever a design decision changes any of this. The
 technical details are in the design documents linked from each section.
 
+## Current release
+
+The Electric MC extension published today has **no backend**. It sends
+nothing off your device and uses no analytics or tracking. It reads
+Manuscript Central pages in your browser to restyle them and rename tabs.
+Your settings are stored in `chrome.storage.sync`, so they follow your Chrome
+profile. Page data and debug logs are stored in `chrome.storage.local`, in
+that browser only, and leave it only if you export a log yourself.
+
+The rest of this page also covers **planned** features: the shared backend,
+chat, activity tracking, AE recruitment, matching, and email (sections 4 to
+10, and any mention of what "we store" or "the backend" does). None of them
+is in the current release. This page will say when each one ships.
+
 Electric MC is a Chrome extension for Manuscript Central (ScholarOne
 Manuscripts) plus a small backend. The backend runs in the journal's own
 Amazon Web Services account (us-east-2, Ohio). It isn't operated by
@@ -42,7 +56,7 @@ turn it off for a site, it:
   assigned, so it can show the right chat and rename the browser tab (the tab
   title rewrite makes your browser history readable);
 - restyles the page. Styling rules are data, never remote code;
-- if you opt in, notes when the tab is visible and you are active (mouse,
+- (planned) if you opt in, notes when the tab is visible and you are active (mouse,
   keyboard, focus, Chrome idle state). It never records keystrokes, page
   content, or screenshots.
 
@@ -176,3 +190,4 @@ staff will be switched on later, and this page will say so.
 | Date | Change |
 |------|--------|
 | 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
+| 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
