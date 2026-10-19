@@ -10,9 +10,17 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.20). The version shows
+Semantic versioning, set in `package.json` (now 0.0.21). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out.
+
+## Chrome Web Store package
+
+`npm run zip:store` (the same as `STORE=1 npm run zip`) builds the package
+for the Chrome Web Store, named "Electric MC" with the listing's description.
+Every other build is named "Electric MC (test build vX)". The zip lands in
+`build/`. Adding a permission later disables the extension for existing
+users until they accept it, so any new permission needs agreeing first.
 
 ## Build and load
 

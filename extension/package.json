@@ -1,13 +1,14 @@
 {
   "name": "electric-mc-extension",
   "private": true,
-  "version": "0.0.20",
+  "version": "0.0.21",
   "description": "Electric MC test extension: page parsers, debug overlay, and logging for Manuscript Central",
   "type": "module",
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
+    "zip:store": "STORE=1 wxt zip",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
