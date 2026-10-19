@@ -1,0 +1,141 @@
+// Messages between the content script, background and side panel, and the
+// storage keys they share.
+
+import type { ParseResult } from '../parsers/types';
+import type { Level } from './log';
+import type { VersionInfo } from './milestones';
+
+export type Msg =
+  | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
+  | { type: 'log'; level: Level; event: string; data?: unknown }
+  | { type: 'disabled' }
+  | { type: 'version-info'; baseId: string; id: string; ae?: string; status?: string; info?: VersionInfo; source: 'backend' | 'page' }
+  // Side panel → content script (via tabs.sendMessage)
+  | { type: 'reparse' }
+  | { type: 'capture' }
+  | { type: 'ping' }
+  | { type: 'open'; id: string };
+
+export interface CaptureReply {
+  url: string;
+  title: string;
+  html: string;
+  result: ParseResult;
+}
+
+export interface Settings {
+  /**
+   * Developer mode: the on-page debug badge, the toolbar page-type badge,
+   * full parse results in the log, the Log tab, capture and raw JSON. Off for
+   * everyone else, who get a quiet extension and a log of problems only.
+   */
+  developer: boolean;
+  rewriteTitle: boolean;
+  idPattern?: string;
+  /** Hostnames where the extension does nothing. */
+  disabledHosts: string[];
+  /**
+   * Press "Log In" once a password manager has filled the login form. Off by
+   * default for now. (Builds before 0.0.15 called it autoSubmitLogin, on by
+   * default; that value is dropped so everyone starts with it off.)
+   */
+  autoLogin: boolean;
+  /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
+  highlightRevisions: boolean;
+  /** On a revision, look up the AE of every earlier version in the background. */
+  lookupEarlierVersions: boolean;
+  /** Widen MC's fixed-width column to the window, less half an inch each side. */
+  fullWidth: boolean;
+  /** MC body text size in px (MC's own is 11); 0 leaves it alone. */
+  fontSize: number;
+  /** After any search that finds exactly one manuscript, press its Take Action. */
+  autoTakeAction: boolean;
+  /** Hide MC's page-title image ("Search Results") and the empty column under it. */
+  hidePageHeader: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  developer: false,
+  rewriteTitle: true,
+  disabledHosts: [],
+  autoLogin: false,
+  highlightRevisions: true,
+  lookupEarlierVersions: true,
+  fullWidth: false,
+  fontSize: 0,
+  autoTakeAction: false,
+  hidePageHeader: false,
+};
+
+export function isEnabledFor(s: Settings, url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return /(^|\.)manuscriptcentral\.com$/.test(u.hostname) && !s.disabledHosts.includes(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export async function setHostEnabled(host: string, enabled: boolean): Promise<void> {
+  const s = await getSettings();
+  const others = s.disabledHosts.filter((h) => h !== host);
+  await saveSettings({ ...s, disabledHosts: enabled ? others : [...others, host] });
+}
+
+/** Everything we've learned about one manuscript, built up as pages are seen. */
+export interface SeenManuscript {
+  baseId: string;
+  latestId: string;
+  site: string | null;
+  title?: string;
+  status?: string;
+  queue?: string;
+  reviewers?: number;
+  /** Handling AE for each version seen, keyed by the full ID ("…-1111.R1"). */
+  aeByVersion?: Record<string, string>;
+  /** Status or decision of each version, when known. */
+  statusByVersion?: Record<string, string>;
+  /** Dates and editors of each earlier version, read from its details page. */
+  versionInfo?: Record<string, VersionInfo>;
+  firstSeen: string;
+  lastSeen: string;
+  seenOn: string[];
+}
+
+export const KEY = {
+  settings: 'settings',
+  log: 'log',
+  seen: 'seen',
+  notes: 'notes',
+  tab: (id: number) => `tab:${id}`,
+} as const;
+
+/**
+ * Settings live in chrome.storage.sync, so they follow the person's Chrome
+ * profile to every computer they sign in to, with no Electric MC account.
+ * Builds before 0.2.6 kept them in storage.local; those are copied over once.
+ */
+export const SETTINGS_AREA = 'sync' as const;
+
+export async function getSettings(): Promise<Settings> {
+  let got = (await chrome.storage.sync.get(KEY.settings))[KEY.settings] as Record<string, unknown> | undefined;
+  if (!got) {
+    got = (await chrome.storage.local.get(KEY.settings))[KEY.settings] as Record<string, unknown> | undefined;
+    if (got) {
+      await chrome.storage.sync.set({ [KEY.settings]: got }).catch(() => {});
+      await chrome.storage.local.remove(KEY.settings);
+    }
+  }
+  // Older builds stored `overlay` and `verbose`; they are ignored now.
+  const { overlay: _o, verbose: _v, autoSubmitLogin: _a, ...saved } = (got ?? {}) as Partial<Settings> & {
+    overlay?: unknown;
+    verbose?: unknown;
+    autoSubmitLogin?: unknown;
+  };
+  return { ...DEFAULT_SETTINGS, ...saved };
+}
+
+export function saveSettings(s: Settings): Promise<void> {
+  return chrome.storage.sync.set({ [KEY.settings]: s });
+}
