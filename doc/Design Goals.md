@@ -1,0 +1,422 @@
+# Electric MC: Design Goals
+
+Status: draft, 2026-10-16. This document sets the requirements for the first
+phases of development. Decisions still open are listed in
+[Open questions](#11-open-questions) at the end.
+
+Related documents:
+
+- [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md): the approved
+  stack, architecture, free-tier budget, and DynamoDB design.
+- [Email ingestion.md](Email%20ingestion.md): filling the database from
+  Manuscript Central notification emails.
+- [Ideas from the web.md](Ideas%20from%20the%20web.md): complaints about
+  Manuscript Central found online that this architecture could address.
+- [publicity.md](publicity.md): where Manuscript Central users gather.
+- [ScholarOne release history.md](ScholarOne%20release%20history.md): what
+  the vendor shipped in 2024–2026 and what it is likely to ship next.
+
+## 1. Purpose
+
+Electric MC makes Manuscript Central easier to use for the people who run a
+journal's peer review: associate editors (AEs), editors, assigning editors,
+the editor in chief (EiC), and editorial staff. Reviewers are a secondary
+audience.
+
+Manuscript Central is the editor-facing name of **ScholarOne Manuscripts**,
+sold by Clarivate until Silverchair acquired it (announced 2024-10-28). Sites
+live at `https://mc.manuscriptcentral.com/<journal>` and on numbered hosts such
+as `mc04.manuscriptcentral.com`.
+
+Electric MC does not replace or modify Manuscript Central. It is:
+
+1. a **Chrome extension** that restyles Manuscript Central pages, adds a chat
+   panel per manuscript, and (opt-in) records how long people work on each
+   manuscript; and
+2. a small **AWS backend** (Lambda, DynamoDB, Cognito) that stores chat
+   messages, people and roles, and activity records, and serves a dashboard.
+
+## 2. Goals, in priority order
+
+| # | Goal | Summary |
+|---|------|---------|
+| G1 | Readability | Restyle key parts of Manuscript Central so pages are easier to read and scan. |
+| G2 | Per-manuscript chat | A chat panel beside each manuscript, with per-message visibility that can be changed after posting. |
+| G3 | Opt-in activity tracking | Record when editors view each manuscript and how long they actively work on it. |
+| G4 | Attention dashboard | A server-rendered, sortable list of manuscripts that have received no (or little) attention. |
+| G5 | Free-tier operation | The whole backend runs inside the AWS always-free tier for Lambda and DynamoDB. |
+
+Non-goals for now: changing anything stored in Manuscript Central, automating
+Manuscript Central actions (inviting reviewers, making decisions), author-side
+features, and mobile browsers.
+
+## 3. Users and roles
+
+The chat visibility model uses these roles. A person can hold several roles,
+and roles are relative to a manuscript where noted.
+
+| Role | Scope | Meaning |
+|------|-------|---------|
+| Reviewer | per manuscript | A reviewer assigned to this manuscript. |
+| Handling AE | per manuscript | The associate editor handling this manuscript ("the associate editor involved"). |
+| All AEs | journal | Every associate editor of the journal. |
+| Editor | per manuscript | The editor responsible for this manuscript. |
+| Assigning editor | per manuscript | The editor who assigned the manuscript to the handling AE. |
+| EiC | journal | The editor in chief. |
+| Staff | journal | Editorial office staff and administrators of Electric MC. |
+
+**Initial configuration is static.** People, their roles, and their
+per-manuscript assignments live in DynamoDB and are loaded by an admin script
+(for example from a YAML or CSV file in a private repository). A later phase
+may learn assignments from the Manuscript Central pages a user views (see
+section 9.3), but the static table is the source of truth for permissions.
+
+Identity: each person signs in with Amazon Cognito (a user pool with email
+sign-in; institutional SSO through a Cognito identity provider is a later
+option). The Cognito `sub` is the person's key in DynamoDB. Their Manuscript
+Central identity is matched by email address in the static configuration.
+
+## 4. Architecture
+
+The technical stack and architecture are in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
+In short: a TypeScript Manifest V3 extension (WXT, Preact) talks over HTTPS to Rust Lambda functions
+behind Lambda function URLs, with Cognito sign-in and one DynamoDB table.
+
+## 5. G1: Readability and restyling
+
+Manuscript Central's editor pages are dense tables of small text, with legacy
+layouts that predate current accessibility practice (Silverchair says its
+accessibility remediation so far covered only the author submission path;
+see Ideas from the web).
+
+Requirements:
+
+1. The extension injects CSS into Manuscript Central pages to restyle a
+   defined set of **key items**. Initial targets:
+   - manuscript ID, title, and status in lists and headers;
+   - the editor's queues and task lists (larger type, zebra striping,
+     sticky header row);
+   - due and overdue dates (colour-coded: due soon, overdue);
+   - reviewer status lists (colour-coded by invited, agreed, declined,
+     overdue, complete);
+   - long text blocks such as abstracts and reviewer comments (readable line
+     length and line spacing).
+2. Restyling rules are **data, not code**: each rule is a CSS selector plus a
+   style, grouped into named themes. Rules ship with the extension and can be
+   updated from the backend without a new extension release, because
+   Manuscript Central's markup differs between journals and will change as
+   Silverchair rolls out new editor pages.
+3. Each user can turn restyling on or off, choose a theme, and set a base font
+   size. Preferences sync through `chrome.storage.sync`.
+4. Restyling must never hide or change information or controls. It may add
+   visual markers (badges, colours) and may reorder nothing.
+5. A per-journal configuration maps page types (dashboard, manuscript details,
+   reviewer list, and so on) to their selectors, so one extension supports
+   many journals.
+6. An accessibility theme (high contrast, larger type, visible focus outline)
+   is part of the first release.
+7. **Page titles** (requested by Simson, 2026-10-18). Manuscript Central gives
+   most pages the same `<title>`, so the history list and the long-press Back
+   menu are a column of identical entries. The extension rewrites each
+   page's title from what it parsed, for example
+   `MC · CACM-26-03-9002.R2 · <short title>` or
+   `MC · AE Center · Awaiting Reviewer Scores · 3 manuscripts`, and puts it
+   back if Manuscript Central's own scripts reset it. Each user can turn this
+   off.
+
+## 6. G2: Per-manuscript chat
+
+### 6.1 What it is
+
+A chat thread attached to each manuscript, shown in a panel on the right of
+the browser. People use it for the notes and discussion that Manuscript
+Central makes hard to keep and hard to restrict.
+
+### 6.2 Manuscript identity
+
+- The content script reads the manuscript ID from the page (Manuscript
+  Central shows IDs such as `JOURNAL-2026-0123` and revision suffixes such as
+  `.R1`).
+- All revisions of a manuscript share one thread: the thread key is the base
+  ID with the revision suffix removed. Each message records which revision was
+  current when it was posted.
+- A rejected-and-resubmitted manuscript gets a new ID in Manuscript Central.
+  Staff can link the two IDs so that the new thread shows the old one's
+  history (later phase).
+- The thread key also includes the journal (site) so IDs never collide across
+  journals.
+
+### 6.3 Following the current manuscript
+
+- The chat panel always shows the thread for the manuscript in the focused
+  Manuscript Central tab. When the user navigates to another manuscript, or
+  switches to a tab showing another manuscript, the panel switches threads.
+- If the focused tab shows no manuscript (for example a queue page), the panel
+  shows the most recent thread and a list of recently viewed manuscripts.
+- The user can pin the panel to one manuscript to stop it following.
+
+### 6.4 Side panel and pop-out window
+
+- The chat appears in the Chrome **side panel** (`chrome.sidePanel`) by
+  default.
+- A **pop-out** button in the side panel opens the chat in its own window
+  (`chrome.windows.create`, type `popup`) and closes the side panel.
+- A **pop-in** button in the pop-out window returns the chat to the side
+  panel and closes the window.
+- Both views are the same page and follow the current manuscript the same
+  way. Position and size of the pop-out window are remembered.
+- Draft text survives pop-out and pop-in.
+
+### 6.5 Visibility
+
+Every message has a **visibility set**: one or more of the audiences below.
+
+- Reviewers (of this manuscript)
+- The handling AE
+- All AEs
+- The editor
+- The assigning editor
+- The EiC
+
+Rules:
+
+1. The author always sees their own messages.
+2. Staff with the admin role see everything (needed for support and audits).
+3. When composing, the user picks the visibility set from checkboxes. The
+   default is the user's last choice for this journal; the first-time default
+   is "handling AE, editor, assigning editor, EiC" (everyone except reviewers
+   and the wider AE pool).
+4. **Retroactive change**: a message's visibility can be changed after it is
+   posted. By default only the message's author and the EiC can change it
+   (open question 2). Narrowing visibility removes the message from other
+   people's views at their next refresh; anything they already read cannot be
+   recalled, and the UI says so.
+5. **Bulk change**: the author or EiC can change the visibility of all
+   messages in a thread, or all of their own messages in a thread, at once.
+6. Every visibility change is recorded (who, when, from, to) and shown to
+   people who can see the message.
+7. Each message shows its current audience as small badges so nobody has to
+   guess who can read it.
+8. **Reviewer safety**: reviewers never see the names of other reviewers or
+   of editors whose identity the journal keeps confidential. Messages visible
+   to reviewers show role labels ("Associate Editor") rather than names when
+   the journal is configured for blind review. Reviewer messages show to
+   editors with the reviewer's name and to other reviewers as "Reviewer 1",
+   "Reviewer 2" (matching Manuscript Central's numbering).
+9. Permission checks happen on the server. The extension never receives a
+   message the user is not allowed to see.
+
+### 6.6 Message features (first release)
+
+- Plain text with simple formatting (links, bold, italics, lists).
+- Edit and delete own messages (edits are recorded and marked "edited").
+- Timestamps in the reader's time zone.
+- Unread count per thread, shown as a badge on the extension icon for the
+  current manuscript.
+
+Later: mentions with email notification, attachments (stored in S3, which
+needs its own free-tier check), reactions, and search.
+
+### 6.7 Updates
+
+New messages, edits, and visibility changes appear for other readers within
+about 15 seconds while their chat is open and they are active. The chat
+doesn't use WebSockets. How polling stays cheap is described in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
+
+## 7. G3: Opt-in activity tracking
+
+### 7.1 Consent
+
+- Off by default. A user turns it on in the options page after reading a
+  short statement of what is recorded, who can see it, and how long it is
+  kept. They can turn it off and delete their history at any time.
+- Tracking only covers Manuscript Central pages; no other browsing is
+  recorded.
+
+### 7.2 What counts as "working on" a manuscript
+
+A user is counted as **actively working** on manuscript M during an interval
+when all of the following hold:
+
+1. the focused tab in the focused Chrome window shows a Manuscript Central
+   page for M, or the chat panel for M is focused;
+2. the page is visible (`document.visibilityState === "visible"`) and has
+   focus (`document.hasFocus()`);
+3. the computer is not idle or locked (`chrome.idle`, with a 60-second
+   detection interval); and
+4. there has been mouse movement, scrolling, or keyboard input in that window
+   within the last 60 seconds.
+
+Viewing a manuscript's PDF (which Manuscript Central opens in a separate
+window or tab) counts as working on that manuscript when the extension can
+tell which manuscript the PDF belongs to.
+
+### 7.3 What is recorded
+
+- **Views**: each time a user opens a manuscript (timestamp, manuscript,
+  page type).
+- **Work sessions**: start time, end time, and active seconds per
+  manuscript, merged so that gaps shorter than 5 minutes join one session.
+
+The extension accumulates activity locally and uploads one batch every 5
+minutes (and when the browser goes idle), so tracking costs a handful of
+writes per user per hour.
+
+### 7.4 Who sees it
+
+- The user always sees their own history.
+- By default the EiC and staff admins can see everyone's history (open
+  question 4). The dashboard uses aggregated figures ("last touched", "total
+  active time") for its attention list.
+- Records are kept for one year by default, then expire through a DynamoDB
+  TTL attribute (deletion by TTL is free).
+
+## 8. G5: Free-tier operation
+
+The whole backend must run within the AWS **always-free** allowances for
+Lambda (not the 12-month introductory offers), with DynamoDB in on-demand
+mode at a cost of cents per month. Capacity is not pre-allocated (Simson,
+2026-10-18). This rules out API Gateway and WebSockets, and it means every
+feature needs an estimated request cost. The budget, the efficiency
+rules, and the table design are in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
+
+## 9. G4: Attention dashboard
+
+### 9.1 What it shows
+
+A web page, served by the `dashboard` Lambda, listing manuscripts that have
+received no or little attention. Columns:
+
+- manuscript ID and title (linking to the manuscript in Manuscript Central);
+- status and handling AE, editor, assigning editor;
+- days since submission or since the last status change;
+- last viewed (by anyone with an editor role) and by whom;
+- total active working time;
+- last chat message;
+- an "attention" flag: never viewed, not viewed in N days, or viewed but
+  with under M minutes of work (thresholds configurable per journal).
+
+The list is **sortable** by any column and filterable by journal, role, and
+flag. Sorting and filtering work with query parameters (server-side) so the
+page needs no JavaScript; a small script may add click-to-sort on top.
+
+### 9.1a AE workload view
+
+A second dashboard page shows what associate editors are working on now
+(requested by Simson, 2026-10-18):
+
+- **All AEs:** every AE in the journal, each with the manuscripts currently
+  assigned to them. For each AE it shows the count, and for each manuscript
+  its status, days since assignment, when that AE last worked on it, and
+  their total active time on it.
+- **One AE:** the same list for a single chosen AE, across all journals they
+  serve.
+- "Currently working on" means assigned and without a final decision. The
+  activity columns show whether the AE is actually working on each one.
+- The same view works for editors and for reviewers.
+
+### 9.2 How it is built
+
+The dashboard is server-rendered HTML from a Rust Lambda using minijinja
+(Jinja2-compatible) templates, behind a Cognito login. Details are in
+[Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md).
+
+### 9.3 Where the manuscript list comes from
+
+Electric MC can't query Manuscript Central directly unless the publisher
+grants API access. The list of manuscripts, their status, and who is assigned
+to each come from three sources, in priority order:
+
+1. **Notification emails** (required, added 2026-10-18). Manuscript Central's
+   notification emails are forwarded to the backend, which parses them to
+   create manuscripts, record AE and reviewer assignments, track status, and
+   close manuscripts on a final decision. See
+   [Email ingestion.md](Email%20ingestion.md).
+2. **What the extension sees.** Queue and manuscript pages the user opens fill
+   in and correct details (Technical Stack and Architecture section 6).
+3. **Static configuration**, loaded by staff, for people, roles, and role
+   mailboxes.
+
+Manuscripts known to exist but with no view or work records are the ones the
+dashboard flags as having received no attention.
+
+### 9.4 Alerts
+
+Some events raise an alert automatically (requested by Simson, 2026-10-18):
+
+- **Plagiarism threshold exceeded:** the similarity-check email (Email
+  ingestion catalog row 8) raises an alert with the percentage.
+- **Decision sent:** a decision email (row 7) raises an alert naming the
+  decision.
+- **Anything overdue:** reviewer selection overdue (row 4), recommendation
+  overdue (row 6), and any due date the backend knows about (reviewer
+  selection, review, recommendation) that passes without the matching
+  completion event. A daily scheduled check finds these, so they are caught
+  even when Manuscript Central sends no reminder.
+
+Alerts go to the people who hold the relevant role on the manuscript (the
+assigning editor for plagiarism, the handling AE and assigning editor for
+overdue items). They appear at the top of the dashboard and as a badge and
+list in the side panel, and stay until someone dismisses them or the
+condition clears. Email or chat delivery of alerts can come later.
+
+## 10. Security and privacy
+
+- Manuscripts under review are confidential. The backend stores only IDs,
+  titles, statuses, role assignments, chat text, and activity times; it never
+  stores manuscript files.
+- All data is encrypted at rest (DynamoDB default) and in transit (HTTPS).
+- The extension requests the narrowest permissions it can and contains no
+  remote code; restyling rules fetched from the backend are data (selectors
+  and style properties), validated before use.
+- Reviewer anonymity and blind-review settings are enforced on the server
+  (section 6.5 rule 8).
+- Activity tracking is opt-in, visible to the user, and deletable.
+- Before deployment for a real journal, confirm that the publisher and
+  Silverchair's terms permit a browser extension that reads Manuscript Central
+  pages and stores notes outside the system (open question 6).
+
+## 11. Open questions
+
+These were asked in the project thread on 2026-10-16; the defaults below
+apply until answered.
+
+1. **Which journals first?** Default: any `*.manuscriptcentral.com` site, with
+   per-journal configuration; we need one pilot journal to tune selectors.
+2. **Who can change a message's visibility after posting?** Default: the
+   message's author and the EiC.
+3. **Do reviewers install the extension?** Default: yes eventually, but the
+   first release targets editors and staff; reviewer access comes later.
+4. **Who can see activity records?** Default: the user, the EiC, and staff
+   admins.
+5. **Browsers**: default Chrome first, written so Edge and Firefox are cheap.
+6. **Terms of use**: does the publisher's ScholarOne contract allow this
+   extension, and will the publisher grant ScholarOne API access (which now
+   includes calls such as `addNote` and `makeEditorAssignment`, added
+   2025-11-26) so we can read assignments instead of configuring them?
+7. **Overlap with the vendor**: Silverchair is testing "in-workflow
+   collaboration tools" and new editor dashboards in 2026 (see the release
+   history). Should Electric MC sync its notes into ScholarOne notes through
+   the API when available, or stay independent?
+8. **Blind review settings**: which journals are single-blind and which are
+   double-blind, and which editor identities are hidden from reviewers?
+9. **Retention**: how long should chat messages be kept after a final
+   decision?
+
+## 12. Suggested milestones
+
+1. **M0 – Skeleton**: extension that detects manuscript IDs on a pilot
+   journal; Cognito sign-in; Rust `api` Lambda with a health check;
+   DynamoDB table; deployment scripts.
+2. **M1 – Readability (G1)**: restyling rules and themes, per-journal
+   selectors, options page.
+3. **M2 – Chat (G2)**: side panel and pop-out, threads that follow the
+   current manuscript, visibility sets and retroactive changes, polling.
+4. **M3 – Activity (G3)**: opt-in, sensing, batching, own-history view.
+5. **M4 – Dashboard (G4)**: Rust and minijinja attention list with sorting
+   and filters.
+6. **M5 – Hardening**: load test against the free-tier budget, security
+   review, pilot with real editors.

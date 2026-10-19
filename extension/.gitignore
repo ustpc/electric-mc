@@ -1,0 +1,10 @@
+node_modules/
+.output/
+build/
+.wxt/
+# Captured Manuscript Central pages contain confidential manuscript data.
+captures/
+*.capture.html
+
+# The root .gitignore (Python template) ignores lib/; this one is source.
+!/lib/
