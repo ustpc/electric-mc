@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.17). The version shows
+Semantic versioning, set in `package.json` (now 0.0.18). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out.
 
@@ -55,7 +55,10 @@ build instead.
 - **Side panel, Page tab.** Everything parsed from the current tab. **Pop
   out** moves the panel into its own window, which follows whatever MC tab you
   are on; **Pop in** puts it back.
-- **Seen tab.** Manuscripts seen so far, built from the pages you visit. The
+- **Seen tab.** Manuscripts seen so far, built from the pages you visit.
+  Click an ID to open it: the extension runs MC's own search for it and
+  presses Take Action on the result. Settings can also press Take Action
+  after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
 - **Notes tab.** Per-manuscript notes, stored only in this browser.
 - **Log tab** (developer mode). The debug log. **Export for sharing (redacted)** saves a JSON

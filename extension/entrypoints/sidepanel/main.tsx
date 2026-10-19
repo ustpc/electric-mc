@@ -196,7 +196,7 @@ function App() {
       </header>
       <main>
         {tab === 'page' && <PageView state={state} tabId={tabId} flash={flash} dev={dev} />}
-        {tab === 'seen' && <SeenView />}
+        {tab === 'seen' && <SeenView tabId={tabId} url={url} flash={flash} />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
         {tab === 'settings' && <SettingsView />}
@@ -337,7 +337,13 @@ function EarlierAes({ baseId, current }: { baseId: string; current: string }) {
   );
 }
 
-function SeenView() {
+function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (s: string) => void }) {
+  // Opens the manuscript in the current MC tab through MC's own search.
+  const open = async (id: string) => {
+    if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return flash('Switch to a Manuscript Central tab first.');
+    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }).catch(() => null)) as { ok?: boolean } | null;
+    if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
+  };
   const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});
   const list = Object.values(seen).sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
   return (
@@ -348,7 +354,7 @@ function SeenView() {
         <tr><th>ID</th><th>Title</th><th>Status</th><th>Seen</th></tr>
         {list.map((m) => (
           <tr>
-            <td>{m.latestId}</td>
+            <td><a href="#" onClick={(e) => { e.preventDefault(); void open(m.latestId); }} title="Open in MC">{m.latestId}</a></td>
             <td>{m.title ?? '—'}</td>
             <td>{m.status ?? m.queue ?? ''}</td>
             <td class="muted" title={m.seenOn.join(', ')}>{new Date(m.lastSeen).toLocaleString()}</td>
@@ -442,7 +448,7 @@ function SettingsView() {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'highlightRevisions' | 'lookupEarlierVersions', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
@@ -460,6 +466,7 @@ function SettingsView() {
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
       {box('lookupEarlierVersions', 'On a revision, look up the AEs of earlier versions')}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
+      {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
       <h2 style="margin-top:12px">Developer</h2>
       {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
       {s.developer && <label>

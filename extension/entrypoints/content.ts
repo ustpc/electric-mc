@@ -6,6 +6,7 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { applyRestyle, clearRestyle } from '../lib/restyle';
+import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
 import { annotateVersionRow, findVersionLinks, loadInHiddenFrame } from '../lib/versions';
@@ -64,6 +65,7 @@ async function start() {
     // thought (a maintenance notice can make the login page look like something else).
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
     recordLetters(r);
+    if (reason === 'load') followSearch(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
       // MC sometimes redraws the section; put our rows back.
@@ -161,6 +163,24 @@ async function start() {
   };
   const sentLetters = new Map<string, string>();
 
+  // After a search: press Take Action when it found exactly one manuscript,
+  // either because the side panel asked for that ID or because the person
+  // turned it on for every search. Never when they came Back to the results.
+  const followSearch = (r: ParseResult) => {
+    const pending = takePending(document);
+    const crumb = r.breadcrumb[r.breadcrumb.length - 1] ?? '';
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+    if (nav?.type === 'back_forward') return;
+    if (!pending && !(settings.autoTakeAction && /search results/i.test(crumb))) return;
+    const hit = singleResultAction(document, settings.idPattern);
+    if (!hit || (pending && hit.id !== pending)) {
+      if (pending) send({ type: 'log', level: 'warn', event: 'search did not find exactly that manuscript', data: pending });
+      return;
+    }
+    send({ type: 'log', level: 'info', event: 'take action after search', data: hit.id });
+    hit.action.click();
+  };
+
   const setUpLogin = () => {
     const f = findLoginFields(document);
     if (!f) {
@@ -212,7 +232,9 @@ async function start() {
   });
 
   chrome.runtime.onMessage.addListener((msg: Msg, _sender, reply) => {
-    if (msg.type === 'ping') {
+    if (msg.type === 'open') {
+      reply({ ok: openManuscript(document, msg.id) });
+    } else if (msg.type === 'ping') {
       reply({ version: chrome.runtime.getManifest().version });
     } else if (msg.type === 'reparse') {
       run('manual');

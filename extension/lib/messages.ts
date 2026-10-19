@@ -13,7 +13,8 @@ export type Msg =
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
-  | { type: 'ping' };
+  | { type: 'ping' }
+  | { type: 'open'; id: string };
 
 export interface CaptureReply {
   url: string;
@@ -47,6 +48,8 @@ export interface Settings {
   fullWidth: boolean;
   /** MC body text size in px (MC's own is 11); 0 leaves it alone. */
   fontSize: number;
+  /** After any search that finds exactly one manuscript, press its Take Action. */
+  autoTakeAction: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -58,6 +61,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lookupEarlierVersions: true,
   fullWidth: false,
   fontSize: 0,
+  autoTakeAction: false,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {

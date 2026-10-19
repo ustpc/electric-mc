@@ -146,7 +146,8 @@ function remember(r: ParseResult): Promise<void> {
     const ae = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
     updates.push({ baseId: m.baseId, latestId: m.id, title: m.title, status: m.status, reviewers: m.reviewers.length, aeByVersion: ae ? { [m.id]: ae } : undefined });
   }
-  for (const row of r.rows ?? []) {
+  // Only real queue lists: a manuscript page's Notes table also lists IDs.
+  for (const row of r.pageType === 'queue-list' ? r.rows ?? [] : []) {
     updates.push({ baseId: row.baseId, latestId: row.id, title: row.title, status: row.status, queue: r.heading ?? undefined });
   }
   if (!updates.length) return Promise.resolve();
