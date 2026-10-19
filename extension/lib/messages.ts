@@ -50,6 +50,8 @@ export interface Settings {
   fontSize: number;
   /** After any search that finds exactly one manuscript, press its Take Action. */
   autoTakeAction: boolean;
+  /** Hide MC's page-title image ("Search Results") and the empty column under it. */
+  hidePageHeader: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fullWidth: false,
   fontSize: 0,
   autoTakeAction: false,
+  hidePageHeader: false,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {

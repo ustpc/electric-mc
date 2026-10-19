@@ -62,3 +62,22 @@ describe('restyle on a captured page shape', () => {
     expect(findColumn(document)?.getAttribute('width')).toBe('760');
   });
 });
+
+describe('hide the page title column', () => {
+  it('hides the title image row and the empty spacer cell, and brings them back', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    // Shaped like MC's layout (2026-10-18 capture); text is made up.
+    document.body.innerHTML = `<table width="760"><tr><td><table width="100%"><tr>
+        <td width="8%"><img src="/images/en_US/page_headers/search_results_header.gif"></td>
+        <td width="75%" class="instructions">&nbsp;</td></tr></table></td></tr>
+      <tr><td width="15%"></td><td width="85%"><p>${'Results table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    const header = document.querySelector('img')!.closest('tr')!;
+    const spacer = document.querySelector('td[width="15%"]')!;
+    expect(header.getAttribute('data-emc-hide')).toBe('header');
+    expect(spacer.getAttribute('data-emc-hide')).toBe('spacer');
+    expect(document.documentElement.hasAttribute('data-emc-hide-headers')).toBe(true);
+    hidePageHeader(document, false);
+    expect(document.documentElement.hasAttribute('data-emc-hide-headers')).toBe(false);
+  });
+});

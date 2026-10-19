@@ -55,6 +55,14 @@ describe('MC search', () => {
     expect(singleResultAction(document)).toBeNull();
   });
 
+  it('ignores the Search Criteria line that quotes the ID above the header', () => {
+    document.body.innerHTML = RESULTS(['TEST-26-10-9009']).replace(
+      '<table>',
+      '<table><tr><td colspan="5">Search Criteria: Manuscript ID = "TEST-26-10-9009"</td></tr>',
+    );
+    expect(singleResultAction(document)?.action.getAttribute('data-id')).toBe('TEST-26-10-9009');
+  });
+
   it('acts on nothing in a real-shaped queue of many', () => {
     const html = readFileSync(join(__dirname, 'fixtures', 'queue-status-tables.html'), 'utf8');
     document.documentElement.innerHTML = html.replace(/^[\s\S]*?<html>/, '').replace(/<\/html>\s*$/, '');

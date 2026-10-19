@@ -145,3 +145,41 @@ function scaleFonts(doc: Document, px: number) {
     el.style.setProperty('font-size', `${Math.round(orig * ratio * 10) / 10}px`, 'important');
   }
 }
+
+const HIDE = 'data-emc-hide';
+const HIDE_ON = 'data-emc-hide-headers';
+const HIDE_STYLE_ID = 'emc-hide-style';
+
+/**
+ * MC's page-title image on the left ("Search Results", "View Manuscripts")
+ * and the empty column under it that pushes the table right. Marked always;
+ * the html attribute switches the hiding, so the setting applies at once.
+ */
+export function hidePageHeader(doc: Document, on: boolean): void {
+  if (!doc.getElementById(HIDE_STYLE_ID)) {
+    const style = doc.createElement('style');
+    style.id = HIDE_STYLE_ID;
+    style.setAttribute('data-electric-mc', 'hide');
+    style.textContent = `html[${HIDE_ON}] [${HIDE}] { display: none !important; }`;
+    (doc.head ?? doc.documentElement).appendChild(style);
+  }
+  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>('img[src*="/page_headers/"]'))) {
+    const cell = img.closest('td');
+    if (!cell) continue;
+    const row = cell.parentElement as HTMLTableRowElement | null;
+    // The whole row goes when the image is all it holds.
+    const rest = row ? Array.from(row.cells).filter((c) => c !== cell) : [];
+    (row && rest.every((c) => !textOf(c) && !c.querySelector('img, input, select, a')) ? row : cell).setAttribute(HIDE, 'header');
+  }
+  // The empty spacer cell beside the page's content cell.
+  for (const td of Array.from(doc.querySelectorAll<HTMLTableCellElement>('td[width$="%"]'))) {
+    const next = td.nextElementSibling as HTMLTableCellElement | null;
+    if (!next || next.tagName !== 'TD' || td.hasAttribute(HIDE)) continue;
+    if (textOf(td) || td.querySelector('img, input, select, a, table')) continue;
+    if (parseFloat(td.getAttribute('width')!) > 30 || !/%$/.test(next.getAttribute('width') ?? '')) continue;
+    if (textOf(next).length < 200) continue;
+    td.setAttribute(HIDE, 'spacer');
+  }
+  if (on) doc.documentElement.setAttribute(HIDE_ON, '');
+  else doc.documentElement.removeAttribute(HIDE_ON);
+}

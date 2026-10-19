@@ -461,6 +461,7 @@ function SettingsView() {
           {FONT_CHOICES.map((n) => <option value={String(n)}>{n ? `${n}px` : `MC default (${MC_FONT_PX}px)`}</option>)}
         </select>
       </label>
+      <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Hide the text "search results" and its wasted column space</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}

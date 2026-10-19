@@ -92,18 +92,21 @@ export function takePending(doc: Document): string | null {
 export function singleResultAction(doc: Document, idPattern?: string): { id: string; action: HTMLElement } | null {
   for (const table of Array.from(doc.querySelectorAll('table'))) {
     const rows = Array.from(table.rows).filter((tr) => tr.closest('table') === table);
-    const header = rows.find((tr) => Array.from(tr.cells).some((c) => labelKey(textOf(c)) === 'take action'));
-    if (!header) continue;
+    const h = rows.findIndex((tr) => Array.from(tr.cells).some((c) => labelKey(textOf(c)) === 'take action'));
+    if (h < 0) continue;
+    const header = rows[h]!;
+    const col = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'take action');
+    // Rows below the header only: a "Search Criteria" line above it quotes the ID too.
     const hits = rows
-      .filter((tr) => tr !== header)
+      .slice(h + 1)
       .map((tr) => ({ tr, ref: parseManuscriptId(textOf(tr.cells[0] ?? null), idPattern) }))
       .filter((x) => x.ref);
-    if (new Set(hits.map((h) => h.ref!.id)).size !== 1) continue;
-    const { tr, ref } = hits[0]!;
-    const col = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'take action');
-    const cell = tr.cells[col] ?? tr.cells[tr.cells.length - 1];
-    const action = cell?.querySelector<HTMLElement>('a, button, input[type=image]');
-    if (action) return { id: ref!.id, action };
+    if (new Set(hits.map((x) => x.ref!.id)).size !== 1) continue;
+    for (const { tr, ref } of hits) {
+      const cell = tr.cells[col] ?? tr.cells[tr.cells.length - 1];
+      const action = cell?.querySelector<HTMLElement>('a, button, input[type=image]');
+      if (action) return { id: ref!.id, action };
+    }
   }
   return null;
 }

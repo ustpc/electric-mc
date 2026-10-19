@@ -5,7 +5,7 @@
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle } from '../lib/restyle';
+import { applyRestyle, clearRestyle, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
@@ -76,6 +76,7 @@ async function start() {
     if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
     else clearHighlights(document);
     applyRestyle(document, settings);
+    hidePageHeader(document, settings.hidePageHeader);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -215,6 +216,7 @@ async function start() {
     titles.restore();
     clearHighlights(document);
     clearRestyle(document);
+    hidePageHeader(document, false);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"]`).forEach((e) => e.remove());
     overlay?.hide();
     stopLogin?.();
