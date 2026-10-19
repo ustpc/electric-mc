@@ -79,8 +79,49 @@ export function fnv1a(s: string): string {
 export function isLayoutRow(tr: Element): boolean {
   const nested = Array.from(tr.querySelectorAll('table'));
   if (!nested.length) return false;
+  // MC's bullet tables are one row each; a nested table of several rows is
+  // the real data, and this row only frames it.
+  if (nested.some((t) => t.querySelectorAll('tr').length > 1)) return true;
   const outer = nested.filter((t) => !nested.some((o) => o !== t && o.contains(t)));
   const total = textOf(tr).length;
   const inner = outer.reduce((n, t) => n + textOf(t).length, 0);
   return total === 0 || inner >= total * 0.6;
+}
+
+/**
+ * A cell's text as lines: a break at each <br> and block, and "• " before
+ * each of MC's bullet items (a one-row table whose first cell is an image).
+ * "AE: Not Assigned<br>CC: …" becomes two lines.
+ */
+export function cellLines(el: Element): string[] {
+  const lines: string[] = [];
+  let cur = '';
+  const flush = () => {
+    const t = normalize(cur);
+    if (t) lines.push(t);
+    cur = '';
+  };
+  const walk = (n: Node) => {
+    if (n.nodeType === 3) {
+      cur += n.textContent ?? '';
+      return;
+    }
+    if (n.nodeType !== 1) return;
+    const e = n as Element;
+    if (/^(SCRIPT|STYLE|NOSCRIPT)$/.test(e.tagName)) return;
+    if (e.tagName === 'BR') return flush();
+    if (e.tagName === 'TABLE' && e.querySelector('img')) {
+      flush();
+      const t = normalize(e.textContent);
+      if (t) lines.push(`• ${t}`);
+      return;
+    }
+    const block = BREAKS.has(e.tagName) && e.tagName !== 'TD' && e.tagName !== 'TH';
+    if (block) flush();
+    e.childNodes.forEach(walk);
+    if (block) flush();
+  };
+  walk(el);
+  flush();
+  return lines;
 }

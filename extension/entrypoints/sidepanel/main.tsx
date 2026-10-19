@@ -356,7 +356,7 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
           <tr>
             <td><a href="#" onClick={(e) => { e.preventDefault(); void open(m.latestId); }} title="Open in MC">{m.latestId}</a></td>
             <td>{m.title ?? '—'}</td>
-            <td>{m.status ?? m.queue ?? ''}</td>
+            <td class="lines">{m.status ?? m.queue ?? ''}</td>
             <td class="muted" title={m.seenOn.join(', ')}>{new Date(m.lastSeen).toLocaleString()}</td>
           </tr>
         ))}

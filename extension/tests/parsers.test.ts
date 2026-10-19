@@ -42,6 +42,25 @@ const CHECKS: Record<string, { pageType: PageType; check: (r: ParseResult) => vo
       expect(r.rows?.map((x) => x.id)).toEqual(['TEST-26-10-9007', 'TEST-26-10-9008', 'TEST-26-03-1111.R2']);
     },
   },
+  // Search results: the table is framed by another row; read its own columns.
+  'search-results.html': {
+    pageType: 'queue-list',
+    check: (r) => {
+      expect(r.rows).toHaveLength(1);
+      const row = r.rows![0]!;
+      expect(row.id).toBe('TEST-26-10-9009');
+      expect(row.title).toBe('A Synthetic Search Title');
+      // (One mutation drops colons, so compare without them.)
+      expect(row.status?.replace(/:/g, '').split('\n')).toEqual([
+        'AE Not Assigned',
+        'CC Chair, Test',
+        'EIC Chief, Test',
+        'ADM Admin, Test',
+        '• Make Immediate Decision',
+        '• Assign AE (Due 20-Oct-2026)',
+      ]);
+    },
+  },
   'manuscript.html': {
     pageType: 'manuscript',
     check: (r) => {

@@ -73,6 +73,7 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   const crumbs = breadcrumb(doc);
   const lastCrumb = crumbs?.[crumbs.length - 1] ?? '';
   if (/^details for\b/i.test(lastCrumb)) add('manuscript', 'breadcrumb details', 6, lastCrumb);
+  else if (crumbs && /^search results$/i.test(lastCrumb)) add('queue-list', 'breadcrumb search results', 3, crumbs.join(' / '));
   else if (crumbs && crumbs.length >= 2) add('queue-list', 'breadcrumb queue', 2, crumbs.join(' / '));
   else if (crumbs && crumbs.length === 1) add('role-center', 'breadcrumb dashboard', 1, crumbs[0]);
 
@@ -81,12 +82,16 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   const tables = dataTables(doc);
   let bestRows = 0;
   let bestHeaders = 0;
+  // A "Take Action" column only appears in queues and search results, never
+  // in a manuscript's own tables (Version History repeats one ID too).
+  let actionTable = false;
   for (const t of tables) {
     const distinct = new Set(t.rows.flatMap((r) => findManuscriptIds(r.map((c) => textOf(c)).join(' '), idPattern).slice(0, 1).map((m) => m.baseId)));
     const rowsWithId = distinct.size;
     const headerHits = t.headers.filter((h) => QUEUE_HEADERS.test(h)).length;
     if (rowsWithId > bestRows) bestRows = rowsWithId;
     if (rowsWithId > 0 && headerHits > bestHeaders) bestHeaders = headerHits;
+    if (rowsWithId > 0 && t.headers.includes('take action')) actionTable = true;
   }
   if (bestRows >= 2) add('queue-list', 'table rows with ids', Math.min(5, 1 + bestRows), `${bestRows} distinct ids`);
   else if (bestRows === 1 && bestHeaders >= 2) add('queue-list', 'one-row queue table', 2);
@@ -97,7 +102,7 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   const labelHits = MS_LABELS.filter((re) => [...fields.keys()].some((k) => re.test(k))).length;
   if (labelHits >= 3) add('manuscript', 'manuscript labels', Math.min(5, labelHits), `${labelHits} labels`);
   const baseIds = new Set(ids.map((m) => m.baseId));
-  if (baseIds.size === 1 && bestRows < 2) add('manuscript', 'single manuscript id', 2, ids[0]?.id);
+  if (baseIds.size === 1 && bestRows < 2 && !actionTable) add('manuscript', 'single manuscript id', 2, ids[0]?.id);
   if (/\b(make (a )?recommendation|make decision|reviewer list|view (full )?abstract|manuscript information)\b/i.test(text))
     add('manuscript', 'manuscript actions', 1);
   if (fields.has('manuscript id')) add('manuscript', 'manuscript id label', 2);
@@ -118,7 +123,8 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   for (const s of signals) scores.set(s.pageType, (scores.get(s.pageType) ?? 0) + s.weight);
   // A queue page with an ID column is not a manuscript page.
   // Its column headers (Title, Status, Submitted) look like manuscript labels.
-  if (bestRows >= 2) scores.set('manuscript', (scores.get('manuscript') ?? 0) - 4);
+  // A one-row queue (a search that found one manuscript) is still a queue.
+  if (bestRows >= 2 || actionTable) scores.set('manuscript', (scores.get('manuscript') ?? 0) - 4);
   // Popups often show one manuscript's details. Call them popups (the
   // manuscript fields are still extracted) rather than full manuscript pages.
   if ((scores.get('popup') ?? 0) >= 4) scores.set('manuscript', (scores.get('manuscript') ?? 0) - 2);

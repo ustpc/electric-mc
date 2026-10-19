@@ -3,7 +3,7 @@
 // whose page changed shows which fallback kicked in.
 
 import { findManuscriptIds, parseManuscriptId } from '../lib/ids';
-import { labelKey, normalize, textOf, truncate, isLayoutRow } from '../lib/text';
+import { cellLines, labelKey, normalize, textOf, truncate, isLayoutRow } from '../lib/text';
 import { queueEntries } from './classify';
 import { breadcrumb, dataTables, labeledValues, pick, type SimpleTable } from './dom';
 import type { ManuscriptDetails, Person, QueueCount, QueueRow } from './types';
@@ -79,7 +79,7 @@ export function extractRows(doc: Document, idPattern?: string): Extracted<QueueR
       if (t) rec[key] = truncate(t, 300);
     });
 
-    let title = idx.title >= 0 ? texts[idx.title] : undefined;
+    let title = idx.title >= 0 ? texts[idx.title]?.replace(/\s*\[\s*view submission\s*\]\s*$/i, '') : undefined;
     if (title && idx.title === idx.id) title = title.replace(ref.id, '').trim() || undefined;
     if (title) strategies.title ??= 'title column';
     if (!title) {
@@ -89,7 +89,8 @@ export function extractRows(doc: Document, idPattern?: string): Extracted<QueueR
         .sort((a, b) => b.length - a.length)[0];
       if (title) strategies.title = 'longest cell';
     }
-    const status = idx.status >= 0 ? texts[idx.status] : undefined;
+    // One line per role and per action bullet ("AE: …", "CC: …", "• Assign AE").
+    const status = idx.status >= 0 && cells[idx.status] ? cellLines(cells[idx.status]!).join('\n') : undefined;
     rows.push({ ...ref, title: title ? truncate(title, 300) : undefined, status: status || undefined, cells: rec });
   }
   if (!rows.length) warnings.push('queue list: rows found but no ids parsed');

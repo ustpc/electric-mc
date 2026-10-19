@@ -44,3 +44,4 @@ label.chk { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 .chk select { font: inherit; margin-left: 6px; }
 .stale { margin-top: 6px; padding: 4px 6px; border-radius: 6px; background: var(--warn); color: #fff; font-weight: 600; }
 .stale button { margin-left: 4px; }
+td.lines { white-space: pre-line; }
