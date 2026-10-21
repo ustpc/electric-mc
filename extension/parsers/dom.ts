@@ -2,7 +2,7 @@
 // anchor on visible text (labels, headers) and on structure that has to be
 // there for the page to make sense (tables with rows, label/value pairs).
 
-import { labelKey, normalize, ownText, textOf, isLayoutRow } from '../lib/text';
+import { cellLines, labelKey, normalize, ownText, textOf, isLayoutRow } from '../lib/text';
 
 const LABEL_TAGS = 'td,th,span,b,strong,label,dt,div,p,font,li';
 
@@ -13,6 +13,9 @@ const LABEL_TAGS = 'td,th,span,b,strong,label,dt,div,p,font,li';
  */
 export function labeledValues(root: ParentNode): Map<string, string> {
   const out = new Map<string, string>();
+  // The editor block ("AE: …", "CC: …" one per line) comes first: it's where
+  // MC names the manuscript's own AE and co-chair.
+  for (const [k, v] of rolesIn(root)) out.set(k, v);
   const els = root.querySelectorAll(LABEL_TAGS);
   for (const el of Array.from(els)) {
     // A label is the element's own text, or the text of a single child ("<td><b>Title:</b></td>").
@@ -38,6 +41,7 @@ export function labeledValues(root: ParentNode): Map<string, string> {
     if (!/[:]\s*$/.test(raw) && el.tagName !== 'TH' && el.tagName !== 'DT' && el.tagName !== 'LABEL') {
       // Bare words are only labels when a value cell follows them in a row.
       if (!(el.tagName === 'TD' && el.nextElementSibling?.tagName === 'TD')) continue;
+      if (isHeaderRow(el.parentElement)) continue;
     }
     const key = labelKey(raw);
     if (!key || key.length < 2) continue;
@@ -45,6 +49,39 @@ export function labeledValues(root: ParentNode): Map<string, string> {
     if (value) setIfAbsent(out, key, value);
   }
   return out;
+}
+
+const ROLE_LINE = /^(AE|CC|EIC|ADM|SE|ME):\s*(.*)$/;
+
+/**
+ * MC's editor block on a manuscript: "AE: Not Assigned", "CC: Co-Chair, …",
+ * one per line in a single cell. Keyed "ae", "cc" and so on; the first block
+ * on the page wins.
+ */
+export function rolesIn(root: ParentNode): Map<string, string> {
+  const out = new Map<string, string>();
+  const blocks = Array.from(root.querySelectorAll('td, div, p, span')).filter((el) => {
+    const t = textOf(el);
+    return t.length < 800 && /\bAE:/.test(t) && /\b(CC|EIC|ADM):/.test(t);
+  });
+  // The innermost block, so a whole table's text doesn't count as one line.
+  const inner = blocks.filter((b) => !blocks.some((o) => o !== b && b.contains(o)));
+  for (const b of inner) {
+    const lines = cellLines(b).filter((l) => ROLE_LINE.test(l));
+    if (lines.length < 2) continue;
+    for (const l of lines) {
+      const m = ROLE_LINE.exec(l)!;
+      setIfAbsent(out, m[1]!.toLowerCase(), normalize(m[2]));
+    }
+  }
+  return out;
+}
+
+/** A column header row: five or more short cells, no colons, no digits. */
+function isHeaderRow(row: Element | null): boolean {
+  if (!row || row.tagName !== 'TR') return false;
+  const cells = Array.from((row as HTMLTableRowElement).cells);
+  return cells.length >= 5 && cells.every((c) => { const t = textOf(c); return t.length < 30 && !/[:\d]/.test(t); });
 }
 
 function setIfAbsent(m: Map<string, string>, k: string, v: string) {

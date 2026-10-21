@@ -14,6 +14,7 @@ import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type 
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
+import { pageClick } from '../lib/click';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -179,7 +180,7 @@ async function start() {
       return;
     }
     send({ type: 'log', level: 'info', event: 'take action after search', data: hit.id });
-    hit.action.click();
+    pageClick(hit.action);
   };
 
   const setUpLogin = () => {

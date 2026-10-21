@@ -81,7 +81,14 @@ async function refreshTab(tabId: number) {
   if (!tab) return;
   const onMc = !!tab.url && /^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(tab.url);
   const enabled = isEnabledFor(await getSettings(), tab.url);
-  await chrome.action.setIcon({ tabId, path: ICON(onMc && !enabled ? 'icon-off' : 'icon') }).catch(() => {});
+  // setIcon reports a vanished tab through runtime.lastError even when its
+  // promise is caught, so it gets a callback that reads the error.
+  await new Promise<void>((done) =>
+    chrome.action.setIcon({ tabId, path: ICON(onMc && !enabled ? 'icon-off' : 'icon') }, () => {
+      void chrome.runtime.lastError;
+      done();
+    }),
+  );
   if (onMc && !enabled) await chrome.action.setBadgeText({ tabId, text: 'OFF' }).catch(() => {});
   if (tab.active) {
     chrome.contextMenus.update(MENU_TOGGLE, { title: enabled ? 'Turn off on this site' : 'Turn on for this site', enabled: onMc }, () => void chrome.runtime.lastError);
@@ -95,8 +102,9 @@ async function onParsed(tabId: number, result: ParseResult, reason: string, titl
   // Outside developer mode, log only problems, and only their summary.
   if (developer) await log({ level, source: 'content', event: `parsed (${reason})`, tabId, data: result });
   else if (level === 'warn') await log({ level, source: 'content', event: 'parse problem', tabId, data: { pageType: result.pageType, warnings: result.warnings, fingerprint: result.fingerprint } });
-  await chrome.action.setBadgeText({ tabId, text: developer ? BADGE[result.pageType] ?? '?' : '' });
-  await chrome.action.setBadgeBackgroundColor({ tabId, color: level === 'warn' ? '#b45309' : '#2563eb' });
+  // The tab can be gone by now (closed, or a prerendered page that was never shown).
+  await chrome.action.setBadgeText({ tabId, text: developer ? BADGE[result.pageType] ?? '?' : '' }).catch(() => {});
+  await chrome.action.setBadgeBackgroundColor({ tabId, color: level === 'warn' ? '#b45309' : '#2563eb' }).catch(() => {});
   await remember(result);
 }
 
