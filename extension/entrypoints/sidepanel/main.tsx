@@ -8,6 +8,7 @@ import { buildExport, type Level, type LogEntry } from '../../lib/log';
 import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
+import { filterSeen } from '../../lib/seen';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -345,11 +346,20 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
     if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
   };
   const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});
-  const list = Object.values(seen).sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
+  const [query, setQuery] = useState('');
+  const all = Object.values(seen).sort((a, b) => b.lastSeen.localeCompare(a.lastSeen));
+  const list = filterSeen(all, query);
   return (
     <section>
-      <h2>Manuscripts seen in this browser ({list.length})</h2>
+      <h2>Manuscripts seen in this browser ({query.trim() ? `${list.length} of ${all.length}` : all.length})</h2>
       <p class="muted">Built from the pages you visit. The real build fills this from the backend in one query when MC opens.</p>
+      <input
+        class="search"
+        type="search"
+        placeholder="Search ID or title"
+        value={query}
+        onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+      />
       <table>
         <tr><th>ID</th><th>Title</th><th>Status</th><th>Seen</th></tr>
         {list.map((m) => (
@@ -361,7 +371,7 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
           </tr>
         ))}
       </table>
-      {list.length > 0 && <button class="act" onClick={() => void chrome.storage.local.remove(KEY.seen)}>Clear</button>}
+      {all.length > 0 && <button class="act" onClick={() => void chrome.storage.local.remove(KEY.seen)}>Clear</button>}
     </section>
   );
 }
