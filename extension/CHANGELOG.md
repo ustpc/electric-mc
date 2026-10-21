@@ -2,6 +2,12 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.26 (2026-10-21)
+
+- Earlier versions' AE is looked up offscreen again, in a sealed frame that can't change your page.
+- The Version History note says "AE: looking it up…" while the lookup runs.
+- Version History drawn after the page loads is picked up too.
+
 ## 0.0.25 (2026-10-21)
 
 - Fixed: opening a revision no longer switches the page to the original version.

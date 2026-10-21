@@ -55,21 +55,28 @@ function chooseManuscriptId(doc: Document, form: SearchForm) {
   }
 }
 
-/** Search MC for a manuscript ID; Take Action follows on the results page. */
-export function openManuscript(doc: Document, id: string): boolean {
+/** Fill in MC's search bar with a manuscript ID and press Search. */
+export function runSearch(doc: Document, id: string): boolean {
   const form = findSearchForm(doc);
   if (!form) return false;
   chooseManuscriptId(doc, form);
   form.input.value = id;
   form.input.dispatchEvent(new Event('input', { bubbles: true }));
   form.input.dispatchEvent(new Event('change', { bubbles: true }));
+  pageClick(form.button);
+  return true;
+}
+
+/** Search MC for a manuscript ID; Take Action follows on the results page. */
+export function openManuscript(doc: Document, id: string): boolean {
+  if (!findSearchForm(doc)) return false;
+  // Set before the search runs, so the results page finds it.
   try {
     doc.defaultView?.sessionStorage.setItem(PENDING, JSON.stringify({ id, at: Date.now() }));
   } catch {
     /* storage blocked: the search still runs */
   }
-  pageClick(form.button);
-  return true;
+  return runSearch(doc, id);
 }
 
 /** The ID we searched for from the side panel, if that was moments ago. Clears it. */

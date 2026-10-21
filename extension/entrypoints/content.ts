@@ -8,8 +8,9 @@ import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { applyRestyle, clearRestyle, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
-import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
-import { annotateVersionRow, findVersionLinks, loadInHiddenFrame, plainHref } from '../lib/versions';
+import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { annotateVersionRow, findVersionLinks } from '../lib/versions';
+import { Unavailable, isOurFrame, lookupOffscreen } from '../lib/offscreen';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
@@ -23,6 +24,8 @@ export default defineContentScript({
   // Top frame only for now; frames would overwrite each other's tab state.
   allFrames: false,
   main() {
+    // Nothing in our own lookup frames (only the page-click script runs there).
+    if (isOurFrame(window)) return;
     void start();
   },
 });
@@ -99,78 +102,80 @@ async function start() {
 
   // Earlier versions: show each one's AE in the Version History table, and
   // add the previous version's dates and editors to Peer Review Milestones,
-  // from what was recorded when those versions were viewed, loading in the
-  // background only links with a plain address. Once per manuscript per page.
-  let skipLogged = false;
+  // from what was recorded when those versions were viewed, or else looked
+  // up in a sealed offscreen frame (lib/offscreen.ts). Once per manuscript
+  // per page.
   const looked = new Set<string>();
   let milestones: { on: string; info: VersionInfo } | null = null;
   const earlierVersions = async (r: ParseResult) => {
     const m = r.manuscript!;
     if (looked.has(m.id)) return;
-    looked.add(m.id);
     const links = findVersionLinks(document, m, settings.idPattern);
     if (!links.length) {
-      send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
+      // MC may draw Version History later; the next parse tries again.
+      if (!noLinksLogged) send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
+      noLinksLogged = true;
       return;
     }
+    looked.add(m.id);
     const idCol = (row: HTMLTableRowElement) => Array.from(row.cells).findIndex((c) => c.textContent?.includes(m.baseId));
     const got = await chrome.storage.local.get(KEY.seen);
     const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
     const fromBackend = await askBackend(m.baseId);
-    for (const [i, v] of links.entries()) {
-      const previous = i === 0;
-      let info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
+    const infos: VersionInfo[] = links.map((v) => {
+      const info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
       info.ae = fromBackend?.[v.ref.id] ?? info.ae ?? known?.aeByVersion?.[v.ref.id];
       info.submitted ??= v.submitted;
-      // The previous version also needs its dates and co-chair for the milestones rows.
-      const complete = info.ae && (!previous || (info.submitted && info.responded && info.coChair));
-      if (!complete && !plainHref(document, v.link)) {
-        // MC's Switch Details links are scripts that navigate the whole tab,
-        // so they are never clicked from here.
-        if (!skipLogged) send({ type: 'log', level: 'info', event: 'earlier version not loaded in the background (script link)' });
-        skipLogged = true;
-      } else if (!complete) {
-        try {
-          const t0 = performance.now();
-          const d = await loadInHiddenFrame(document, v.link);
-          const vr = parsePage(d, d.location.href, { idPattern: settings.idPattern });
-          const vm = vr.manuscript;
-          if (vm && vm.id !== v.ref.id) throw new Error(`loaded ${vm.id}, expected ${v.ref.id}`);
-          const read = versionInfoFrom(d, v.ref.id);
-          info = { ...info, ...Object.fromEntries(Object.entries(read).filter(([, x]) => x)) };
-          if (previous) info.responded = (await decisionSent(v.ref.id)) ?? info.responded;
-          const missing = (['submitted', 'responded', 'ae', 'coChair'] as const).filter((k) => !info[k]);
-          send({ type: 'version-info', baseId: m.baseId, id: v.ref.id, ae: info.ae, status: vm?.status, info, source: 'page' });
-          send({ type: 'log', level: 'info', event: 'looked up earlier version', data: { id: v.ref.id, missing, ms: Math.round(performance.now() - t0) } });
-          // Labels only, no values, so we can teach the parser MC's wording.
-          if (missing.length) send({ type: 'log', level: 'debug', event: 'earlier version labels', data: { id: v.ref.id, missing, labels: labelsOn(d) } });
-        } catch (e) {
-          send({ type: 'log', level: 'warn', event: 'earlier version lookup failed', data: { id: v.ref.id, error: String(e) } });
+      info.responded ??= decisionLettersIn(document, settings.idPattern).get(v.ref.id);
+      return info;
+    });
+    const show = (missingNote: string) =>
+      links.forEach((v, i) => {
+        const info = infos[i]!;
+        annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : missingNote);
+        if (i === 0) {
+          milestones = { on: m.id, info };
+          if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
         }
-      }
-      annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : 'AE: open this version once to record it');
-      if (previous) {
-        milestones = { on: m.id, info };
-        if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
-      }
-    }
-  };
-
-  // When the previous version's decision letter went out, from the Audit
-  // Trail: on this page if it's there, else the Audit Trail tab in a frame.
-  const decisionSent = async (id: string): Promise<string | undefined> => {
-    const here = decisionLettersIn(document, settings.idPattern).get(id);
-    if (here) return here;
-    const link = findAuditTrailLink(document);
-    if (!link || !plainHref(document, link)) return undefined;
+      });
+    const missing = infos.filter((i) => !i.ae).map((i) => i.id);
+    if (!missing.length || offscreenUnavailable || offscreenBusy) return show('AE: open this version once to record it');
+    show('AE: looking it up…');
+    offscreenBusy = true;
     try {
-      const d = await loadInHiddenFrame(document, link, 10_000);
-      return decisionLettersIn(d, settings.idPattern).get(id);
+      const read = await lookupOffscreen({
+        doc: document,
+        current: m,
+        wanted: missing,
+        wantResponded: infos[0]!.responded ? undefined : infos[0]!.id,
+        idPattern: settings.idPattern,
+        signal: pageGone.signal,
+        log: (event, data) => send({ type: 'log', level: 'info', event, data }),
+      });
+      for (const [i, info] of infos.entries()) {
+        const r = read.get(info.id);
+        if (!r) continue;
+        infos[i] = { ...info, ...Object.fromEntries(Object.entries(r).filter(([, x]) => x)) };
+        send({ type: 'version-info', baseId: m.baseId, id: info.id, ae: infos[i]!.ae, info: infos[i], source: 'page' });
+      }
     } catch (e) {
-      send({ type: 'log', level: 'warn', event: 'audit trail lookup failed', data: String(e) });
-      return undefined;
+      if (e instanceof Unavailable) {
+        offscreenUnavailable = true;
+        send({ type: 'log', level: 'warn', event: 'offscreen lookup unavailable', data: e.message });
+      } else {
+        send({ type: 'log', level: 'warn', event: 'offscreen lookup failed', data: (e as Error).message });
+      }
+    } finally {
+      offscreenBusy = false;
     }
+    show('AE: open this version once to record it');
   };
+  // One offscreen lookup at a time in this tab; none once the site won't allow it.
+  let offscreenBusy = false;
+  let offscreenUnavailable = false;
+  let noLinksLogged = false;
+  const pageGone = new AbortController();
+  window.addEventListener('pagehide', () => pageGone.abort());
 
   // Any Audit Trail on screen tells us when decisions were sent; keep them.
   const recordLetters = (r: ParseResult) => {

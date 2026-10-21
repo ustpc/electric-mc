@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.25). The version shows
+Semantic versioning, set in `package.json` (now 0.0.26). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -55,10 +55,14 @@ build instead.
   yellow. Turn it off in Settings.
 - **Earlier versions.** Every manuscript page you open records that
   version's AE and dates. On a revision's details page the extension writes
-  each earlier version's AE under its ID in Version History (or asks you to
-  open that version once, if it hasn't seen it). It never clicks MC's Switch
-  Details links for you, since they move the whole tab. It also adds two
-  rows at the bottom of Peer Review Milestones: when the previous version was submitted and its decision sent
+  each earlier version's AE under its ID in Version History. For versions it
+  hasn't recorded, it looks them up offscreen. A hidden, sandboxed frame
+  searches for the manuscript, presses Take Action and switches to each
+  earlier version. The sandbox stops anything in that frame from changing
+  your tab. The result is saved, so the lookup runs once per version. If
+  the site won't load in a frame, the note asks you to open that version
+  once instead. It also adds two rows at the bottom of Peer Review
+  Milestones: when the previous version was submitted and its decision sent
   (with the days between), and that version's AE and co-chair. The decision
   date comes from the decision letter in the Audit Trail. When the
   backend exists it will answer from the assignment emails first. Everything
