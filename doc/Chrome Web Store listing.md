@@ -14,7 +14,7 @@ Dashboard: <https://chrome.google.com/webstore/devconsole>
 |------|--------|
 | Developer account, 2-Step Verification, contact email | Done (2026-10-19) |
 | Store build without "(test build …)" in the name | Done in 0.0.21: `npm run zip:store` (same as `STORE=1 npm run zip`). |
-| Public privacy policy URL | Merge PR #13 so `doc/Privacy Policy.md` is on `main` (see section 3). |
+| Public privacy policy URL | Done: `doc/Privacy Policy.md` is on `main` (see section 3). |
 | Screenshots | One placeholder from synthetic test data (`doc/store/`). Better ones are listed in section 2. |
 | Package | `cd extension && npm run zip:store` writes `build/electric-mc-extension-<version>-chrome.zip`. Upload that file. |
 
@@ -114,7 +114,7 @@ to determine creditworthiness.
 
 **Privacy policy URL:**
 `https://github.com/ustpc/electric-mc/blob/main/doc/Privacy%20Policy.md`
-(works once PR #13 is merged; the repository is public).
+(live on `main`; the repository is public).
 
 ## 4. Distribution tab
 
@@ -127,3 +127,37 @@ to determine creditworthiness.
 1. Upload the zip on the Package tab, fill in the tabs above, and click **Submit for review**. Review usually takes from a few days to a few weeks.
 2. For each update, bump `version` in `extension/package.json`, then run `npm run zip:store` and upload on the Package tab. Chrome rejects an upload whose version isn't higher than the published one.
 3. Adding a permission makes Chrome disable the extension for existing users until they accept it. Avoid adding permissions in small updates.
+
+## 6. Automated releases
+
+`.github/workflows/chrome-web-store.yml` builds the store package, runs the
+tests, uploads the zip through the Chrome Web Store API and submits it for
+review. To release:
+
+1. Bump `version` in `extension/package.json` and merge to `main`.
+2. Push a tag that matches it: `git tag extension-v0.0.22 && git push origin extension-v0.0.22`.
+   You can also run the workflow by hand from the Actions tab. Tick
+   "staged" to hold the approved version until you publish it from the
+   dashboard.
+
+The store keeps the visibility set in the dashboard. After changing
+visibility, publish once by hand before the workflow can publish again.
+
+**One-time setup** (Simson, signed in as simsong@gmail.com):
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a
+   project (e.g. `electric-mc-publishing`) and enable the **Chrome Web Store API**.
+2. Under IAM & Admin → Service accounts, create a service account
+   (e.g. `cws-publisher`), open it, and under Keys → Add key → JSON download a key.
+3. In the [developer dashboard](https://chrome.google.com/webstore/devconsole),
+   open the publisher's **Account** page and add the service account's email
+   in the service-account section.
+4. In GitHub, ustpc/electric-mc → Settings → Environments, create an environment
+   named `chrome-web-store`, add the secret `CWS_SERVICE_ACCOUNT_KEY` (the whole
+   JSON key), then add repository variables `CWS_PUBLISHER_ID` (from the
+   dashboard's Account page) and `CWS_ITEM_ID` (the extension's 32-letter ID).
+   Delete the downloaded key file afterwards.
+
+Requiring a reviewer on the `chrome-web-store` environment makes every
+release wait for your approval in GitHub before it is uploaded.
+
