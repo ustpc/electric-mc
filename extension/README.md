@@ -25,14 +25,17 @@ users until they accept it, so any new permission needs agreeing first.
 ## Build and load
 
 ```sh
-cd extension
-npm install
-npm run build          # writes build/chrome-mv3
+make update            # git pull, install packages if they changed, build
+make build             # just build, into build/chrome-mv3
+make                   # list every command (test, check, store, dev, clean…)
 ```
+
+The same commands work from the top of the repository, and the `npm run`
+scripts in `package.json` still work too.
 
 In Chrome, open `chrome://extensions`, turn on **Developer mode**, click
 **Load unpacked**, and pick `extension/build/chrome-mv3`. Pin the extension
-and click its icon to open the side panel. `npm run dev` gives a live-reloading
+and click its icon to open the side panel. `make dev` gives a live-reloading
 build instead.
 
 ## Using it
