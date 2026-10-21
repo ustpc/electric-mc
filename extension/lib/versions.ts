@@ -1,8 +1,9 @@
 // Earlier versions of a manuscript. On a revision's details page, the
 // Version History table lists every earlier version with a "Switch Details"
-// link, but the page shows only the current version's AE. We find those
-// links and open each one in a hidden frame, so the person never leaves the
-// page, then read the AE from the loaded details page.
+// link, but the page shows only the current version's AE. Each version's AE
+// and dates are recorded whenever its own page is viewed; for what isn't
+// recorded, a link with a plain address is opened in a hidden frame. MC's
+// script links are never clicked, because they navigate the whole tab.
 //
 // Where the backend already knows (from the assignment emails), the content
 // script asks it first and only falls back to this.
@@ -10,7 +11,6 @@
 import { findManuscriptIds, type ManuscriptRef } from './ids';
 import { EMC_STYLE } from './milestones';
 import { labelKey, textOf } from './text';
-import { pageClick } from './click';
 
 export interface VersionLink {
   ref: ManuscriptRef;
@@ -44,24 +44,34 @@ export function findVersionLinks(doc: Document, current: ManuscriptRef, idPatter
   return out.sort((a, b) => b.ref.revision - a.ref.revision);
 }
 
+/** The link's plain http(s) address, or null for a script link (javascript: or onclick only). */
+export function plainHref(doc: Document, link: HTMLElement): string | null {
+  const href = link instanceof HTMLAnchorElement ? link.getAttribute('href')?.trim() ?? '' : '';
+  if (!href || /^(javascript:|#)/i.test(href)) return null;
+  try {
+    const u = new URL(href, doc.baseURI);
+    return /^https?:$/.test(u.protocol) ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Open one version's details in a hidden frame and hand back its document.
- * MC's links either point somewhere or run a script that fills in and
- * submits the page's form; pointing every form at the hidden frame for the
- * moment of the click catches both without navigating the page.
+ * Only links with a plain address are loaded. A script link is never
+ * clicked: MC's scripts navigate the whole tab whatever the form's target,
+ * which once switched the person's revision page to the original version.
  */
 export function loadInHiddenFrame(doc: Document, link: HTMLElement, timeoutMs = 20_000): Promise<Document> {
+  const href = plainHref(doc, link);
+  if (!href) return Promise.reject(new Error('script link not loaded in the background'));
   return new Promise((resolve, reject) => {
-    const name = `emc-version-${Math.random().toString(36).slice(2, 8)}`;
     const frame = doc.createElement('iframe');
-    frame.name = name;
     frame.setAttribute('data-electric-mc', 'version-frame');
     frame.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:0;border:0;visibility:hidden';
     doc.body.appendChild(frame);
-    let restore = () => {};
     const done = (fn: () => void) => {
       clearTimeout(timer);
-      restore();
       fn();
       setTimeout(() => frame.remove(), 0);
     };
@@ -70,39 +80,7 @@ export function loadInHiddenFrame(doc: Document, link: HTMLElement, timeoutMs = 
       const d = frame.contentDocument;
       if (d && d.body && d.location.href !== 'about:blank') done(() => resolve(d));
     });
-
-    const href = link instanceof HTMLAnchorElement ? link.getAttribute('href') ?? '' : '';
-    if (href && !/^(javascript:|#)/i.test(href)) {
-      frame.src = new URL(href, doc.baseURI).href;
-      return;
-    }
-    // The click's script may rewrite the form's hidden fields before
-    // submitting. Hidden fields are put back once the frame has loaded, so
-    // the page's own buttons still act on the version on screen. Fields the
-    // person can type in are never touched.
-    const forms = Array.from(doc.forms);
-    const targets = forms.map((f) => f.getAttribute('target'));
-    const hidden = Array.from(doc.querySelectorAll<HTMLInputElement>('form input[type=hidden]')).map((e) => [e, e.value] as const);
-    forms.forEach((f) => f.setAttribute('target', name));
-    let targetsBack = false;
-    const restoreTargets = () => {
-      if (targetsBack) return;
-      targetsBack = true;
-      forms.forEach((f, i) => {
-        const t = targets[i];
-        if (t === null || t === undefined) f.removeAttribute('target');
-        else f.setAttribute('target', t);
-      });
-    };
-    // If the click didn't submit (it opened a popup, say), don't leave the
-    // forms pointing at the frame, or the person's next click would vanish.
-    setTimeout(restoreTargets, 2000);
-    restore = () => {
-      restore = () => {};
-      restoreTargets();
-      for (const [e, v] of hidden) if (e.value !== v) e.value = v;
-    };
-    pageClick(link);
+    frame.src = href;
   });
 }
 

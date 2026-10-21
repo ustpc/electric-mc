@@ -52,6 +52,8 @@ export interface Settings {
   autoTakeAction: boolean;
   /** Hide MC's page-title image ("Search Results") and the empty column under it. */
   hidePageHeader: boolean;
+  /** Press a file input's Attach control as soon as a file is chosen. */
+  autoAttach: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -65,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 0,
   autoTakeAction: false,
   hidePageHeader: false,
+  autoAttach: true,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {

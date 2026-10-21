@@ -18,8 +18,10 @@ pitch to associate editors. "Now" means it works in the test extension today.
 - **The history of a revision at a glance (now).** On a revision, the
   extension adds the previous version's submission and decision dates, the
   days it took, and its AE and co-chair to Peer Review Milestones, and puts
-  each earlier version's AE next to it in Version History. No clicking
-  through every version.
+  each earlier version's AE next to it in Version History, from the versions
+  you've opened.
+- **Choose a file and it's attached (now).** No separate Attach click after
+  choosing a file to upload.
 - **Use your whole screen (now).** MC's narrow fixed column can stretch to
   the window, half an inch from each edge, and its 11px text can be made
   bigger. Preferences follow your Chrome profile; no account needed.

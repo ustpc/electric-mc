@@ -10,9 +10,10 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.24). The version shows
+Semantic versioning, set in `package.json` (now 0.0.25). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
-Bump it with every build you hand out.
+Bump it with every build you hand out. Every version bump gets an entry in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Chrome Web Store package
 
@@ -52,14 +53,19 @@ build instead.
   can't read Chrome's saved passwords: Chrome has no API for that.
 - **Revisions.** Queue rows for revisions (.R1, .R2, …) are bold on light
   yellow. Turn it off in Settings.
-- **Earlier versions.** On a revision's details page the extension opens each
-  earlier version in a hidden frame (you stay on the page), writes its AE
-  under its ID in Version History, and adds two rows at the bottom of Peer Review
-  Milestones: when the previous version was submitted and its decision sent
+- **Earlier versions.** Every manuscript page you open records that
+  version's AE and dates. On a revision's details page the extension writes
+  each earlier version's AE under its ID in Version History (or asks you to
+  open that version once, if it hasn't seen it). It never clicks MC's Switch
+  Details links for you, since they move the whole tab. It also adds two
+  rows at the bottom of Peer Review Milestones: when the previous version was submitted and its decision sent
   (with the days between), and that version's AE and co-chair. The decision
   date comes from the decision letter in the Audit Trail. When the
   backend exists it will answer from the assignment emails first. Everything
   Electric MC adds to a page is bold in its brown (#b45309).
+- **Attach.** When you choose a file on an upload page, the extension
+  presses that file's Attach button for you. It's on by default, and you can
+  turn it off in Settings.
 - **Developer mode** (Settings, off by default). Turns on the on-page debug
   pill, the page type on the toolbar icon, full parse results in the log, the
   Log tab, capture and the raw JSON. With it off, the log holds only problems.
