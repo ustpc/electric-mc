@@ -10,6 +10,7 @@
 import { findManuscriptIds, type ManuscriptRef } from './ids';
 import { EMC_STYLE } from './milestones';
 import { labelKey, textOf } from './text';
+import { pageClick } from './click';
 
 export interface VersionLink {
   ref: ManuscriptRef;
@@ -101,7 +102,7 @@ export function loadInHiddenFrame(doc: Document, link: HTMLElement, timeoutMs = 
       restoreTargets();
       for (const [e, v] of hidden) if (e.value !== v) e.value = v;
     };
-    link.click();
+    pageClick(link);
   });
 }
 

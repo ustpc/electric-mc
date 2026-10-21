@@ -127,7 +127,7 @@ function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
   return (
     <div class="stale">
       This tab is running {stale.startsWith('an') ? stale : `v${stale}`}.{' '}
-      <button class="act" onClick={() => void chrome.tabs.reload(tabId)}>Reload tab</button>
+      <button class="act" onClick={() => void chrome.tabs.reload(tabId).catch(() => {})}>Reload tab</button>
     </div>
   );
 }

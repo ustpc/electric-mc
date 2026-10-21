@@ -5,6 +5,7 @@
 
 import { parseManuscriptId } from './ids';
 import { labelKey, textOf } from './text';
+import { pageClick } from './click';
 
 const PENDING = 'emc-open-manuscript';
 const PENDING_MS = 60_000;
@@ -50,7 +51,7 @@ function chooseManuscriptId(doc: Document, form: SearchForm) {
   if (toggle && labelKey(textOf(toggle)) !== 'manuscript id') {
     const items = [...bar.querySelectorAll<HTMLElement>('.dropdown-menu a, [role=menuitem]'), ...bar.querySelectorAll<HTMLElement>('.dropdown-menu li')];
     const item = items.find((a) => labelKey(textOf(a)) === 'manuscript id');
-    item?.click();
+    if (item) pageClick(item);
   }
 }
 
@@ -67,7 +68,7 @@ export function openManuscript(doc: Document, id: string): boolean {
   } catch {
     /* storage blocked: the search still runs */
   }
-  form.button.click();
+  pageClick(form.button);
   return true;
 }
 
