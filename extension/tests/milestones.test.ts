@@ -24,7 +24,32 @@ function doc(html: string): Document {
   return new DOMParser().parseFromString(`<html><body>${html}</body></html>`, 'text/html');
 }
 
+// The editor block as MC draws it: one cell, a line per role, and an
+// Associate Editor List whose header row must not be read as labels.
+const EDITOR_BLOCK = `
+<div>CACM-26-03-1234</div>
+<table><tr><td>Opinion<br>Make Decision</td>
+<td>AE: <a>Editor, Sam</a><br>CC: <a>Co-Chair, Test</a><br>EIC: <a>Chief, Test</a><br>ADM: <a>Admin, Test</a></td></tr></table>
+<table><tr><td>Order</td><td>Name</td><td>Status</td><td>History</td><td>Remove</td></tr>
+<tr><td colspan="5">Pick from a list:</td></tr></table>`;
+
 describe('milestones', () => {
+  it('reads the AE from the editor block', () => {
+    const v = versionInfoFrom(doc(EDITOR_BLOCK), 'CACM-26-03-1234');
+    expect(v.ae).toBe('Editor, Sam');
+    expect(v.coChair).toBe('Co-Chair, Test');
+  });
+
+  it('treats an unassigned AE as unknown', () => {
+    const v = versionInfoFrom(doc(EDITOR_BLOCK.replace('<a>Editor, Sam</a>', 'Not Assigned')), 'CACM-26-03-1234');
+    expect(v.ae).toBeUndefined();
+  });
+
+  it('does not read a column header row as a status', async () => {
+    const { labeledValues } = await import('../parsers/dom');
+    expect(labeledValues(doc(EDITOR_BLOCK).body).get('status')).toBeUndefined();
+  });
+
   it('reads the earlier version', () => {
     const v = versionInfoFrom(doc(R1), 'CACM-26-03-1234.R1');
     expect(v).toEqual({ id: 'CACM-26-03-1234.R1', submitted: '01-Aug-2026', responded: '29-Aug-2026', ae: 'Editor, Sam', coChair: 'Chair, Pat' });

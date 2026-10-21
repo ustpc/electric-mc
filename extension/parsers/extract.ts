@@ -124,7 +124,7 @@ const F = {
   type: [/^manuscript type$/, /^article type$/, /^type$/],
   submitted: [/^date submitted$/, /^submitted$/, /^submission date$/, /^original submission/],
   authors: [/^authors?$/, /^author\(s\)$/, /^submitting author$/, /^contributing authors?$/],
-  handlingEditor: [/^associate editor$/, /^handling editor$/, /^editor$/, /^ae$/],
+  handlingEditor: [/^ae$/, /^associate editor$/, /^handling editor$/, /^editor$/],
 };
 
 export function extractManuscript(doc: Document, idPattern?: string): Extracted<ManuscriptDetails | undefined> {

@@ -35,7 +35,7 @@ const RESPONDED = [
   /^decision date$/,
   /^date of decision$/,
 ];
-const AE = [/^associate editor$/, /^ae$/, /^handling editor$/];
+const AE = [/^ae$/, /^associate editor$/, /^handling editor$/];
 const CO_CHAIR = [/^co-chair$/, /^cc$/];
 
 /** Read an earlier version's dates and editors from its details page. */
