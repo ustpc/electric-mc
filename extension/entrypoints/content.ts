@@ -9,12 +9,13 @@ import { applyRestyle, clearRestyle, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
-import { annotateVersionRow, findVersionLinks, loadInHiddenFrame } from '../lib/versions';
+import { annotateVersionRow, findVersionLinks, loadInHiddenFrame, plainHref } from '../lib/versions';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
+import { watchFileAttach } from '../lib/attach';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -66,6 +67,7 @@ async function start() {
     // thought (a maintenance notice can make the login page look like something else).
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
     recordLetters(r);
+    recordThisVersion(r);
     if (reason === 'load') followSearch(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
@@ -81,9 +83,25 @@ async function start() {
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
+  // Every manuscript page, original or revision, records its own version's
+  // AE and dates, so a later revision can show them without leaving the page.
+  let recorded = '';
+  const recordThisVersion = (r: ParseResult) => {
+    const m = r.manuscript;
+    if (!m) return;
+    const read = versionInfoFrom(document, m.id);
+    const info: VersionInfo = { ...read, ae: read.ae ?? m.handlingEditor, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
+    const key = JSON.stringify(info);
+    if (key === recorded) return;
+    recorded = key;
+    send({ type: 'version-info', baseId: m.baseId, id: m.id, ae: info.ae, info, source: 'page' });
+  };
+
   // Earlier versions: show each one's AE in the Version History table, and
   // add the previous version's dates and editors to Peer Review Milestones,
-  // looking up what we don't know yet. Once per manuscript per page.
+  // from what was recorded when those versions were viewed, loading in the
+  // background only links with a plain address. Once per manuscript per page.
+  let skipLogged = false;
   const looked = new Set<string>();
   let milestones: { on: string; info: VersionInfo } | null = null;
   const earlierVersions = async (r: ParseResult) => {
@@ -106,7 +124,12 @@ async function start() {
       info.submitted ??= v.submitted;
       // The previous version also needs its dates and co-chair for the milestones rows.
       const complete = info.ae && (!previous || (info.submitted && info.responded && info.coChair));
-      if (!complete) {
+      if (!complete && !plainHref(document, v.link)) {
+        // MC's Switch Details links are scripts that navigate the whole tab,
+        // so they are never clicked from here.
+        if (!skipLogged) send({ type: 'log', level: 'info', event: 'earlier version not loaded in the background (script link)' });
+        skipLogged = true;
+      } else if (!complete) {
         try {
           const t0 = performance.now();
           const d = await loadInHiddenFrame(document, v.link);
@@ -125,7 +148,7 @@ async function start() {
           send({ type: 'log', level: 'warn', event: 'earlier version lookup failed', data: { id: v.ref.id, error: String(e) } });
         }
       }
-      annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : 'AE: not found');
+      annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : 'AE: open this version once to record it');
       if (previous) {
         milestones = { on: m.id, info };
         if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
@@ -139,7 +162,7 @@ async function start() {
     const here = decisionLettersIn(document, settings.idPattern).get(id);
     if (here) return here;
     const link = findAuditTrailLink(document);
-    if (!link) return undefined;
+    if (!link || !plainHref(document, link)) return undefined;
     try {
       const d = await loadInHiddenFrame(document, link, 10_000);
       return decisionLettersIn(d, settings.idPattern).get(id);
@@ -228,6 +251,13 @@ async function start() {
 
   if (enabled()) turnOn();
   else send({ type: 'disabled' });
+
+  // Press Attach once a file is chosen. File names are never logged.
+  watchFileAttach(
+    document,
+    () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
+    (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
+  );
 
   // Back/forward cache restores don't re-run content scripts.
   window.addEventListener('pageshow', (e) => {

@@ -170,3 +170,21 @@ describe('titles are never field names', () => {
     expect(r.manuscript?.title ?? '').not.toMatch(/date submitted/i);
   });
 });
+
+describe('reviewers mentioned but not parsed', () => {
+  const page = (extra: string) => `<html><body><a href="#">Log Out</a>
+    <ol><li>Associate Editor Center</li><li>/ Details for XYZJ-26-10-9008.R1</li></ol>
+    <table><tr><td><b>Manuscript ID:</b></td><td>XYZJ-26-10-9008.R1</td></tr>
+    <tr><td><b>Title:</b></td><td>A Synthetic Paper About Nothing Much</td></tr></table>
+    ${extra}<p>Make Recommendation</p></body></html>`;
+  const warned = (html: string) => {
+    const dom = new JSDOM(html, { url: URL });
+    return parsePage(dom.window.document, URL).warnings.includes('manuscript: reviewers mentioned but not parsed');
+  };
+  it('does not warn when the only mention is a note title', () => {
+    expect(warned(page('<table><tr><td>Notes</td></tr><tr><td><a href="#">Reminder: awaiting reviewer assignment</a></td></tr></table>'))).toBe(false);
+  });
+  it('warns when a Reviewer List is there but nothing parses', () => {
+    expect(warned(page('<table><tr><td><b>Reviewer List</b></td></tr><tr><td>Something unexpected</td></tr></table>'))).toBe(true);
+  });
+});

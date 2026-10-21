@@ -216,10 +216,12 @@ const REVIEWER_STATUS = /\b(invited|agreed|declined|completed|overdue|scores? (r
 
 function extractReviewers(doc: Document, strategies: Record<string, string>, warnings: string[]): Person[] {
   // Strategy 1: a table whose headers include reviewer/name and status.
+  let reviewerTable = false;
   for (const t of dataTables(doc)) {
     const nameCol = t.headers.findIndex((h) => REVIEWER_HEADER.test(h));
     const statusCol = t.headers.findIndex((h) => /status|response/.test(h));
     if (nameCol < 0 || statusCol < 0) continue;
+    reviewerTable = true;
     const people: Person[] = [];
     for (const r of t.rows) {
       const name = textOf(r[nameCol]);
@@ -275,7 +277,9 @@ function extractReviewers(doc: Document, strategies: Record<string, string>, war
       return people;
     }
   }
-  if (/\breviewer\b/i.test(textOf(doc.body))) warnings.push('manuscript: reviewers mentioned but not parsed');
+  // Warn only when a reviewer section was there but nothing came out of it;
+  // the word alone turns up in note titles ("awaiting reviewer assignment").
+  if (reviewerTable || anchor || panel) warnings.push('manuscript: reviewers mentioned but not parsed');
   strategies.reviewers = 'none';
   return [];
 }
