@@ -45,6 +45,13 @@ describe('milestones', () => {
     expect(v.ae).toBeUndefined();
   });
 
+  it('never takes the EIC, co-chair or admin as the AE when no AE is assigned', () => {
+    const page = EDITOR_BLOCK.replace('<a>Editor, Sam</a>', 'Not Assigned') + `<table>
+      <tr><td>Editor-in-Chief:</td><td><a>Chief, Test</a> <a>EIC</a></td></tr>
+      <tr><td>Editor:</td><td><a>Chief, Test</a></td></tr></table>`;
+    expect(versionInfoFrom(doc(page), 'CACM-26-03-1234').ae).toBeUndefined();
+  });
+
   it('does not read a column header row as a status', async () => {
     const { labeledValues } = await import('../parsers/dom');
     expect(labeledValues(doc(EDITOR_BLOCK).body).get('status')).toBeUndefined();

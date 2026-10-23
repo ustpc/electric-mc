@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.25). The version shows
+Semantic versioning, set in `package.json` (now 0.0.31). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -55,10 +55,14 @@ build instead.
   yellow. Turn it off in Settings.
 - **Earlier versions.** Every manuscript page you open records that
   version's AE and dates. On a revision's details page the extension writes
-  each earlier version's AE under its ID in Version History (or asks you to
-  open that version once, if it hasn't seen it). It never clicks MC's Switch
-  Details links for you, since they move the whole tab. It also adds two
-  rows at the bottom of Peer Review Milestones: when the previous version was submitted and its decision sent
+  each earlier version's AE under its ID in Version History. For versions it
+  hasn't recorded, it looks them up offscreen. A hidden, sandboxed frame
+  searches for the manuscript, presses Take Action and switches to each
+  earlier version. The sandbox stops anything in that frame from changing
+  your tab. The result is saved, so the lookup runs once per version. If
+  the site won't load in a frame, the note asks you to open that version
+  once instead. It also adds two rows at the bottom of Peer Review
+  Milestones: when the previous version was submitted and its decision sent
   (with the days between), and that version's AE and co-chair. The decision
   date comes from the decision letter in the Audit Trail. When the
   backend exists it will answer from the assignment emails first. Everything
@@ -69,6 +73,9 @@ build instead.
 - **Developer mode** (Settings, off by default). Turns on the on-page debug
   pill, the page type on the toolbar icon, full parse results in the log, the
   Log tab, capture and the raw JSON. With it off, the log holds only problems.
+- **Side panel only on MC.** The side panel appears only on Manuscript
+  Central tabs. It hides when you switch to any other tab, follows you from
+  one MC tab to the next, and the popped-out window stays.
 - **Side panel, Page tab.** Everything parsed from the current tab. **Pop
   out** moves the panel into its own window, which follows whatever MC tab you
   are on; **Pop in** puts it back.
@@ -77,7 +84,21 @@ build instead.
   presses Take Action on the result. Settings can also press Take Action
   after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
-- **Notes tab.** Per-manuscript notes, stored only in this browser.
+- **Notes tab.** Per-manuscript notes, stored only in this browser. They
+  save as you type; there's no Save button.
+- **Editorial matrix.** **Matrix** (top of the side panel) opens the
+  Opinions editorial matrix in its own window: every column head, columnist
+  and associate editor, with each one's current number of assigned
+  manuscripts in bold brown. The counts are read from MC's Assign Associate
+  Editor pull-down whenever it is on the page, and the window shows when they
+  were read. The extension ships no names: press **Load roster…** and choose
+  the `roster.json` that `make export` writes in
+  [cacm-opn-dashboard](https://github.com/ustpc/cacm-opn-dashboard). Editors
+  in MC's list who aren't in the roster are listed at the bottom.
+- **Stored data.** Manuscripts you haven't viewed in 2 years, and their
+  notes, are removed automatically. **Clear all data** (bottom of Settings)
+  removes the Seen list, notes, log, AE counts and roster at once, and keeps
+  your settings.
 - **Log tab** (developer mode). The debug log. **Export for sharing (redacted)** saves a JSON
   file without names, titles, emails or manuscript IDs; send that one to us.
   **Export full** keeps everything, for your own use only.

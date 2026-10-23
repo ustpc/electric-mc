@@ -2,6 +2,41 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.32 (2026-10-23)
+
+- New: the Opinions editorial matrix, in its own window (**Matrix** at the top of the side panel). It shows each column head's and AE's current number of assigned manuscripts, read from MC's Assign Associate Editor pull-down whenever you open it.
+- The matrix's roster is loaded from a file (`make export` in cacm-opn-dashboard); the extension itself carries no names.
+- Clear all data also removes the AE counts and the roster.
+
+## 0.0.31 (2026-10-22)
+
+- Notes save themselves as you type (and when you leave the box or switch manuscripts). The Save button is gone.
+
+## 0.0.30 (2026-10-22)
+
+- Manuscripts you haven't viewed in 2 years are removed automatically, with their notes.
+- New "Clear all data" button at the bottom of Settings: removes the Seen list, notes and log, and keeps your settings.
+
+## 0.0.29 (2026-10-22)
+
+- Fixed: the side panel could say "This tab is running an older build" on an up-to-date tab while MC was between pages. It now asks again and checks once more when the page finishes loading.
+- Fixed: "AE: Not Assigned" on the current page could be saved as that version's AE.
+
+## 0.0.28 (2026-10-22)
+
+- Fixed: the side panel could not be opened in 0.0.27.
+- A tab that comes to MC from another site gets its own panel, which doesn't follow you to other tabs.
+
+## 0.0.27 (2026-10-22)
+
+- The side panel now hides on pages that aren't Manuscript Central, and still follows you across MC tabs.
+
+## 0.0.26 (2026-10-21)
+
+- Earlier versions' AE is looked up offscreen again, in a sealed frame that can't change your page.
+- The Version History note says "AE: looking it up…" while the lookup runs.
+- Version History drawn after the page loads is picked up too.
+
 ## 0.0.25 (2026-10-21)
 
 - Fixed: opening a revision no longer switches the page to the original version.

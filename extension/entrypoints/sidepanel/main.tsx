@@ -3,12 +3,12 @@
 // the debug log and its export, and capture of page HTML for the validator.
 
 import { render } from 'preact';
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
-import { filterSeen } from '../../lib/seen';
+import { filterSeen, withNote } from '../../lib/seen';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -105,24 +105,45 @@ function SiteSwitch({ url }: { url?: string }) {
   );
 }
 
+/** Messages to the content script go to the tab's top frame only. */
+const TOP = { frameId: 0 };
+
 /**
  * Chrome doesn't put a new build into tabs that were already open, so they
  * keep running the old code until reloaded. Ask the tab which version it
- * runs; no answer from an MC tab means it needs a reload.
+ * runs. A different version is stale at once; no answer may just mean MC is
+ * between pages (its URL often doesn't change), so the tab is asked again,
+ * and asked afresh whenever it finishes loading.
  */
 function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
   const [stale, setStale] = useState<string | null>(null);
   useEffect(() => {
     setStale(null);
-    if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return;
+    if (tabId === undefined || !panelEnabledFor(url)) return;
     const mine = chrome.runtime.getManifest().version;
-    const t = setTimeout(() => {
+    const timers: number[] = [];
+    const ask = (triesLeft: number) =>
       chrome.tabs
-        .sendMessage(tabId, { type: 'ping' })
-        .then((r: { version?: string } | undefined) => setStale(r?.version === mine ? null : r?.version ?? 'an older build'))
-        .catch(() => setStale('an older build'));
-    }, 800);
-    return () => clearTimeout(t);
+        .sendMessage(tabId, { type: 'ping' }, TOP)
+        .then((r: { version?: string } | undefined) => r?.version ?? Promise.reject(new Error('no version')))
+        .then((v: string) => setStale(v === mine ? null : v))
+        .catch(() => {
+          if (triesLeft > 0) timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
+          else setStale('an older build');
+        });
+    const check = () => {
+      timers.splice(0).forEach(clearTimeout);
+      timers.push(window.setTimeout(() => void ask(2), 800));
+    };
+    const loaded = (id: number, change: { status?: string }) => {
+      if (id === tabId && change.status === 'complete') check();
+    };
+    chrome.tabs.onUpdated.addListener(loaded);
+    check();
+    return () => {
+      chrome.tabs.onUpdated.removeListener(loaded);
+      timers.forEach(clearTimeout);
+    };
   }, [tabId, url]);
   if (!stale || tabId === undefined) return null;
   return (
@@ -167,6 +188,16 @@ function App() {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
   };
+  // The Opinions editorial matrix, in its own window; one window only.
+  const openMatrix = async () => {
+    const url = chrome.runtime.getURL('matrix.html');
+    const [open] = await chrome.tabs.query({ url });
+    if (open?.windowId !== undefined) {
+      await chrome.windows.update(open.windowId, { focused: true });
+      return;
+    }
+    await chrome.windows.create({ url, type: 'popup', width: 1280, height: 900 });
+  };
   const popIn = async () => {
     const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
     if (win.id !== undefined) await chrome.sidePanel.open({ windowId: win.id });
@@ -179,6 +210,7 @@ function App() {
         <div class="row">
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
+          <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -217,12 +249,12 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
 
   const reparse = async () => {
     if (tabId === undefined) return;
-    await chrome.tabs.sendMessage(tabId, { type: 'reparse' }).catch((e) => flash(`Re-parse failed: ${e}`));
+    await chrome.tabs.sendMessage(tabId, { type: 'reparse' }, TOP).catch((e) => flash(`Re-parse failed: ${e}`));
   };
   const capture = async () => {
     if (tabId === undefined) return;
     try {
-      const c = (await chrome.tabs.sendMessage(tabId, { type: 'capture' })) as CaptureReply;
+      const c = (await chrome.tabs.sendMessage(tabId, { type: 'capture' }, TOP)) as CaptureReply;
       const meta = {
         url: c.url,
         title: c.title,
@@ -342,7 +374,7 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   // Opens the manuscript in the current MC tab through MC's own search.
   const open = async (id: string) => {
     if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return flash('Switch to a Manuscript Central tab first.');
-    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }).catch(() => null)) as { ok?: boolean } | null;
+    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
     if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
   };
   const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});
@@ -376,18 +408,68 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   );
 }
 
+/** Notes save themselves: shortly after typing stops, on leaving the box, and on switching manuscript. */
+const NOTE_SAVE_MS = 600;
+
+async function saveNote(id: string, text: string) {
+  // Read just before writing, so a note saved in another window isn't lost.
+  const got = (await chrome.storage.local.get(KEY.notes))[KEY.notes] as Record<string, string> | undefined;
+  await chrome.storage.local.set({ [KEY.notes]: withNote(got ?? {}, id, text) });
+}
+
 function NotesView({ current }: { current?: string }) {
   const notes = useStorage<Record<string, string>>('local', KEY.notes, {});
   const [draft, setDraft] = useState('');
-  useEffect(() => setDraft(current ? notes[current] ?? '' : ''), [current, notes]);
+  const [status, setStatus] = useState('');
+  const pending = useRef<{ id: string; text: string } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const focused = useRef(false);
+  const flush = () => {
+    clearTimeout(timer.current);
+    const p = pending.current;
+    pending.current = null;
+    if (p) void saveNote(p.id, p.text).then(() => setStatus('Saved')).catch((e) => setStatus(`Not saved: ${e}`));
+  };
+  // A new manuscript: save the old one's note and show the new one's.
+  useEffect(() => {
+    flush();
+    setStatus('');
+    setDraft(current ? notes[current] ?? '' : '');
+  }, [current]);
+  // Stored notes changed (loaded, or edited in another window): show them,
+  // unless the person is typing here.
+  useEffect(() => {
+    if (!pending.current && !focused.current) setDraft(current ? notes[current] ?? '' : '');
+  }, [notes]);
+  useEffect(() => {
+    addEventListener('pagehide', flush);
+    return () => {
+      removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, []);
   if (!current) return <p class="muted">Open a manuscript to see its notes.</p>;
-  const save = () => void chrome.storage.local.set({ [KEY.notes]: { ...notes, [current]: draft } });
+  const edit = (text: string) => {
+    setDraft(text);
+    setStatus('Saving…');
+    pending.current = { id: current, text };
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, NOTE_SAVE_MS);
+  };
   return (
     <section>
       <h2>Notes on {current}</h2>
-      <p class="muted">Stored only in this browser in the test build. Shared chat needs the backend.</p>
-      <textarea value={draft} onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)} onBlur={save} />
-      <button class="act" onClick={save}>Save</button>
+      <p class="muted">Stored only in this browser in the test build, and saved as you type. Shared chat needs the backend.</p>
+      <textarea
+        value={draft}
+        onFocus={() => (focused.current = true)}
+        onInput={(e) => edit((e.target as HTMLTextAreaElement).value)}
+        onBlur={() => {
+          focused.current = false;
+          flush();
+        }}
+      />
+      <p class="muted">{status}</p>
     </section>
   );
 }
@@ -445,6 +527,18 @@ function summary(d: unknown): string {
   return JSON.stringify(d).slice(0, 160);
 }
 
+/**
+ * Remove everything Electric MC stored about manuscripts: Seen, notes, the
+ * log, AE workloads, the loaded roster and each tab's latest parse. Settings stay, and so does the record of
+ * tabs whose side panel is switched off, which Chrome needs to put it back.
+ */
+async function clearAllData() {
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the log, AE assignment counts and the Opinions roster? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster]);
+  const session = await chrome.storage.session.get(null);
+  await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
+}
+
 function SettingsView() {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
   useEffect(() => void getSettings().then(setS), []);
@@ -487,6 +581,9 @@ function SettingsView() {
       </label>}
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
       <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version v{chrome.runtime.getManifest().version}</p>
+      <h2 style="margin-top:12px">Stored data</h2>
+      <p>Manuscripts you haven't viewed in 2 years are removed automatically.</p>
+      <button class="act" onClick={() => void clearAllData()}>Clear all data</button>
     </section>
   );
 }

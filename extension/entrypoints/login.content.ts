@@ -6,12 +6,14 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { annotateLogin, findLoginFields } from '../lib/login';
 import { getSettings, isEnabledFor } from '../lib/messages';
+import { isOurFrame } from '../lib/offscreen';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
   runAt: 'document_start',
   allFrames: false,
   main() {
+    if (isOurFrame(window)) return;
     let enabled: boolean | null = null;
     let done = false;
     const tryAnnotate = () => {
