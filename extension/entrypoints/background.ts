@@ -4,7 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
-import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
+import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import type { ParseResult } from '../parsers/types';
 
@@ -20,6 +20,10 @@ const BADGE: Record<string, string> = {
 
 export default defineBackground(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  // The side panel is off everywhere except on MC tabs, which refreshTab
+  // turns it on for, so Chrome hides it on any other tab.
+  chrome.sidePanel.setOptions({ enabled: false }).catch(() => {});
+  void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
 
   chrome.runtime.onInstalled.addListener((d) => {
     void log({ level: 'info', source: 'background', event: 'installed', data: { reason: d.reason, version: chrome.runtime.getManifest().version } });
@@ -79,7 +83,8 @@ const ICON = (dir: string) => ({ 16: `${dir}/16.png`, 32: `${dir}/32.png`, 48: `
 async function refreshTab(tabId: number) {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) return;
-  const onMc = !!tab.url && /^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(tab.url);
+  const onMc = panelEnabledFor(tab.url);
+  await chrome.sidePanel.setOptions(onMc ? { tabId, path: 'sidepanel.html', enabled: true } : { tabId, enabled: false }).catch(() => {});
   const enabled = isEnabledFor(await getSettings(), tab.url);
   // setIcon reports a vanished tab through runtime.lastError even when its
   // promise is caught, so it gets a callback that reads the error.

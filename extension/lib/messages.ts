@@ -80,6 +80,20 @@ export function isEnabledFor(s: Settings, url: string | undefined): boolean {
   }
 }
 
+/**
+ * Whether the side panel shows on this tab: on Manuscript Central only, even
+ * where the extension is switched off, since the switch is in the panel.
+ */
+export function panelEnabledFor(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && /(^|\.)manuscriptcentral\.com$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function setHostEnabled(host: string, enabled: boolean): Promise<void> {
   const s = await getSettings();
   const others = s.disabledHosts.filter((h) => h !== host);
