@@ -17,6 +17,7 @@ import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
+import { journalKey, readAeLoad } from '../lib/aeload';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -71,6 +72,7 @@ async function start() {
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
     recordLetters(r);
     recordThisVersion(r);
+    recordAeLoad();
     if (reason === 'load') followSearch(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
@@ -84,6 +86,18 @@ async function start() {
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
+  };
+
+  // MC's AE-assignment pull-down shows each editor's current number of
+  // manuscripts; keep the latest counts for the Opinions matrix.
+  let aeLoadKey = '';
+  const recordAeLoad = () => {
+    const entries = readAeLoad(document);
+    if (!entries) return;
+    const key = JSON.stringify(entries);
+    if (key === aeLoadKey) return;
+    aeLoadKey = key;
+    send({ type: 'ae-load', journal: journalKey(location.href), entries });
   };
 
   // Every manuscript page, original or revision, records its own version's

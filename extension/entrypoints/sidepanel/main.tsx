@@ -188,6 +188,16 @@ function App() {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
   };
+  // The Opinions editorial matrix, in its own window; one window only.
+  const openMatrix = async () => {
+    const url = chrome.runtime.getURL('matrix.html');
+    const [open] = await chrome.tabs.query({ url });
+    if (open?.windowId !== undefined) {
+      await chrome.windows.update(open.windowId, { focused: true });
+      return;
+    }
+    await chrome.windows.create({ url, type: 'popup', width: 1280, height: 900 });
+  };
   const popIn = async () => {
     const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
     if (win.id !== undefined) await chrome.sidePanel.open({ windowId: win.id });
@@ -200,6 +210,7 @@ function App() {
         <div class="row">
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
+          <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -518,12 +529,12 @@ function summary(d: unknown): string {
 
 /**
  * Remove everything Electric MC stored about manuscripts: Seen, notes, the
- * log and each tab's latest parse. Settings stay, and so does the record of
+ * log, AE workloads, the loaded roster and each tab's latest parse. Settings stay, and so does the record of
  * tabs whose side panel is switched off, which Chrome needs to put it back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes and the log? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the log, AE assignment counts and the Opinions roster? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }

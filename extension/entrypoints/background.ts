@@ -7,6 +7,7 @@ import { appendCapped, type LogEntry } from '../lib/log';
 import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
+import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
 
 const BADGE: Record<string, string> = {
@@ -61,6 +62,8 @@ export default defineBackground(() => {
       void onParsed(tabId, msg.result, msg.reason, msg.title);
     } else if (msg.type === 'version-info') {
       void rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info);
+    } else if (msg.type === 'ae-load') {
+      void rememberAeLoad(msg.journal, msg.entries);
     } else if (msg.type === 'disabled' && tabId !== undefined) {
       void chrome.storage.session.remove(KEY.tab(tabId));
     } else if (msg.type === 'log') {
@@ -177,6 +180,16 @@ function rememberVersion(baseId: string, id: string, ae?: string, status?: strin
       versionInfo: info ? { ...prev.versionInfo, [id]: { ...prev.versionInfo?.[id], ...defined(info) } } : prev.versionInfo,
     };
     await chrome.storage.local.set({ [KEY.seen]: seen });
+  });
+}
+
+/** The latest AE workloads for one journal; each reading replaces the last. */
+function rememberAeLoad(journal: string, entries: AeLoadEntry[]): Promise<void> {
+  return serial(async () => {
+    const got = await chrome.storage.local.get(KEY.aeLoad);
+    const all = (got[KEY.aeLoad] as Record<string, AeLoad> | undefined) ?? {};
+    all[journal] = { at: new Date().toISOString(), journal, entries };
+    await chrome.storage.local.set({ [KEY.aeLoad]: all });
   });
 }
 

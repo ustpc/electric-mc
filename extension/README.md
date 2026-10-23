@@ -86,9 +86,19 @@ build instead.
   real build will load this from the backend in one query.
 - **Notes tab.** Per-manuscript notes, stored only in this browser. They
   save as you type; there's no Save button.
+- **Editorial matrix.** **Matrix** (top of the side panel) opens the
+  Opinions editorial matrix in its own window: every column head, columnist
+  and associate editor, with each one's current number of assigned
+  manuscripts in bold brown. The counts are read from MC's Assign Associate
+  Editor pull-down whenever it is on the page, and the window shows when they
+  were read. The extension ships no names: press **Load roster…** and choose
+  the `roster.json` that `make export` writes in
+  [cacm-opn-dashboard](https://github.com/ustpc/cacm-opn-dashboard). Editors
+  in MC's list who aren't in the roster are listed at the bottom.
 - **Stored data.** Manuscripts you haven't viewed in 2 years, and their
   notes, are removed automatically. **Clear all data** (bottom of Settings)
-  removes the Seen list, notes and log at once, and keeps your settings.
+  removes the Seen list, notes, log, AE counts and roster at once, and keeps
+  your settings.
 - **Log tab** (developer mode). The debug log. **Export for sharing (redacted)** saves a JSON
   file without names, titles, emails or manuscript IDs; send that one to us.
   **Export full** keeps everything, for your own use only.

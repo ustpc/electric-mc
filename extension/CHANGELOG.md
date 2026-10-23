@@ -2,6 +2,12 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.32 (2026-10-23)
+
+- New: the Opinions editorial matrix, in its own window (**Matrix** at the top of the side panel). It shows each column head's and AE's current number of assigned manuscripts, read from MC's Assign Associate Editor pull-down whenever you open it.
+- The matrix's roster is loaded from a file (`make export` in cacm-opn-dashboard); the extension itself carries no names.
+- Clear all data also removes the AE counts and the roster.
+
 ## 0.0.31 (2026-10-22)
 
 - Notes save themselves as you type (and when you leave the box or switch manuscripts). The Save button is gone.
