@@ -192,7 +192,7 @@ time-sortable unique ID, and `<ts>` is an ISO-8601 UTC timestamp.
 | Journal config | `JOURNAL#<site>` | `CONFIG` | `name`, `blindReview` (`single` / `double`), `attentionDays`, `attentionMinutes`, `selectorsVersion` |
 | Manuscript | `MS#<site>#<baseId>` | `META` | `title`, `status`, `currentRevision`, `submittedAt`, `statusChangedAt`, `lastViewedAt`, `lastViewedBy`, `lastWorkedAt`, `activeSeconds`, `lastMessageAt`, `linkedIds` (resubmission lineage); also `GSI1PK`, `GSI1SK` |
 | Thread head | `MS#<site>#<baseId>` | `HEAD` | `version` (number, incremented on every message, edit or visibility change) |
-| Manuscript role | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | `role` (`REVIEWER`, `HANDLING_AE`, `EDITOR`, `ASSIGNING_EDITOR`), `reviewerNumber` (for reviewers), `assignedAt`, `active` (bool, false after a final decision or when the person is removed), `title`, `status` (copied from `META`), this person's `lastWorkedAt` and `activeSeconds` on this manuscript; while active, also `GSI3PK`, `GSI3SK` |
+| Manuscript role | `MS#<site>#<baseId>` | `ROLE#<role>#<sub>` | `role` (`REVIEWER`, `HANDLING_AE`, `EDITOR`, `ASSIGNING_EDITOR`), `reviewerNumber` (for reviewers), `assignedAt`, `active` (bool, false after a final decision or when the person is removed), `endedAt` (when `active` became false; limits which messages the person can still read, section 5.5), `title`, `status` (copied from `META`), this person's `lastWorkedAt` and `activeSeconds` on this manuscript; while active, also `GSI3PK`, `GSI3SK` |
 | Message | `MS#<site>#<baseId>` | `MSG#<ulid>` | `author` (sub), `body`, `visibility` (set: `REVIEWERS`, `HANDLING_AE`, `ALL_AES`, `EDITOR`, `ASSIGNING_EDITOR`, `EIC`), `revision`, `createdAt`, `editedAt`, `deleted` (bool) |
 | Message history | `MS#<site>#<baseId>` | `HIST#<msgUlid>#<ts>` | `actor`, `change` (`EDIT` / `VISIBILITY` / `DELETE`), `before`, `after` |
 | Activity session | `MS#<site>#<baseId>` | `ACT#<ts>#<sub>` | `start`, `end`, `activeSeconds`, `pageType`, `expiresAt`; also `GSI2PK`, `GSI2SK` |
@@ -200,7 +200,8 @@ time-sortable unique ID, and `<ts>` is an ISO-8601 UTC timestamp.
 Notes:
 
 - Role assignments are written by the admin loader from the static
-  configuration (Goals section 3).
+  configuration (Goals section 3) and by email ingestion. The extension
+  never writes them (section 5.5).
 - "All AEs" and "EiC" are journal-level roles, read from the person's journal
   role items. The other audiences come from the manuscript's role items.
 - Message bodies are capped at 2 KB, so a message costs at most 2 write
@@ -241,6 +242,43 @@ admins see everything (Goals 6.5).
 
 Activity sessions expire after one year through `expiresAt`, and TTL deletion
 is free.
+
+### 5.5 Who can see a manuscript's notes
+
+Proposed 2026-10-23. The server is the only gatekeeper. The extension never
+decides what a person may see, and the backend never grants access because
+the extension says so.
+
+1. **Assignments come from ScholarOne's own email.** The co-chair mailbox is
+   copied on every "now in your Associate Editor Center" email, and the
+   ingestion Lambda turns it into a `HANDLING_AE` role item for the address
+   it was sent to, deactivating the previous AE ([Email
+   ingestion.md](Email%20ingestion.md), section 4). Roles the extension reads
+   from MC pages are only observations. They can be shown to the co-chair as
+   a suggestion to confirm, but they never create a role item.
+2. **A login is bound to an MC person by email.** Cognito verifies the
+   sign-in address with an emailed code. A person record (`PERSON#<sub>`)
+   holds every address its owner has verified, and a person can add another
+   address (for example the one MC uses) by verifying it the same way. Role
+   items written for an address that maps to no verified account wait on an
+   unverified person stub and attach to the account once someone verifies
+   that address (`MAILBOX#<address>`, Email ingestion section 5).
+3. **Every read is filtered in the Lambda** (section 5.4): it loads the
+   caller's journal roles and their role items on the manuscript, and returns
+   only messages whose `visibility` includes one of the caller's audiences.
+   Visibility is retroactive, so a newly assigned AE sees the earlier
+   `HANDLING_AE` notes.
+4. **After an assignment ends** (a reassignment or a final decision), the role
+   item gets `active = false` and `endedAt`. That person keeps read access to
+   messages created up to `endedAt` and sees nothing posted later. They can't
+   post or change visibility (Simson, 2026-10-23).
+5. **The co-chair sees everything** and can grant or revoke a role item by
+   hand from the dashboard, for example when an assignment email never
+   arrived. Manual changes are logged like other history items.
+
+Not chosen for now: end-to-end encryption with per-manuscript keys. It would
+keep the server from reading notes, but giving a newly assigned AE the keys
+to earlier notes makes retroactive visibility hard.
 
 ## 6. Extension page flow and data loading
 
