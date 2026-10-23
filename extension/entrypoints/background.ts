@@ -4,7 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
-import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
+import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import type { ParseResult } from '../parsers/types';
 
@@ -22,7 +22,7 @@ export default defineBackground(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   // One window-wide panel, so it follows the person across MC tabs;
   // refreshTab switches it off for each non-MC tab, where Chrome hides it.
-  chrome.sidePanel.setOptions({ path: 'sidepanel.html', enabled: true }).catch(() => {});
+  chrome.sidePanel.setOptions({ path: PANEL_PATH, enabled: true }).catch(() => {});
   void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
 
   chrome.runtime.onInstalled.addListener((d) => {
@@ -101,19 +101,16 @@ async function refreshTab(tabId: number) {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) return;
   const onMc = panelEnabledFor(tab.url);
-  // Chrome can't remove a tab's override. A tab that was turned off and then
-  // came to MC gets enabled with no path: Chrome documents that a path set
-  // per tab makes a separate, tab-only panel (one that wouldn't follow the
-  // person), and we're relying on no path keeping the window-wide one.
+  // Non-MC tabs are switched off; see panelOptionsFor for MC tabs.
   await serial(async () => {
     const off = await panelOffTabs();
-    if (!onMc) {
-      await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
-      if (!off.has(tabId)) await savePanelOff(off.add(tabId));
-    } else if (off.delete(tabId)) {
-      await chrome.sidePanel.setOptions({ tabId, enabled: true }).catch(() => {});
-      await savePanelOff(off);
-    }
+    const options = panelOptionsFor(tab.url, off.has(tabId));
+    if (!options) return;
+    await chrome.sidePanel.setOptions({ tabId, ...options }).catch(() => {});
+    const before = off.size;
+    if (options.enabled) off.delete(tabId);
+    else off.add(tabId);
+    if (off.size !== before) await savePanelOff(off);
   });
   const enabled = isEnabledFor(await getSettings(), tab.url);
   // setIcon reports a vanished tab through runtime.lastError even when its

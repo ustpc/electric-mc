@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.28 (2026-10-22)
+
+- Fixed: the side panel could not be opened in 0.0.27.
+- A tab that comes to MC from another site gets its own panel, which doesn't follow you to other tabs.
+
 ## 0.0.27 (2026-10-22)
 
 - The side panel now hides on pages that aren't Manuscript Central, and still follows you across MC tabs.
