@@ -13,6 +13,9 @@ Manuscript Central pages in your browser to restyle them and rename tabs.
 Your settings are stored in `chrome.storage.sync`, so they follow your Chrome
 profile. Page data and debug logs are stored in `chrome.storage.local`, in
 that browser only, and leave it only if you export a log yourself.
+Manuscripts you haven't viewed in 2 years are removed from that storage
+automatically, with your notes on them, and **Clear all data** in Settings
+removes all of it at once (extension 0.0.30).
 
 The rest of this page also covers **planned** features: the shared backend,
 chat, activity tracking, AE recruitment, matching, and email (sections 4 to
@@ -191,3 +194,4 @@ staff will be switched on later, and this page will say so.
 |------|--------|
 | 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
 | 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
+| 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |

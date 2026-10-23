@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.30 (2026-10-22)
+
+- Manuscripts you haven't viewed in 2 years are removed automatically, with their notes.
+- New "Clear all data" button at the bottom of Settings: removes the Seen list, notes and log, and keeps your settings.
+
 ## 0.0.29 (2026-10-22)
 
 - Fixed: the side panel could say "This tab is running an older build" on an up-to-date tab while MC was between pages. It now asks again and checks once more when the page finishes loading.

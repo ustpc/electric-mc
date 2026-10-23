@@ -139,6 +139,7 @@ export const KEY = {
   log: 'log',
   seen: 'seen',
   notes: 'notes',
+  lastPrune: 'lastPrune',
   tab: (id: number) => `tab:${id}`,
 } as const;
 

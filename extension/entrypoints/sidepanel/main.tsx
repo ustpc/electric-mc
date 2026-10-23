@@ -466,6 +466,18 @@ function summary(d: unknown): string {
   return JSON.stringify(d).slice(0, 160);
 }
 
+/**
+ * Remove everything Electric MC stored about manuscripts: Seen, notes, the
+ * log and each tab's latest parse. Settings stay, and so does the record of
+ * tabs whose side panel is switched off, which Chrome needs to put it back.
+ */
+async function clearAllData() {
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes and the log? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log]);
+  const session = await chrome.storage.session.get(null);
+  await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
+}
+
 function SettingsView() {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
   useEffect(() => void getSettings().then(setS), []);
@@ -508,6 +520,9 @@ function SettingsView() {
       </label>}
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
       <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version v{chrome.runtime.getManifest().version}</p>
+      <h2 style="margin-top:12px">Stored data</h2>
+      <p>Manuscripts you haven't viewed in 2 years are removed automatically.</p>
+      <button class="act" onClick={() => void clearAllData()}>Clear all data</button>
     </section>
   );
 }

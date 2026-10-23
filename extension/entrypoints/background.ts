@@ -6,6 +6,7 @@ import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
 import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
+import { pruneSeen } from '../lib/seen';
 import type { ParseResult } from '../parsers/types';
 
 const BADGE: Record<string, string> = {
@@ -23,6 +24,8 @@ export default defineBackground(() => {
   // One window-wide panel, so it follows the person across MC tabs;
   // refreshTab switches it off for each non-MC tab, where Chrome hides it.
   chrome.sidePanel.setOptions({ path: PANEL_PATH, enabled: true }).catch(() => {});
+  // No alarms permission, so old data is pruned when the worker starts, at most daily.
+  void pruneOld();
   void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
 
   chrome.runtime.onInstalled.addListener((d) => {
@@ -83,6 +86,22 @@ export default defineBackground(() => {
 
 const MENU_TOGGLE = 'toggle-site';
 const ICON = (dir: string) => ({ 16: `${dir}/16.png`, 32: `${dir}/32.png`, 48: `${dir}/48.png`, 128: `${dir}/128.png` });
+
+/** Drop manuscripts not viewed in two years, and their notes. At most once a day. */
+function pruneOld(): Promise<void> {
+  return serial(async () => {
+    const got = await chrome.storage.local.get([KEY.seen, KEY.notes, KEY.lastPrune]);
+    const last = got[KEY.lastPrune] as number | undefined;
+    if (last && Date.now() - last < 86_400_000) return;
+    const r = pruneSeen(
+      (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {},
+      (got[KEY.notes] as Record<string, string> | undefined) ?? {},
+      new Date(),
+    );
+    await chrome.storage.local.set({ ...(r.dropped ? { [KEY.seen]: r.seen, [KEY.notes]: r.notes } : {}), [KEY.lastPrune]: Date.now() });
+    if (r.dropped) await log({ level: 'info', source: 'background', event: 'pruned old manuscripts', data: { dropped: r.dropped } });
+  });
+}
 
 /**
  * Tabs given a panel-off override, kept in session storage because the
