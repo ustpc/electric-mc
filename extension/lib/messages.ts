@@ -3,6 +3,7 @@
 
 import type { ParseResult } from '../parsers/types';
 import type { Level } from './log';
+import type { AeLoadEntry } from './aeload';
 import type { VersionInfo } from './milestones';
 
 export type Msg =
@@ -10,6 +11,7 @@ export type Msg =
   | { type: 'log'; level: Level; event: string; data?: unknown }
   | { type: 'disabled' }
   | { type: 'version-info'; baseId: string; id: string; ae?: string; status?: string; info?: VersionInfo; source: 'backend' | 'page' }
+  | { type: 'ae-load'; journal: string; entries: AeLoadEntry[] }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -140,6 +142,10 @@ export const KEY = {
   seen: 'seen',
   notes: 'notes',
   lastPrune: 'lastPrune',
+  /** AE workloads read from MC's assignment pull-down, by journal (lib/aeload.ts). */
+  aeLoad: 'aeLoad',
+  /** The Opinions roster the person loaded for the matrix (lib/roster.ts). */
+  roster: 'roster',
   tab: (id: number) => `tab:${id}`,
 } as const;
 

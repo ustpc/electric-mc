@@ -59,6 +59,9 @@ turn it off for a site, it:
   assigned, so it can show the right chat and rename the browser tab (the tab
   title rewrite makes your browser history readable);
 - restyles the page. Styling rules are data, never remote code;
+- reads the Assign Associate Editor pull-down when it is on the page, and
+  keeps each editor's name and current number of assigned manuscripts, the
+  latest reading only, for the editorial matrix (extension 0.0.32);
 - (planned) if you opt in, notes when the tab is visible and you are active (mouse,
   keyboard, focus, Chrome idle state). It never records keystrokes, page
   content, or screenshots.
@@ -74,6 +77,11 @@ are only feature switches, layout options, and the list of Manuscript
 Central sites where you turned the extension off. No manuscript data is
 synced: page data and logs stay in `chrome.storage.local`, in that browser
 only.
+
+**The editorial matrix's roster** (names, roles, affiliations, public
+contact links and headshots of the section's editors) is not part of the
+extension. You load it from a file, and it is kept in `chrome.storage.local`
+in that browser only, like the AE counts. Clear all data removes both.
 
 Details: [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
@@ -195,3 +203,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
 | 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
 | 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |
+| 2026-10-23 | The editorial matrix: AE assignment counts read from MC's pull-down, and a roster loaded from a file, both kept in local storage only; Clear all data removes them (extension 0.0.32). |
