@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.31 (2026-10-22)
+
+- Notes save themselves as you type (and when you leave the box or switch manuscripts). The Save button is gone.
+
 ## 0.0.30 (2026-10-22)
 
 - Manuscripts you haven't viewed in 2 years are removed automatically, with their notes.

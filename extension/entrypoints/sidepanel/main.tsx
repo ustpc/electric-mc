@@ -3,12 +3,12 @@
 // the debug log and its export, and capture of page HTML for the validator.
 
 import { render } from 'preact';
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
 import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
-import { filterSeen } from '../../lib/seen';
+import { filterSeen, withNote } from '../../lib/seen';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -397,18 +397,68 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   );
 }
 
+/** Notes save themselves: shortly after typing stops, on leaving the box, and on switching manuscript. */
+const NOTE_SAVE_MS = 600;
+
+async function saveNote(id: string, text: string) {
+  // Read just before writing, so a note saved in another window isn't lost.
+  const got = (await chrome.storage.local.get(KEY.notes))[KEY.notes] as Record<string, string> | undefined;
+  await chrome.storage.local.set({ [KEY.notes]: withNote(got ?? {}, id, text) });
+}
+
 function NotesView({ current }: { current?: string }) {
   const notes = useStorage<Record<string, string>>('local', KEY.notes, {});
   const [draft, setDraft] = useState('');
-  useEffect(() => setDraft(current ? notes[current] ?? '' : ''), [current, notes]);
+  const [status, setStatus] = useState('');
+  const pending = useRef<{ id: string; text: string } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const focused = useRef(false);
+  const flush = () => {
+    clearTimeout(timer.current);
+    const p = pending.current;
+    pending.current = null;
+    if (p) void saveNote(p.id, p.text).then(() => setStatus('Saved')).catch((e) => setStatus(`Not saved: ${e}`));
+  };
+  // A new manuscript: save the old one's note and show the new one's.
+  useEffect(() => {
+    flush();
+    setStatus('');
+    setDraft(current ? notes[current] ?? '' : '');
+  }, [current]);
+  // Stored notes changed (loaded, or edited in another window): show them,
+  // unless the person is typing here.
+  useEffect(() => {
+    if (!pending.current && !focused.current) setDraft(current ? notes[current] ?? '' : '');
+  }, [notes]);
+  useEffect(() => {
+    addEventListener('pagehide', flush);
+    return () => {
+      removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, []);
   if (!current) return <p class="muted">Open a manuscript to see its notes.</p>;
-  const save = () => void chrome.storage.local.set({ [KEY.notes]: { ...notes, [current]: draft } });
+  const edit = (text: string) => {
+    setDraft(text);
+    setStatus('Saving…');
+    pending.current = { id: current, text };
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, NOTE_SAVE_MS);
+  };
   return (
     <section>
       <h2>Notes on {current}</h2>
-      <p class="muted">Stored only in this browser in the test build. Shared chat needs the backend.</p>
-      <textarea value={draft} onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)} onBlur={save} />
-      <button class="act" onClick={save}>Save</button>
+      <p class="muted">Stored only in this browser in the test build, and saved as you type. Shared chat needs the backend.</p>
+      <textarea
+        value={draft}
+        onFocus={() => (focused.current = true)}
+        onInput={(e) => edit((e.target as HTMLTextAreaElement).value)}
+        onBlur={() => {
+          focused.current = false;
+          flush();
+        }}
+      />
+      <p class="muted">{status}</p>
     </section>
   );
 }

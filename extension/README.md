@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.30). The version shows
+Semantic versioning, set in `package.json` (now 0.0.31). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -84,7 +84,8 @@ build instead.
   presses Take Action on the result. Settings can also press Take Action
   after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
-- **Notes tab.** Per-manuscript notes, stored only in this browser.
+- **Notes tab.** Per-manuscript notes, stored only in this browser. They
+  save as you type; there's no Save button.
 - **Stored data.** Manuscripts you haven't viewed in 2 years, and their
   notes, are removed automatically. **Clear all data** (bottom of Settings)
   removes the Seen list, notes and log at once, and keeps your settings.
