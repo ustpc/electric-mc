@@ -74,9 +74,9 @@ build instead.
   pill, the page type on the toolbar icon, full parse results in the log, the
   Log tab, capture and the raw JSON. With it off, the log holds only problems.
 - **Side panel only on MC.** The side panel appears only on Manuscript
-  Central tabs and hides when you switch to any other tab. The popped-out
-  window stays.
-- **Side panel, Page tab. Everything parsed from the current tab. **Pop
+  Central tabs. It hides when you switch to any other tab, follows you from
+  one MC tab to the next, and the popped-out window stays.
+- **Side panel, Page tab.** Everything parsed from the current tab. **Pop
   out** moves the panel into its own window, which follows whatever MC tab you
   are on; **Pop in** puts it back.
 - **Seen tab.** Manuscripts seen so far, built from the pages you visit.

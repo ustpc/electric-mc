@@ -4,7 +4,7 @@ Newest first. Every version bump gets an entry here.
 
 ## 0.0.27 (2026-10-22)
 
-- The side panel now hides on pages that aren't Manuscript Central.
+- The side panel now hides on pages that aren't Manuscript Central, and still follows you across MC tabs.
 
 ## 0.0.26 (2026-10-21)
 

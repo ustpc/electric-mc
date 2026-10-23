@@ -20,9 +20,9 @@ const BADGE: Record<string, string> = {
 
 export default defineBackground(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-  // The side panel is off everywhere except on MC tabs, which refreshTab
-  // turns it on for, so Chrome hides it on any other tab.
-  chrome.sidePanel.setOptions({ enabled: false }).catch(() => {});
+  // One window-wide panel, so it follows the person across MC tabs;
+  // refreshTab switches it off for each non-MC tab, where Chrome hides it.
+  chrome.sidePanel.setOptions({ path: 'sidepanel.html', enabled: true }).catch(() => {});
   void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
 
   chrome.runtime.onInstalled.addListener((d) => {
@@ -74,17 +74,47 @@ export default defineBackground(() => {
 
   chrome.tabs.onRemoved.addListener((tabId) => {
     void chrome.storage.session.remove(KEY.tab(tabId));
+    void serial(async () => {
+      const off = await panelOffTabs();
+      if (off.delete(tabId)) await savePanelOff(off);
+    });
   });
 });
 
 const MENU_TOGGLE = 'toggle-site';
 const ICON = (dir: string) => ({ 16: `${dir}/16.png`, 32: `${dir}/32.png`, 48: `${dir}/48.png`, 128: `${dir}/128.png` });
 
+/**
+ * Tabs given a panel-off override, kept in session storage because the
+ * service worker is stopped between events.
+ */
+const PANEL_OFF = 'panelOff';
+async function panelOffTabs(): Promise<Set<number>> {
+  const got = await chrome.storage.session.get(PANEL_OFF).catch(() => ({}) as Record<string, unknown>);
+  return new Set((got[PANEL_OFF] as number[] | undefined) ?? []);
+}
+function savePanelOff(tabs: Set<number>): Promise<void> {
+  return chrome.storage.session.set({ [PANEL_OFF]: [...tabs] }).catch(() => {});
+}
+
 async function refreshTab(tabId: number) {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) return;
   const onMc = panelEnabledFor(tab.url);
-  await chrome.sidePanel.setOptions(onMc ? { tabId, path: 'sidepanel.html', enabled: true } : { tabId, enabled: false }).catch(() => {});
+  // Chrome can't remove a tab's override. A tab that was turned off and then
+  // came to MC gets enabled with no path: Chrome documents that a path set
+  // per tab makes a separate, tab-only panel (one that wouldn't follow the
+  // person), and we're relying on no path keeping the window-wide one.
+  await serial(async () => {
+    const off = await panelOffTabs();
+    if (!onMc) {
+      await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+      if (!off.has(tabId)) await savePanelOff(off.add(tabId));
+    } else if (off.delete(tabId)) {
+      await chrome.sidePanel.setOptions({ tabId, enabled: true }).catch(() => {});
+      await savePanelOff(off);
+    }
+  });
   const enabled = isEnabledFor(await getSettings(), tab.url);
   // setIcon reports a vanished tab through runtime.lastError even when its
   // promise is caught, so it gets a callback that reads the error.
