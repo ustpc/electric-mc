@@ -5,7 +5,7 @@
 import { render } from 'preact';
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 import { filterSeen } from '../../lib/seen';
@@ -105,24 +105,45 @@ function SiteSwitch({ url }: { url?: string }) {
   );
 }
 
+/** Messages to the content script go to the tab's top frame only. */
+const TOP = { frameId: 0 };
+
 /**
  * Chrome doesn't put a new build into tabs that were already open, so they
  * keep running the old code until reloaded. Ask the tab which version it
- * runs; no answer from an MC tab means it needs a reload.
+ * runs. A different version is stale at once; no answer may just mean MC is
+ * between pages (its URL often doesn't change), so the tab is asked again,
+ * and asked afresh whenever it finishes loading.
  */
 function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
   const [stale, setStale] = useState<string | null>(null);
   useEffect(() => {
     setStale(null);
-    if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return;
+    if (tabId === undefined || !panelEnabledFor(url)) return;
     const mine = chrome.runtime.getManifest().version;
-    const t = setTimeout(() => {
+    const timers: number[] = [];
+    const ask = (triesLeft: number) =>
       chrome.tabs
-        .sendMessage(tabId, { type: 'ping' })
-        .then((r: { version?: string } | undefined) => setStale(r?.version === mine ? null : r?.version ?? 'an older build'))
-        .catch(() => setStale('an older build'));
-    }, 800);
-    return () => clearTimeout(t);
+        .sendMessage(tabId, { type: 'ping' }, TOP)
+        .then((r: { version?: string } | undefined) => r?.version ?? Promise.reject(new Error('no version')))
+        .then((v: string) => setStale(v === mine ? null : v))
+        .catch(() => {
+          if (triesLeft > 0) timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
+          else setStale('an older build');
+        });
+    const check = () => {
+      timers.splice(0).forEach(clearTimeout);
+      timers.push(window.setTimeout(() => void ask(2), 800));
+    };
+    const loaded = (id: number, change: { status?: string }) => {
+      if (id === tabId && change.status === 'complete') check();
+    };
+    chrome.tabs.onUpdated.addListener(loaded);
+    check();
+    return () => {
+      chrome.tabs.onUpdated.removeListener(loaded);
+      timers.forEach(clearTimeout);
+    };
   }, [tabId, url]);
   if (!stale || tabId === undefined) return null;
   return (
@@ -217,12 +238,12 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
 
   const reparse = async () => {
     if (tabId === undefined) return;
-    await chrome.tabs.sendMessage(tabId, { type: 'reparse' }).catch((e) => flash(`Re-parse failed: ${e}`));
+    await chrome.tabs.sendMessage(tabId, { type: 'reparse' }, TOP).catch((e) => flash(`Re-parse failed: ${e}`));
   };
   const capture = async () => {
     if (tabId === undefined) return;
     try {
-      const c = (await chrome.tabs.sendMessage(tabId, { type: 'capture' })) as CaptureReply;
+      const c = (await chrome.tabs.sendMessage(tabId, { type: 'capture' }, TOP)) as CaptureReply;
       const meta = {
         url: c.url,
         title: c.title,
@@ -342,7 +363,7 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   // Opens the manuscript in the current MC tab through MC's own search.
   const open = async (id: string) => {
     if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return flash('Switch to a Manuscript Central tab first.');
-    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }).catch(() => null)) as { ok?: boolean } | null;
+    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
     if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
   };
   const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});

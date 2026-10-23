@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.29 (2026-10-22)
+
+- Fixed: the side panel could say "This tab is running an older build" on an up-to-date tab while MC was between pages. It now asks again and checks once more when the page finishes loading.
+- Fixed: "AE: Not Assigned" on the current page could be saved as that version's AE.
+
 ## 0.0.28 (2026-10-22)
 
 - Fixed: the side panel could not be opened in 0.0.27.

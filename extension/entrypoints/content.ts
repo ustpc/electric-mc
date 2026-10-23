@@ -93,7 +93,9 @@ async function start() {
     const m = r.manuscript;
     if (!m) return;
     const read = versionInfoFrom(document, m.id);
-    const info: VersionInfo = { ...read, ae: read.ae ?? m.handlingEditor, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
+    // "AE: Not Assigned" means unknown, never a name to remember.
+    const named = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
+    const info: VersionInfo = { ...read, ae: read.ae ?? named, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
     const key = JSON.stringify(info);
     if (key === recorded) return;
     recorded = key;

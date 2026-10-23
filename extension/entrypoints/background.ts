@@ -142,6 +142,8 @@ async function onParsed(tabId: number, result: ParseResult, reason: string, titl
 
 /** AE (and status) of an earlier version, looked up by the content script. */
 function rememberVersion(baseId: string, id: string, ae?: string, status?: string, info?: VersionInfo): Promise<void> {
+  if (ae && /not assigned/i.test(ae)) ae = undefined;
+  if (info?.ae && /not assigned/i.test(info.ae)) info = { ...info, ae: undefined };
   if (!ae && !status && !info) return Promise.resolve();
   return serial(async () => {
     const got = await chrome.storage.local.get(KEY.seen);
