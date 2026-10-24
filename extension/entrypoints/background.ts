@@ -7,6 +7,8 @@ import { appendCapped, type LogEntry } from '../lib/log';
 import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
+import { addRoles, type KnownRoles, type Role } from '../lib/roles';
+import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
 
@@ -60,6 +62,10 @@ export default defineBackground(() => {
     const tabId = sender.tab?.id;
     if (msg.type === 'parsed' && tabId !== undefined) {
       void onParsed(tabId, msg.result, msg.reason, msg.title);
+    } else if (msg.type === 'roles') {
+      void rememberRoles(msg.site, msg.roles);
+    } else if (msg.type === 'eic') {
+      void updateEic(msg.set, msg.remove);
     } else if (msg.type === 'version-info') {
       void rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info);
     } else if (msg.type === 'ae-load') {
@@ -90,6 +96,35 @@ export default defineBackground(() => {
 const MENU_TOGGLE = 'toggle-site';
 const ICON = (dir: string) => ({ 16: `${dir}/16.png`, 32: `${dir}/32.png`, 48: `${dir}/48.png`, 128: `${dir}/128.png` });
 
+/** Add roles seen on a site; roles are never forgotten (except by Clear all data). */
+function rememberRoles(site: string, roles: Role[]): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.roles))[KEY.roles] as Record<string, KnownRoles> | undefined) ?? {};
+    const next = addRoles(all[site] ?? {}, roles, new Date().toISOString().slice(0, 10));
+    if (Object.keys(next).length === Object.keys(all[site] ?? {}).length) return;
+    await chrome.storage.local.set({ [KEY.roles]: { ...all, [site]: next } });
+    await log({ level: 'info', source: 'background', event: 'roles learned', data: { site, roles: Object.keys(next) } });
+  });
+}
+
+/** Add or update one To EIC item, or remove one. */
+function updateEic(set?: EicItem, remove?: string): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+    if (set) {
+      const prev = all[set.id];
+      // Keep the first date seen; a changed recommendation replaces the old one.
+      if (prev && prev.recommendation === set.recommendation && prev.title === set.title) return;
+      all[set.id] = { ...set, seen: prev?.seen ?? set.seen };
+    }
+    if (remove) {
+      if (!all[remove]) return;
+      delete all[remove];
+    }
+    await chrome.storage.local.set({ [KEY.eic]: all });
+  });
+}
+
 /** Drop manuscripts not viewed in two years, and their notes. At most once a day. */
 function pruneOld(): Promise<void> {
   return serial(async () => {
@@ -102,6 +137,11 @@ function pruneOld(): Promise<void> {
       new Date(),
     );
     await chrome.storage.local.set({ ...(r.dropped ? { [KEY.seen]: r.seen, [KEY.notes]: r.notes } : {}), [KEY.lastPrune]: Date.now() });
+    // To EIC items normally leave when the EIC acts; drop any left after two years too.
+    const eic = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+    const cutoff = new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
+    const keep = Object.fromEntries(Object.entries(eic).filter(([, m]) => m.seen >= cutoff));
+    if (Object.keys(keep).length !== Object.keys(eic).length) await chrome.storage.local.set({ [KEY.eic]: keep });
     if (r.dropped) await log({ level: 'info', source: 'background', event: 'pruned old manuscripts', data: { dropped: r.dropped } });
   });
 }

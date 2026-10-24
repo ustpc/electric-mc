@@ -9,11 +9,14 @@ import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelE
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 import { filterSeen, withNote } from '../../lib/seen';
+import type { KnownRoles } from '../../lib/roles';
+import { eicSummary, type EicItem } from '../../lib/recommend';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
 
-type Tab = 'page' | 'seen' | 'notes' | 'log' | 'settings';
+type Tab = 'page' | 'seen' | 'eic' | 'notes' | 'log' | 'settings';
+const TAB_LABEL: Partial<Record<Tab, string>> = { eic: 'To EIC' };
 
 interface TabState {
   result: ParseResult;
@@ -179,6 +182,9 @@ function App() {
   const url = useTabUrl(tabId);
   const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
   const dev = !!saved.developer;
+  // The To EIC list is for co-chairs: shown once co-chair privileges were seen on any site.
+  const roles = useStorage<Record<string, KnownRoles>>('local', KEY.roles, {});
+  const coChair = Object.values(roles).some((r) => !!r.coChair);
   const flash = useCallback((s: string) => {
     setToast(s);
     setTimeout(() => setToast(null), 3500);
@@ -220,9 +226,9 @@ function App() {
         </div>
         <StaleTab tabId={tabId} url={url} />
         <nav>
-          {((dev ? ['page', 'seen', 'notes', 'log', 'settings'] : ['page', 'seen', 'notes', 'settings']) as Tab[]).map((t) => (
+          {(['page', 'seen', ...(coChair ? ['eic'] : []), 'notes', ...(dev ? ['log'] : []), 'settings'] as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-              {t[0]!.toUpperCase() + t.slice(1)}
+              {TAB_LABEL[t] ?? t[0]!.toUpperCase() + t.slice(1)}
             </button>
           ))}
         </nav>
@@ -230,6 +236,7 @@ function App() {
       <main>
         {tab === 'page' && <PageView state={state} tabId={tabId} flash={flash} dev={dev} />}
         {tab === 'seen' && <SeenView tabId={tabId} url={url} flash={flash} />}
+        {tab === 'eic' && coChair && <EicView tabId={tabId} url={url} flash={flash} />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
         {tab === 'settings' && <SettingsView />}
@@ -408,6 +415,44 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   );
 }
 
+/**
+ * Manuscripts the person has recommended to the EIC and that are still
+ * waiting for the EIC. Kept only in this browser for now.
+ */
+function EicView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (s: string) => void }) {
+  const items = useStorage<Record<string, EicItem>>('local', KEY.eic, {});
+  const list = Object.values(items).sort((a, b) => a.seen.localeCompare(b.seen));
+  const open = async (id: string) => {
+    if (tabId === undefined || !panelEnabledFor(url)) return flash('Switch to a Manuscript Central tab first.');
+    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
+    if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
+  };
+  const remove = (id: string) => void chrome.runtime.sendMessage({ type: 'eic', remove: id });
+  const copy = async () => {
+    await navigator.clipboard.writeText(eicSummary(list));
+    flash('Copied. Paste it into a message to the EIC.');
+  };
+  return (
+    <section>
+      <h2>Waiting for the EIC ({list.length})</h2>
+      <p class="muted">Your recommendations, read from each manuscript's Recommendations box. An item leaves the list when the recommendation is gone (rescinded or acted on) or the decision letter is sent. Only the recommendation is kept, never your comments.</p>
+      <table>
+        <tr><th>ID</th><th>Title</th><th>Recommended</th><th>Seen</th><th /></tr>
+        {list.map((m) => (
+          <tr>
+            <td><a href="#" onClick={(e) => { e.preventDefault(); void open(m.id); }} title="Open in MC">{m.id}</a></td>
+            <td>{m.title ?? '—'}</td>
+            <td>{m.recommendation}</td>
+            <td class="muted">{m.seen}</td>
+            <td><button class="act" title="Remove from this list" onClick={() => remove(m.id)}>×</button></td>
+          </tr>
+        ))}
+      </table>
+      {list.length > 0 && <button class="act" onClick={() => void copy()}>Copy summary for the EIC</button>}
+    </section>
+  );
+}
+
 /** Notes save themselves: shortly after typing stops, on leaving the box, and on switching manuscript. */
 const NOTE_SAVE_MS = 600;
 
@@ -533,8 +578,8 @@ function summary(d: unknown): string {
  * tabs whose side panel is switched off, which Chrome needs to put it back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the log, AE assignment counts and the Opinions roster? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts and the Opinions roster? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.eic, KEY.roles]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }

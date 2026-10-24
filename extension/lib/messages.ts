@@ -5,6 +5,8 @@ import type { ParseResult } from '../parsers/types';
 import type { Level } from './log';
 import type { AeLoadEntry } from './aeload';
 import type { VersionInfo } from './milestones';
+import type { EicItem } from './recommend';
+import type { Role } from './roles';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
@@ -12,6 +14,8 @@ export type Msg =
   | { type: 'disabled' }
   | { type: 'version-info'; baseId: string; id: string; ae?: string; status?: string; info?: VersionInfo; source: 'backend' | 'page' }
   | { type: 'ae-load'; journal: string; entries: AeLoadEntry[] }
+  | { type: 'roles'; site: string; roles: Role[] }
+  | { type: 'eic'; set?: EicItem; remove?: string }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -146,6 +150,10 @@ export const KEY = {
   aeLoad: 'aeLoad',
   /** The Opinions roster the person loaded for the matrix (lib/roster.ts). */
   roster: 'roster',
+  /** MC roles seen, per site (lib/roles.ts). */
+  roles: 'roles',
+  /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
+  eic: 'eic',
   tab: (id: number) => `tab:${id}`,
 } as const;
 

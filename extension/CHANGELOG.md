@@ -2,6 +2,12 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.33 (2026-10-24)
+
+- Manuscript IDs on MC's grids are links that do what the Take Action checkbox does.
+- New To EIC tab for co-chairs: your recommendations to the EIC, read from each manuscript's Recommendations box, also noted in the grid's Status column until the EIC acts. Copy summary for the EIC copies the list.
+- The extension learns your MC roles (EIC, co-chair, AE, reviewer, author) as you use MC and remembers them across role switches.
+
 ## 0.0.32 (2026-10-23)
 
 - New: the Opinions editorial matrix, in its own window (**Matrix** at the top of the side panel). It shows each column head's and AE's current number of assigned manuscripts, read from MC's Assign Associate Editor pull-down whenever you open it.

@@ -83,6 +83,13 @@ contact links and headshots of the section's editors) is not part of the
 extension. You load it from a file, and it is kept in `chrome.storage.local`
 in that browser only, like the AE counts. Clear all data removes both.
 
+**The To EIC list and your roles.** The extension keeps, in
+`chrome.storage.local` only, each recommendation you sent to the EIC
+(manuscript ID, title, the recommendation, and when it was first seen) and
+which MC roles you have. It never keeps your comments to the EIC or the
+author. Items leave the list when the EIC acts; Clear all data removes the
+list and the roles.
+
 Details: [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
 
@@ -204,3 +211,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
 | 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |
 | 2026-10-23 | The editorial matrix: AE assignment counts read from MC's pull-down, and a roster loaded from a file, both kept in local storage only; Clear all data removes them (extension 0.0.32). |
+| 2026-10-24 | The To EIC list (your recommendations, without comments) and the MC roles you have, kept in local storage only; Clear all data removes them (extension 0.0.33). |

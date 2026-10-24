@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.31). The version shows
+Semantic versioning, set in `package.json` (now 0.0.33). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -84,6 +84,20 @@ build instead.
   presses Take Action on the result. Settings can also press Take Action
   after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
+- **Clickable IDs.** On MC's grids, the manuscript ID is a link that does
+  what the Take Action checkbox does.
+- **To EIC tab** (co-chairs only). When you recommend a decision under
+  Co-Chair Recommends, the extension reads it from the manuscript's
+  Recommendations box, adds it to the To EIC list, and notes it in brown in
+  the grid's Status column ("you recommended Reject …; waiting for the
+  EIC"), since MC keeps the manuscript in Awaiting AE Assignment. It leaves
+  the list when the recommendation is gone (rescinded or acted on) or the
+  decision letter is sent. **Copy summary for the EIC** copies the list as
+  text. Only the recommendation is kept, never your comments.
+- **Roles.** The extension learns which MC roles you have (EIC, co-chair,
+  AE, reviewer, author) from the role switcher and the pages you visit, and
+  remembers them when you switch roles. The To EIC tab appears once it has
+  seen that you're a co-chair.
 - **Notes tab.** Per-manuscript notes, stored only in this browser. They
   save as you type; there's no Save button.
 - **Editorial matrix.** **Matrix** (top of the side panel) opens the

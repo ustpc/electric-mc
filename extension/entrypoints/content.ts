@@ -18,6 +18,10 @@ import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { journalKey, readAeLoad } from '../lib/aeload';
+import { linkIds, unlinkIds } from '../lib/idlink';
+import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
+import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { rolesIn as editorBlock } from '../parsers/dom';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -43,6 +47,8 @@ async function start() {
   let timer: number | undefined;
 
   const enabled = () => isEnabledFor(settings, location.href);
+  // Recommendations sent to the EIC, kept up to date from storage.
+  let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
 
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
@@ -73,6 +79,8 @@ async function start() {
     recordLetters(r);
     recordThisVersion(r);
     recordAeLoad();
+    recordRoles(r);
+    recordRecommendation(r);
     if (reason === 'load') followSearch(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
@@ -83,9 +91,43 @@ async function start() {
     }
     if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
     else clearHighlights(document);
+    if (r.pageType === 'queue-list') {
+      linkIds(document, settings.idPattern);
+      annotateEicRows(document, eicItems, settings.idPattern);
+    }
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
+  };
+
+  // The person's roles, from the role switcher and breadcrumb; sent only when new.
+  const rolesSent = new Set<string>();
+  const recordRoles = (r: ParseResult) => {
+    const found = rolesNamed(roleLabels(document, r.breadcrumb)).filter((x) => !rolesSent.has(x));
+    if (!found.length || !r.site) return;
+    found.forEach((x) => rolesSent.add(x));
+    send({ type: 'roles', site: r.site, roles: found });
+  };
+
+  // The person's own recommendation to the EIC, from the Recommendations box
+  // on the details page. It leaves the To EIC list when it's gone from the
+  // box (rescinded or acted on) or a decision letter has gone out.
+  const recordRecommendation = (r: ParseResult) => {
+    const m = r.manuscript;
+    if (!m) return;
+    const box = recommendationsBox(document);
+    const mine = box && myRecommendation(readRecommendations(box), editorBlock(document.body).get('cc'));
+    if (mine) {
+      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today() };
+      const had = eicItems[m.id];
+      if (!had || had.recommendation !== item.recommendation || had.title !== item.title) {
+        send({ type: 'eic', set: item });
+        send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
+      }
+    } else if (eicItems[m.id] && (box || decisionLettersIn(document, settings.idPattern).has(m.id))) {
+      send({ type: 'eic', remove: m.id });
+      send({ type: 'log', level: 'info', event: 'recommendation to EIC cleared', data: { reason: box ? 'no longer in Recommendations' : 'decision sent' } });
+    }
   };
 
   // MC's AE-assignment pull-down shows each editor's current number of
@@ -262,7 +304,8 @@ async function start() {
     clearHighlights(document);
     clearRestyle(document);
     hidePageHeader(document, false);
-    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"]`).forEach((e) => e.remove());
+    unlinkIds(document);
+    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
@@ -302,6 +345,11 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes[KEY.eic]) {
+      eicItems = (changes[KEY.eic]!.newValue as Record<string, EicItem> | undefined) ?? {};
+      if (enabled() && last?.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
+      return;
+    }
     if (area !== SETTINGS_AREA || !changes[KEY.settings]) return;
     void getSettings().then((s) => {
       const was = enabled();
@@ -325,6 +373,12 @@ async function start() {
  */
 async function askBackend(_baseId: string): Promise<Record<string, string> | null> {
   return null;
+}
+
+/** Today as yyyy-mm-dd, local time. */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function idsKey(r: ParseResult): string {
