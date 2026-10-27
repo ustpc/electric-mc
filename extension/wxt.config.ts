@@ -16,7 +16,9 @@ export default defineConfig({
     description: STORE
       ? 'Makes ScholarOne Manuscripts easier for editors: readable tab titles, highlighted revisions, earlier-version AEs, and easier login.'
       : 'Parses Manuscript Central pages, rewrites page titles, and logs what it finds so the parsers can be validated.',
-    permissions: ['storage', 'sidePanel', 'downloads', 'tabs', 'contextMenus'],
+    // Test builds may also hand the log to a helper on this computer
+    // (Developer mode only; see tools/log-host). Store builds never do.
+    permissions: ['storage', 'sidePanel', 'downloads', 'tabs', 'contextMenus', ...(STORE ? [] : ['nativeMessaging'])],
     host_permissions: ['https://*.manuscriptcentral.com/*'],
     icons: { 16: 'icon/16.png', 32: 'icon/32.png', 48: 'icon/48.png', 128: 'icon/128.png' },
     action: {

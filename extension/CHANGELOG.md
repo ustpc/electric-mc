@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.34 (2026-10-27)
+
+- Live log file for developers: in Developer mode, test builds append every log entry to `var/electric-mc.log` in the repository on your own computer, as it happens. Set it up once with `make install-log-host`. It needs the new `nativeMessaging` permission, in test builds only; the Web Store build doesn't have it.
+
 ## 0.0.33 (2026-10-24)
 
 - Manuscript IDs on MC's grids are links that do what the Take Action checkbox does.

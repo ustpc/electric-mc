@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.33). The version shows
+Semantic versioning, set in `package.json` (now 0.0.34). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -125,6 +125,26 @@ build instead.
   developer mode. Preferences are kept in Chrome's sync storage, so they
   follow your Chrome profile to other computers; no Electric MC account is
   needed.
+
+## Live log file (developer mode)
+
+Chrome doesn't let an extension write files, so the log normally lives
+inside the browser until you export it. For a live file instead, run once:
+
+```sh
+make install-log-host
+```
+
+It registers a small helper (`tools/log-host/`) with Chrome. In Developer
+mode the extension connects to it, Chrome starts it, and each log entry is
+sent to it as a message and appended as one JSON line to
+`var/electric-mc.log` at the top of the repository (git ignores `var/`).
+Chrome stops the helper when the extension goes idle and restarts it with
+the next entry. The file holds real manuscript data in Developer mode: it
+stays on your computer. It needs the `nativeMessaging` permission, which
+only test builds have. If chrome://extensions shows Electric MC with an ID
+other than the one the command prints, run
+`make install-log-host EXT_ID=<that ID>`. `make uninstall-log-host` removes it.
 
 ## Checking the parsers
 

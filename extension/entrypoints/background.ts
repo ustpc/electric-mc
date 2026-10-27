@@ -4,6 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
+import { createLiveLog } from '../lib/livelog';
 import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
@@ -29,6 +30,7 @@ export default defineBackground(() => {
   chrome.sidePanel.setOptions({ path: PANEL_PATH, enabled: true }).catch(() => {});
   // No alarms permission, so old data is pruned when the worker starts, at most daily.
   void pruneOld();
+  void getSettings().then((s) => (developer = !!s.developer));
   void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
 
   chrome.runtime.onInstalled.addListener((d) => {
@@ -54,6 +56,7 @@ export default defineBackground(() => {
   });
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area === SETTINGS_AREA && ch[KEY.settings]) {
+      developer = !!(ch[KEY.settings]!.newValue as { developer?: boolean } | undefined)?.developer;
       void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
     }
   });
@@ -245,11 +248,18 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
   return p;
 }
 
+// In Developer mode, test builds also append every entry to a file on this
+// computer (lib/livelog.ts, set up with `make install-log-host`).
+let developer = false;
+const live = createLiveLog(chrome.runtime.connectNative?.bind(chrome.runtime), () => chrome.runtime.lastError?.message);
+
 function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
+  const entry: LogEntry = { ts: new Date().toISOString(), ...e };
+  if (developer) live.send(entry);
   return serial(async () => {
     const got = await chrome.storage.local.get(KEY.log);
     const list = (got[KEY.log] as LogEntry[] | undefined) ?? [];
-    await chrome.storage.local.set({ [KEY.log]: appendCapped(list, { ts: new Date().toISOString(), ...e }) });
+    await chrome.storage.local.set({ [KEY.log]: appendCapped(list, entry) });
   });
 }
 
