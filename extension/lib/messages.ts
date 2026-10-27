@@ -3,13 +3,19 @@
 
 import type { ParseResult } from '../parsers/types';
 import type { Level } from './log';
+import type { AeLoadEntry } from './aeload';
 import type { VersionInfo } from './milestones';
+import type { EicItem } from './recommend';
+import type { Role } from './roles';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
   | { type: 'log'; level: Level; event: string; data?: unknown }
   | { type: 'disabled' }
   | { type: 'version-info'; baseId: string; id: string; ae?: string; status?: string; info?: VersionInfo; source: 'backend' | 'page' }
+  | { type: 'ae-load'; journal: string; entries: AeLoadEntry[] }
+  | { type: 'roles'; site: string; roles: Role[] }
+  | { type: 'eic'; set?: EicItem; remove?: string }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -42,7 +48,7 @@ export interface Settings {
   autoLogin: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
-  /** On a revision, look up the AE of every earlier version in the background. */
+  /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
   lookupEarlierVersions: boolean;
   /** Widen MC's fixed-width column to the window, less half an inch each side. */
   fullWidth: boolean;
@@ -80,6 +86,34 @@ export function isEnabledFor(s: Settings, url: string | undefined): boolean {
   }
 }
 
+/**
+ * Whether the side panel shows on this tab: on Manuscript Central only, even
+ * where the extension is switched off, since the switch is in the panel.
+ */
+export function panelEnabledFor(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && /(^|\.)manuscriptcentral\.com$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
+
+export const PANEL_PATH = 'sidepanel.html';
+
+/**
+ * The side panel options to set for one tab, or null to leave the tab on the
+ * window-wide panel (so it follows the person across MC tabs). Non-MC tabs
+ * are switched off. An MC tab we switched off before gets its own panel back
+ * with the path: Chrome can't drop a tab's override, and an override that is
+ * enabled but has no path leaves nothing to open (0.0.27).
+ */
+export function panelOptionsFor(url: string | undefined, wasDisabled: boolean): { enabled: boolean; path?: string } | null {
+  if (!panelEnabledFor(url)) return { enabled: false };
+  return wasDisabled ? { enabled: true, path: PANEL_PATH } : null;
+}
+
 export async function setHostEnabled(host: string, enabled: boolean): Promise<void> {
   const s = await getSettings();
   const others = s.disabledHosts.filter((h) => h !== host);
@@ -111,6 +145,15 @@ export const KEY = {
   log: 'log',
   seen: 'seen',
   notes: 'notes',
+  lastPrune: 'lastPrune',
+  /** AE workloads read from MC's assignment pull-down, by journal (lib/aeload.ts). */
+  aeLoad: 'aeLoad',
+  /** The Opinions roster the person loaded for the matrix (lib/roster.ts). */
+  roster: 'roster',
+  /** MC roles seen, per site (lib/roles.ts). */
+  roles: 'roles',
+  /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
+  eic: 'eic',
   tab: (id: number) => `tab:${id}`,
 } as const;
 

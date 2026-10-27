@@ -12,7 +12,13 @@ nothing off your device and uses no analytics or tracking. It reads
 Manuscript Central pages in your browser to restyle them and rename tabs.
 Your settings are stored in `chrome.storage.sync`, so they follow your Chrome
 profile. Page data and debug logs are stored in `chrome.storage.local`, in
-that browser only, and leave it only if you export a log yourself.
+that browser only, and leave it only if you export a log yourself. Test
+builds can also append the log, in developer mode only, to a file on the
+same computer through a helper you install yourself (`make
+install-log-host`); nothing is sent anywhere else.
+Manuscripts you haven't viewed in 2 years are removed from that storage
+automatically, with your notes on them, and **Clear all data** in Settings
+removes all of it at once (extension 0.0.30).
 
 The rest of this page also covers **planned** features: the shared backend,
 chat, activity tracking, AE recruitment, matching, and email (sections 4 to
@@ -56,6 +62,9 @@ turn it off for a site, it:
   assigned, so it can show the right chat and rename the browser tab (the tab
   title rewrite makes your browser history readable);
 - restyles the page. Styling rules are data, never remote code;
+- reads the Assign Associate Editor pull-down when it is on the page, and
+  keeps each editor's name and current number of assigned manuscripts, the
+  latest reading only, for the editorial matrix (extension 0.0.32);
 - (planned) if you opt in, notes when the tab is visible and you are active (mouse,
   keyboard, focus, Chrome idle state). It never records keystrokes, page
   content, or screenshots.
@@ -71,6 +80,18 @@ are only feature switches, layout options, and the list of Manuscript
 Central sites where you turned the extension off. No manuscript data is
 synced: page data and logs stay in `chrome.storage.local`, in that browser
 only.
+
+**The editorial matrix's roster** (names, roles, affiliations, public
+contact links and headshots of the section's editors) is not part of the
+extension. You load it from a file, and it is kept in `chrome.storage.local`
+in that browser only, like the AE counts. Clear all data removes both.
+
+**The To EIC list and your roles.** The extension keeps, in
+`chrome.storage.local` only, each recommendation you sent to the EIC
+(manuscript ID, title, the recommendation, and when it was first seen) and
+which MC roles you have. It never keeps your comments to the EIC or the
+author. Items leave the list when the EIC acts; Clear all data removes the
+list and the roles.
 
 Details: [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
@@ -191,3 +212,7 @@ staff will be switched on later, and this page will say so.
 |------|--------|
 | 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
 | 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
+| 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |
+| 2026-10-23 | The editorial matrix: AE assignment counts read from MC's pull-down, and a roster loaded from a file, both kept in local storage only; Clear all data removes them (extension 0.0.32). |
+| 2026-10-24 | The To EIC list (your recommendations, without comments) and the MC roles you have, kept in local storage only; Clear all data removes them (extension 0.0.33). |
+| 2026-10-27 | Test builds in developer mode can append the log to a local file through a helper the user installs (native messaging; not in the Web Store build) (extension 0.0.34). |

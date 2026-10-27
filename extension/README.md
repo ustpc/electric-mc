@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.25). The version shows
+Semantic versioning, set in `package.json` (now 0.0.35). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -55,10 +55,11 @@ build instead.
   yellow. Turn it off in Settings.
 - **Earlier versions.** Every manuscript page you open records that
   version's AE and dates. On a revision's details page the extension writes
-  each earlier version's AE under its ID in Version History (or asks you to
-  open that version once, if it hasn't seen it). It never clicks MC's Switch
-  Details links for you, since they move the whole tab. It also adds two
-  rows at the bottom of Peer Review Milestones: when the previous version was submitted and its decision sent
+  each earlier version's AE under its ID in Version History. For a version
+  it hasn't seen, the note asks you to open that version once. Nothing is
+  looked up in the background any more: loading MC pages beside your tab
+  logged you out (0.0.26 to 0.0.33). It also adds two rows at the bottom of Peer Review
+  Milestones: when the previous version was submitted and its decision sent
   (with the days between), and that version's AE and co-chair. The decision
   date comes from the decision letter in the Audit Trail. When the
   backend exists it will answer from the assignment emails first. Everything
@@ -66,9 +67,14 @@ build instead.
 - **Attach.** When you choose a file on an upload page, the extension
   presses that file's Attach button for you. It's on by default, and you can
   turn it off in Settings.
+- **Live log file** (test builds, developer mode): see "Live log file"
+  below. The Log tab shows whether the file is being written.
 - **Developer mode** (Settings, off by default). Turns on the on-page debug
   pill, the page type on the toolbar icon, full parse results in the log, the
   Log tab, capture and the raw JSON. With it off, the log holds only problems.
+- **Side panel only on MC.** The side panel appears only on Manuscript
+  Central tabs. It hides when you switch to any other tab, follows you from
+  one MC tab to the next, and the popped-out window stays.
 - **Side panel, Page tab.** Everything parsed from the current tab. **Pop
   out** moves the panel into its own window, which follows whatever MC tab you
   are on; **Pop in** puts it back.
@@ -77,7 +83,35 @@ build instead.
   presses Take Action on the result. Settings can also press Take Action
   after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
-- **Notes tab.** Per-manuscript notes, stored only in this browser.
+- **Clickable IDs.** On MC's grids, the manuscript ID is a link that does
+  what the Take Action checkbox does.
+- **To EIC tab** (co-chairs only). When you recommend a decision under
+  Co-Chair Recommends, the extension reads it from the manuscript's
+  Recommendations box, adds it to the To EIC list, and notes it in brown in
+  the grid's Status column ("you recommended Reject …; waiting for the
+  EIC"), since MC keeps the manuscript in Awaiting AE Assignment. It leaves
+  the list when the recommendation is gone (rescinded or acted on) or the
+  decision letter is sent. **Copy summary for the EIC** copies the list as
+  text. Only the recommendation is kept, never your comments.
+- **Roles.** The extension learns which MC roles you have (EIC, co-chair,
+  AE, reviewer, author) from the role switcher and the pages you visit, and
+  remembers them when you switch roles. The To EIC tab appears once it has
+  seen that you're a co-chair.
+- **Notes tab.** Per-manuscript notes, stored only in this browser. They
+  save as you type; there's no Save button.
+- **Editorial matrix.** **Matrix** (top of the side panel) opens the
+  Opinions editorial matrix in its own window: every column head, columnist
+  and associate editor, with each one's current number of assigned
+  manuscripts in bold brown. The counts are read from MC's Assign Associate
+  Editor pull-down whenever it is on the page, and the window shows when they
+  were read. The extension ships no names: press **Load roster…** and choose
+  the `roster.json` that `make export` writes in
+  [cacm-opn-dashboard](https://github.com/ustpc/cacm-opn-dashboard). Editors
+  in MC's list who aren't in the roster are listed at the bottom.
+- **Stored data.** Manuscripts you haven't viewed in 2 years, and their
+  notes, are removed automatically. **Clear all data** (bottom of Settings)
+  removes the Seen list, notes, log, AE counts and roster at once, and keeps
+  your settings.
 - **Log tab** (developer mode). The debug log. **Export for sharing (redacted)** saves a JSON
   file without names, titles, emails or manuscript IDs; send that one to us.
   **Export full** keeps everything, for your own use only.
@@ -90,6 +124,26 @@ build instead.
   developer mode. Preferences are kept in Chrome's sync storage, so they
   follow your Chrome profile to other computers; no Electric MC account is
   needed.
+
+## Live log file (developer mode)
+
+Chrome doesn't let an extension write files, so the log normally lives
+inside the browser until you export it. For a live file instead, run once:
+
+```sh
+make install-log-host
+```
+
+It registers a small helper (`tools/log-host/`) with Chrome. In Developer
+mode the extension connects to it, Chrome starts it, and each log entry is
+sent to it as a message and appended as one JSON line to
+`var/electric-mc.log` at the top of the repository (git ignores `var/`).
+Chrome stops the helper when the extension goes idle and restarts it with
+the next entry. The file holds real manuscript data in Developer mode: it
+stays on your computer. It needs the `nativeMessaging` permission, which
+only test builds have. If chrome://extensions shows Electric MC with an ID
+other than the one the command prints, run
+`make install-log-host EXT_ID=<that ID>`. `make uninstall-log-host` removes it.
 
 ## Checking the parsers
 

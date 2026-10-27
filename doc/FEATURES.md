@@ -33,6 +33,22 @@ pitch to associate editors. "Now" means it works in the test extension today.
   manuscript on screen, which pops out into its own window.
 - **Private notes per manuscript (now).** Kept only in your browser.
 
+## For co-chairs
+
+- **What's waiting for the EIC (now).** Recommend a decision under
+  Co-Chair Recommends and the extension keeps it in a To EIC list and marks
+  the manuscript in the queue grid, which MC itself doesn't, until the EIC
+  acts. One click copies the list for the EIC.
+- **Click the ID to open a manuscript (now).** No more aiming for the
+  little Take Action checkbox.
+
+- **The editorial matrix, with workloads (now).** One window lists the
+  whole section team (column heads, columnists and associate editors) with
+  photos, roles, institutions and expertise, and shows next to each editor
+  how many manuscripts they have right now, as MC's Assign Associate Editor
+  pull-down reports it. Search by name, column or expertise. No web hosting:
+  the roster is a file you load, and it stays in your browser.
+
 ## Privacy
 
 - Nothing leaves your browser in the test extension.

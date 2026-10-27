@@ -1,10 +1,10 @@
 # Everyday commands for the Electric MC extension. Run "make" for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help update install build test typecheck check dev zip store clean
+.PHONY: help update install build test typecheck check dev zip store clean install-log-host uninstall-log-host
 
 help: ## List the commands
-	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-20s %s\n", $$1, $$2}'
 
 update: ## Pull the latest code, install packages, and build
 	git pull
@@ -37,6 +37,12 @@ zip: install ## Zip a test build into build/
 
 store: install ## Zip the Chrome Web Store package into build/
 	npm run zip:store
+
+install-log-host: ## Let test builds write the live log to ../var/electric-mc.log (macOS Chrome)
+	python3 tools/log-host/install.py $(if $(EXT_ID),--ext-id $(EXT_ID))
+
+uninstall-log-host: ## Unregister the live log helper
+	python3 tools/log-host/install.py --uninstall
 
 clean: ## Remove build output
 	rm -rf build .wxt
