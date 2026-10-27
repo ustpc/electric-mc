@@ -4,6 +4,7 @@
 // The click goes through pageClick, since MC's action is a javascript: link.
 
 import { pageClick } from './click';
+import { EMC_STYLE } from './milestones';
 import { parseManuscriptId } from './ids';
 import { labelKey, textOf } from './text';
 
@@ -47,7 +48,8 @@ function wrapId(doc: Document, cell: Element, id: string, action: HTMLElement): 
     a.href = '#';
     a.setAttribute('data-electric-mc', MARK);
     a.title = 'Open (same as Take Action)';
-    a.style.cssText = 'color:inherit;text-decoration:underline;cursor:pointer';
+    // E-MC's brown, like everything else the extension adds to MC's pages.
+    a.style.cssText = `${EMC_STYLE};text-decoration:underline;cursor:pointer`;
     a.addEventListener('click', (e) => {
       e.preventDefault();
       pageClick(action);

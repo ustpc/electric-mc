@@ -89,10 +89,6 @@ export default defineBackground(() => {
 
   chrome.tabs.onRemoved.addListener((tabId) => {
     void chrome.storage.session.remove(KEY.tab(tabId));
-    void serial(async () => {
-      const off = await panelOffTabs();
-      if (off.delete(tabId)) await savePanelOff(off);
-    });
   });
 });
 
@@ -149,34 +145,17 @@ function pruneOld(): Promise<void> {
   });
 }
 
-/**
- * Tabs given a panel-off override, kept in session storage because the
- * service worker is stopped between events.
- */
-const PANEL_OFF = 'panelOff';
-async function panelOffTabs(): Promise<Set<number>> {
-  const got = await chrome.storage.session.get(PANEL_OFF).catch(() => ({}) as Record<string, unknown>);
-  return new Set((got[PANEL_OFF] as number[] | undefined) ?? []);
-}
-function savePanelOff(tabs: Set<number>): Promise<void> {
-  return chrome.storage.session.set({ [PANEL_OFF]: [...tabs] }).catch(() => {});
-}
-
 async function refreshTab(tabId: number) {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) return;
   const onMc = panelEnabledFor(tab.url);
-  // Non-MC tabs are switched off; see panelOptionsFor for MC tabs.
-  await serial(async () => {
-    const off = await panelOffTabs();
-    const options = panelOptionsFor(tab.url, off.has(tabId));
-    if (!options) return;
-    await chrome.sidePanel.setOptions({ tabId, ...options }).catch(() => {});
-    const before = off.size;
-    if (options.enabled) off.delete(tabId);
-    else off.add(tabId);
-    if (off.size !== before) await savePanelOff(off);
-  });
+  // Non-MC tabs are switched off; see panelOptionsFor for MC tabs. Chrome
+  // is asked what the tab has now, rather than remembering which tabs we
+  // switched off: that record was lost when the extension reloaded, while
+  // Chrome kept the tab switched off, so the panel wouldn't open (0.0.35).
+  const now = await chrome.sidePanel.getOptions({ tabId }).catch(() => null);
+  const options = panelOptionsFor(tab.url, !!now && (!now.enabled || !now.path));
+  if (options) await chrome.sidePanel.setOptions({ tabId, ...options }).catch(() => {});
   const enabled = isEnabledFor(await getSettings(), tab.url);
   // setIcon reports a vanished tab through runtime.lastError even when its
   // promise is caught, so it gets a callback that reads the error.
