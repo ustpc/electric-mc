@@ -1,7 +1,10 @@
 // Login page help. Password managers (1Password, Chrome) look for standard
 // autocomplete hints and a form around the fields; Manuscript Central's
 // login page doesn't give them reliably. We add the hints, and optionally
-// press "Log In" once a password manager has filled both fields.
+// press "Log In" once a password manager has filled both fields. The
+// "Create an Account" links are tucked behind a "more..." button.
+
+import { EMC_STYLE } from './milestones';
 
 export interface LoginFields {
   user: HTMLInputElement;
@@ -91,4 +94,55 @@ export function watchForAutofill(f: LoginFields, onSubmit: (how: string) => void
       el.removeEventListener('change', check);
     }
   };
+}
+
+const ACCOUNT_LINK = /^\s*create an? account\s*$/i;
+const TUCKED = 'tucked-link';
+const MORE = 'more-links';
+
+/**
+ * Tuck MC's "Create an Account" links behind one bold brown "more..."
+ * button on the login page, which brings them back when clicked. Password
+ * managers may read the sign-up wording as a registration form and offer to
+ * generate a password instead of filling the saved login. Safe to call
+ * repeatedly: links that appear later are tucked behind the same button.
+ */
+export function tuckAccountLinks(doc: Document): number {
+  if (doc.querySelector(`[data-electric-mc="${MORE}"][data-shown]`)) return 0;
+  const links = Array.from(doc.querySelectorAll<HTMLElement>('a, button')).filter(
+    (el) => ACCOUNT_LINK.test(el.textContent ?? '') && !el.hasAttribute('data-electric-mc'),
+  );
+  if (!links.length) return 0;
+  for (const el of links) {
+    el.setAttribute('data-electric-mc', TUCKED);
+    el.setAttribute('data-emc-display', el.style.display);
+    el.style.setProperty('display', 'none', 'important');
+  }
+  if (!doc.querySelector(`[data-electric-mc="${MORE}"]`)) {
+    const more = doc.createElement('button');
+    more.type = 'button';
+    more.textContent = 'more...';
+    more.title = 'Show "Create an Account" (hidden by Electric MC)';
+    more.setAttribute('data-electric-mc', MORE);
+    more.style.cssText = `${EMC_STYLE};background:none;border:0;padding:0;cursor:pointer;font:inherit;font-weight:700`;
+    more.addEventListener('click', (e) => {
+      e.preventDefault();
+      untuckAccountLinks(doc);
+      more.setAttribute('data-shown', '');
+      more.style.display = 'none';
+    });
+    links[0]!.after(more);
+  }
+  return links.length;
+}
+
+/** Bring the tucked links back. */
+export function untuckAccountLinks(doc: Document): void {
+  doc.querySelectorAll<HTMLElement>(`[data-electric-mc="${TUCKED}"]`).forEach((el) => {
+    el.style.removeProperty('display');
+    const was = el.getAttribute('data-emc-display');
+    if (was) el.style.display = was;
+    el.removeAttribute('data-emc-display');
+    el.removeAttribute('data-electric-mc');
+  });
 }

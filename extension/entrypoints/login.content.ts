@@ -4,7 +4,7 @@
 // document_start and labels the fields the moment MC's HTML creates them.
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import { annotateLogin, findLoginFields } from '../lib/login';
+import { annotateLogin, findLoginFields, tuckAccountLinks } from '../lib/login';
 import { getSettings, isEnabledFor } from '../lib/messages';
 
 export default defineContentScript({
@@ -20,6 +20,7 @@ export default defineContentScript({
       // One password field only: never a sign-up or change-password form.
       if (!f || document.querySelectorAll('input[type=password]').length !== 1) return;
       annotateLogin(f);
+      tuckAccountLinks(document);
       done = true;
       observer.disconnect();
     };
@@ -27,6 +28,8 @@ export default defineContentScript({
     observer.observe(document.documentElement, { childList: true, subtree: true });
     document.addEventListener('DOMContentLoaded', () => {
       tryAnnotate();
+      // Links drawn after the fields were found go behind the same button.
+      if (done) tuckAccountLinks(document);
       observer.disconnect();
     });
     void getSettings().then((s) => {

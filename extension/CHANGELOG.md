@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.38 (2026-10-27)
+
+- On MC's login page, the two "Create an Account" links are replaced by one bold brown "more..." button that brings them back when clicked, in case the sign-up wording makes 1Password offer to generate a password instead of filling your login.
+
 ## 0.0.37 (2026-10-27)
 
 - Fixed: the side panel wouldn't open on an MC tab that had been on another page before (often the new-tab page), after the extension was reloaded or updated.

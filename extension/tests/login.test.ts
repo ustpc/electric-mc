@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
+import { annotateLogin, findLoginFields, tuckAccountLinks, watchForAutofill } from '../lib/login';
 
 const html = readFileSync(join(__dirname, 'fixtures', 'login.html'), 'utf8');
 
@@ -67,5 +67,41 @@ describe('login help', () => {
     vi.advanceTimersByTime(500);
     expect(click).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+});
+
+describe('tuckAccountLinks', () => {
+  const PAGE = `<nav><a href="#">Log In</a> <a href="#">Reset Password</a> <a href="#" id="nav-create">Create An Account</a></nav>
+    <div><label>User ID</label> <a href="#" id="side-create">Create an Account</a><input type="text"><input type="password"><button>Log In</button></div>`;
+
+  it('replaces both links with one brown "more..." button', () => {
+    document.body.innerHTML = PAGE;
+    expect(tuckAccountLinks(document)).toBe(2);
+    expect(document.getElementById('nav-create')!.style.display).toBe('none');
+    expect(document.getElementById('side-create')!.style.display).toBe('none');
+    const more = document.querySelectorAll<HTMLButtonElement>('[data-electric-mc="more-links"]');
+    expect(more).toHaveLength(1);
+    expect(more[0]!.textContent).toBe('more...');
+    expect(more[0]!.style.color).toMatch(/rgb\(180, 83, 9\)|#b45309/i);
+    expect(more[0]!.previousElementSibling!.id).toBe('nav-create');
+    // Reset Password and Log In are left alone.
+    expect(Array.from(document.querySelectorAll('a')).filter((a) => a.style.display === 'none')).toHaveLength(2);
+  });
+
+  it('brings them back when clicked, and stays out of the way after', () => {
+    document.body.innerHTML = PAGE;
+    tuckAccountLinks(document);
+    document.querySelector<HTMLButtonElement>('[data-electric-mc="more-links"]')!.click();
+    expect(document.getElementById('nav-create')!.style.display).toBe('');
+    expect(document.getElementById('side-create')!.style.display).toBe('');
+    expect(tuckAccountLinks(document)).toBe(0);
+  });
+
+  it('tucks a link drawn later behind the same button', () => {
+    document.body.innerHTML = PAGE;
+    tuckAccountLinks(document);
+    document.body.insertAdjacentHTML('beforeend', '<a href="#" id="late">Create an account</a>');
+    expect(tuckAccountLinks(document)).toBe(1);
+    expect(document.querySelectorAll('[data-electric-mc="more-links"]')).toHaveLength(1);
   });
 });
