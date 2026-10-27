@@ -8,6 +8,7 @@ import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabled
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
 import { closeLiveLog, liveLog } from '../lib/livelog';
+import { makeQueue } from '../lib/queue';
 import { addRoles, type KnownRoles, type Role } from '../lib/roles';
 import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
@@ -239,17 +240,14 @@ function defined<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 }
 
-// Storage writes are serialized so concurrent tabs don't drop each other's entries.
-let chain: Promise<unknown> = Promise.resolve();
-function serial<T>(fn: () => Promise<T>): Promise<T> {
-  const p = chain.then(fn, fn);
-  chain = p.catch(() => {});
-  return p;
-}
+// Storage writes are serialized so concurrent tabs don't drop each other's
+// entries. The log has its own queue, so data tasks can log (lib/queue.ts).
+const serial = makeQueue();
+const logQueue = makeQueue();
 
 function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
   const entry: LogEntry = { ts: new Date().toISOString(), ...e };
-  return serial(async () => {
+  return logQueue(async () => {
     const got = await chrome.storage.local.get(KEY.log);
     const list = (got[KEY.log] as LogEntry[] | undefined) ?? [];
     await chrome.storage.local.set({ [KEY.log]: appendCapped(list, entry) });
