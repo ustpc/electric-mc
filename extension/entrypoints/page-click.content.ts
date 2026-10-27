@@ -2,8 +2,6 @@
 // javascript: URLs, and Chrome blocks a javascript: URL that an extension's
 // content script clicks (it runs under the extension's CSP, not the page's).
 // The content script marks the element and asks this script to click it.
-// It runs in every frame, including the sealed frame the offscreen lookup
-// drives (lib/offscreen.ts); it does nothing until asked.
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { CLICK_ATTR, CLICK_EVENT } from '../lib/click';
@@ -11,7 +9,7 @@ import { CLICK_ATTR, CLICK_EVENT } from '../lib/click';
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
   runAt: 'document_start',
-  allFrames: true,
+  allFrames: false,
   world: 'MAIN',
   main() {
     document.addEventListener(CLICK_EVENT, (e) => {

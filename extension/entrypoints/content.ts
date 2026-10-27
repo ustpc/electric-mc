@@ -10,7 +10,6 @@ import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
 import { annotateVersionRow, findVersionLinks } from '../lib/versions';
-import { Unavailable, isOurFrame, lookupOffscreen } from '../lib/offscreen';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
@@ -29,8 +28,6 @@ export default defineContentScript({
   // Top frame only for now; frames would overwrite each other's tab state.
   allFrames: false,
   main() {
-    // Nothing in our own lookup frames (only the page-click script runs there).
-    if (isOurFrame(window)) return;
     void start();
   },
 });
@@ -160,8 +157,7 @@ async function start() {
 
   // Earlier versions: show each one's AE in the Version History table, and
   // add the previous version's dates and editors to Peer Review Milestones,
-  // from what was recorded when those versions were viewed, or else looked
-  // up in a sealed offscreen frame (lib/offscreen.ts). Once per manuscript
+  // from what was recorded when those versions were viewed. Once per manuscript
   // per page.
   const looked = new Set<string>();
   let milestones: { on: string; info: VersionInfo } | null = null;
@@ -196,44 +192,12 @@ async function start() {
           if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
         }
       });
-    const missing = infos.filter((i) => !i.ae).map((i) => i.id);
-    if (!missing.length || offscreenUnavailable || offscreenBusy) return show('AE: open this version once to record it');
-    show('AE: looking it up…');
-    offscreenBusy = true;
-    try {
-      const read = await lookupOffscreen({
-        doc: document,
-        current: m,
-        wanted: missing,
-        wantResponded: infos[0]!.responded ? undefined : infos[0]!.id,
-        idPattern: settings.idPattern,
-        signal: pageGone.signal,
-        log: (event, data) => send({ type: 'log', level: 'info', event, data }),
-      });
-      for (const [i, info] of infos.entries()) {
-        const r = read.get(info.id);
-        if (!r) continue;
-        infos[i] = { ...info, ...Object.fromEntries(Object.entries(r).filter(([, x]) => x)) };
-        send({ type: 'version-info', baseId: m.baseId, id: info.id, ae: infos[i]!.ae, info: infos[i], source: 'page' });
-      }
-    } catch (e) {
-      if (e instanceof Unavailable) {
-        offscreenUnavailable = true;
-        send({ type: 'log', level: 'warn', event: 'offscreen lookup unavailable', data: e.message });
-      } else {
-        send({ type: 'log', level: 'warn', event: 'offscreen lookup failed', data: (e as Error).message });
-      }
-    } finally {
-      offscreenBusy = false;
-    }
+    // Versions not opened yet have no AE here. They are never looked up in
+    // the background: loading MC pages beside the person's tab logged them
+    // out (0.0.26 to 0.0.33).
     show('AE: open this version once to record it');
   };
-  // One offscreen lookup at a time in this tab; none once the site won't allow it.
-  let offscreenBusy = false;
-  let offscreenUnavailable = false;
   let noLinksLogged = false;
-  const pageGone = new AbortController();
-  window.addEventListener('pagehide', () => pageGone.abort());
 
   // Any Audit Trail on screen tells us when decisions were sent; keep them.
   const recordLetters = (r: ParseResult) => {

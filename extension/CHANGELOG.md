@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.35 (2026-10-27)
+
+- Removed: the background lookup of earlier versions' AEs. It loaded MC pages beside your tab and logged you out. Earlier versions' AEs now come only from versions you've opened; open each original once and its AE shows on the revision.
+- The live log helper is now a small Python program, tested end to end with Chrome; the Log tab shows the file it writes to, or why it isn't available.
+
 ## 0.0.34 (2026-10-27)
 
 - Live log file for developers: in Developer mode, test builds append every log entry to `var/electric-mc.log` in the repository on your own computer, as it happens. Set it up once with `make install-log-host`. It needs the new `nativeMessaging` permission, in test builds only; the Web Store build doesn't have it.

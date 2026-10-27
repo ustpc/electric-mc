@@ -48,7 +48,7 @@ export interface Settings {
   autoLogin: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
-  /** On a revision, look up the AE of every earlier version in the background. */
+  /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
   lookupEarlierVersions: boolean;
   /** Widen MC's fixed-width column to the window, less half an inch each side. */
   fullWidth: boolean;

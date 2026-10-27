@@ -12,7 +12,10 @@ nothing off your device and uses no analytics or tracking. It reads
 Manuscript Central pages in your browser to restyle them and rename tabs.
 Your settings are stored in `chrome.storage.sync`, so they follow your Chrome
 profile. Page data and debug logs are stored in `chrome.storage.local`, in
-that browser only, and leave it only if you export a log yourself.
+that browser only, and leave it only if you export a log yourself. Test
+builds can also append the log, in developer mode only, to a file on the
+same computer through a helper you install yourself (`make
+install-log-host`); nothing is sent anywhere else.
 Manuscripts you haven't viewed in 2 years are removed from that storage
 automatically, with your notes on them, and **Clear all data** in Settings
 removes all of it at once (extension 0.0.30).
@@ -212,3 +215,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |
 | 2026-10-23 | The editorial matrix: AE assignment counts read from MC's pull-down, and a roster loaded from a file, both kept in local storage only; Clear all data removes them (extension 0.0.32). |
 | 2026-10-24 | The To EIC list (your recommendations, without comments) and the MC roles you have, kept in local storage only; Clear all data removes them (extension 0.0.33). |
+| 2026-10-27 | Test builds in developer mode can append the log to a local file through a helper the user installs (native messaging; not in the Web Store build) (extension 0.0.34). |

@@ -11,6 +11,7 @@ import type { ParseResult } from '../../parsers/types';
 import { filterSeen, withNote } from '../../lib/seen';
 import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
+import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -519,6 +520,18 @@ function NotesView({ current }: { current?: string }) {
   );
 }
 
+/** Whether the live log file is being written (test builds, developer mode). */
+function LiveLogStatus() {
+  const s = useStorage<LiveLogState | null>('session', LIVE_LOG_KEY, null);
+  if (!chrome.runtime.getManifest().permissions?.includes('nativeMessaging')) return null;
+  return (
+    <p class="muted">
+      Live log file:{' '}
+      {s?.state === 'writing' ? <code>{s.path}</code> : s ? `not available (${s.error ?? 'unknown'}). Run make install-log-host, then reload the extension.` : 'nothing written yet'}
+    </p>
+  );
+}
+
 function LogView({ flash }: { flash: (s: string) => void }) {
   const log = useStorage<LogEntry[]>('local', KEY.log, []);
   const [level, setLevel] = useState<Level | 'all'>('all');
@@ -541,6 +554,7 @@ function LogView({ flash }: { flash: (s: string) => void }) {
         <button class="act" onClick={() => void chrome.storage.local.set({ [KEY.log]: [] })}>Clear</button>
         <label class="chk"><input type="checkbox" checked={saveAs} onChange={(e) => setSaveAs((e.target as HTMLInputElement).checked)} />Ask where to save</label>
       </section>
+      <LiveLogStatus />
       <section>
         <h2>Log ({log.length} entries, newest first)</h2>
         <select value={level} onChange={(e) => setLevel((e.target as HTMLSelectElement).value as Level | 'all')}>
@@ -614,7 +628,7 @@ function SettingsView() {
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
-      {box('lookupEarlierVersions', 'On a revision, look up the AEs of earlier versions')}
+      {box('lookupEarlierVersions', "On a revision, show earlier versions' AEs (from versions you've opened)")}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
       {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
       {box('autoAttach', 'Press Attach as soon as I select a file')}
