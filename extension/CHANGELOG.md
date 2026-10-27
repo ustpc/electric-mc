@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.36 (2026-10-27)
+
+- Fixed: after the extension learned a new MC role, it stopped saving anything (the log, the Seen list, the To EIC list) until Chrome restarted its background script. With the live log keeping that script awake, it never recovered.
+
 ## 0.0.35 (2026-10-27)
 
 - Removed: the background lookup of earlier versions' AEs. It loaded MC pages beside your tab and logged you out. Earlier versions' AEs now come only from versions you've opened; open each original once and its AE shows on the revision.
