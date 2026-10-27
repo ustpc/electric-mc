@@ -5,6 +5,7 @@ Newest first. Every version bump gets an entry here.
 ## 0.0.37 (2026-10-27)
 
 - Fixed: the side panel wouldn't open on an MC tab that had been on another page before (often the new-tab page), after the extension was reloaded or updated.
+- Clickable manuscript IDs on the grids are now bold E-MC brown, so you can see they're links.
 
 ## 0.0.36 (2026-10-27)
 

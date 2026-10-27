@@ -93,3 +93,13 @@ describe('queue grid', () => {
     expect(eicSummary([ITEM])).toBe('Recommendations waiting for your decision (1):\n\nXYZJ-26-09-9011 "A Synthetic Paper": Reject (since 2026-10-23)');
   });
 });
+
+describe('ID links look like E-MC additions', () => {
+  it('are bold brown', () => {
+    document.body.innerHTML = GRID;
+    linkIds(document);
+    const a = document.querySelector<HTMLAnchorElement>('a[data-electric-mc="id-link"]')!;
+    expect(a.style.color).toMatch(/rgb\(180, 83, 9\)|#b45309/i);
+    expect(a.style.fontWeight).toBe('700');
+  });
+});
