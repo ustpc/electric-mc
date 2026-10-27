@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.37 (2026-10-27)
+
+- Fixed: the side panel wouldn't open on an MC tab that had been on another page before (often the new-tab page), after the extension was reloaded or updated.
+
 ## 0.0.36 (2026-10-27)
 
 - Fixed: after the extension learned a new MC role, it stopped saving anything (the log, the Seen list, the To EIC list) until Chrome restarted its background script. With the live log keeping that script awake, it never recovered.
