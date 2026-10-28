@@ -8,3 +8,4 @@ captures/
 
 # The root .gitignore (Python template) ignores lib/; this one is source.
 !/lib/
+coverage/

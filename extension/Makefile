@@ -1,7 +1,7 @@
 # Everyday commands for the Electric MC extension. Run "make" for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help update install build test typecheck check dev zip store clean install-log-host uninstall-log-host
+.PHONY: help update install build test coverage typecheck check dev zip store clean install-log-host uninstall-log-host
 
 help: ## List the commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-20s %s\n", $$1, $$2}'
@@ -23,6 +23,9 @@ build: install ## Build into build/chrome-mv3 (then reload it in chrome://extens
 
 test: install ## Run the tests
 	npm test
+
+coverage: install ## Run the tests and write a coverage report to coverage/index.html
+	npm run coverage
 
 typecheck: install ## Check the TypeScript types
 	npm run typecheck
