@@ -1,6 +1,6 @@
-// The Seen list and notes in the side panel: filtering the list, setting one
-// manuscript's note, and pruning manuscripts not viewed for two years (with
-// their notes) so local data doesn't pile up.
+// The Seen list in the side panel: filtering the list, and pruning
+// manuscripts not viewed for two years (with their notes) so local data
+// doesn't pile up. Notes themselves are in lib/notes.ts.
 
 import type { SeenManuscript } from './messages';
 
@@ -20,12 +20,12 @@ const DAY_MS = 86_400_000;
  * removed. A dropped manuscript's notes (keyed by its base ID or any version
  * ID) go with it; notes that match no Seen entry at all are kept.
  */
-export function pruneSeen(
+export function pruneSeen<N>(
   seen: Record<string, SeenManuscript>,
-  notes: Record<string, string>,
+  notes: Record<string, N>,
   now: Date,
   maxAgeDays = MAX_AGE_DAYS,
-): { seen: Record<string, SeenManuscript>; notes: Record<string, string>; dropped: number } {
+): { seen: Record<string, SeenManuscript>; notes: Record<string, N>; dropped: number } {
   const cutoff = now.getTime() - maxAgeDays * DAY_MS;
   const kept: Record<string, SeenManuscript> = {};
   const gone: string[] = [];
@@ -37,10 +37,4 @@ export function pruneSeen(
   const belongs = (key: string, baseId: string) => key === baseId || key.startsWith(`${baseId}.R`);
   const keptNotes = Object.fromEntries(Object.entries(notes).filter(([key]) => !gone.some((b) => belongs(key, b))));
   return { seen: kept, notes: keptNotes, dropped: gone.length };
-}
-
-/** Notes with one manuscript's note set; an empty note is removed. */
-export function withNote(notes: Record<string, string>, id: string, text: string): Record<string, string> {
-  const { [id]: _old, ...rest } = notes;
-  return text.trim() ? { ...rest, [id]: text } : rest;
 }

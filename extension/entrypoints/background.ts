@@ -13,6 +13,8 @@ import { addRoles, type KnownRoles, type Role } from '../lib/roles';
 import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
+import type { McIdentity } from '../lib/identity';
+import { migrateNotes, needsMigration, nowS } from '../lib/notes';
 
 const BADGE: Record<string, string> = {
   login: 'LOG',
@@ -67,6 +69,8 @@ export default defineBackground(() => {
       void onParsed(tabId, msg.result, msg.reason, msg.title);
     } else if (msg.type === 'roles') {
       void rememberRoles(msg.site, msg.roles);
+    } else if (msg.type === 'identity') {
+      void rememberIdentity(msg.site, msg.identity);
     } else if (msg.type === 'eic') {
       void updateEic(msg.set, msg.remove);
     } else if (msg.type === 'version-info') {
@@ -106,6 +110,23 @@ function rememberRoles(site: string, roles: Role[]): Promise<void> {
   });
 }
 
+/** Who is logged in on a site; the latest page wins (people switch accounts). */
+function rememberIdentity(site: string, identity: McIdentity): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.identity))[KEY.identity] as Record<string, McIdentity> | undefined) ?? {};
+    if (JSON.stringify(all[site]) === JSON.stringify(identity)) return;
+    await chrome.storage.local.set({ [KEY.identity]: { ...all, [site]: identity } });
+    // Notes from before 0.0.40 had no author: they become this person's.
+    const notes = (await chrome.storage.local.get(KEY.notes))[KEY.notes];
+    if (needsMigration(notes)) {
+      const { displayName } = await getSettings();
+      const author = displayName.trim() || [identity.firstName, identity.lastName].filter(Boolean).join(' ') || identity.email;
+      await chrome.storage.local.set({ [KEY.notes]: migrateNotes(notes, { email: identity.email, author }, nowS()) });
+      await log({ level: 'info', source: 'background', event: 'notes migrated to authored notes' });
+    }
+  });
+}
+
 /** Add or update one To EIC item, or remove one. */
 function updateEic(set?: EicItem, remove?: string): Promise<void> {
   return serial(async () => {
@@ -132,7 +153,7 @@ function pruneOld(): Promise<void> {
     if (last && Date.now() - last < 86_400_000) return;
     const r = pruneSeen(
       (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {},
-      (got[KEY.notes] as Record<string, string> | undefined) ?? {},
+      (got[KEY.notes] as Record<string, unknown> | undefined) ?? {},
       new Date(),
     );
     await chrome.storage.local.set({ ...(r.dropped ? { [KEY.seen]: r.seen, [KEY.notes]: r.notes } : {}), [KEY.lastPrune]: Date.now() });
