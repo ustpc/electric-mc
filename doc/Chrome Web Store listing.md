@@ -146,7 +146,9 @@ visibility, publish once by hand before the workflow can publish again.
 **One-time setup** (Simson, signed in as simsong@gmail.com):
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a
-   project (e.g. `electric-mc-publishing`) and enable the **Chrome Web Store API**.
+   project (e.g. `electric-mc-publishing`) and enable the **Chrome Web Store API**
+   and the **IAM Service Account Credentials API** (the workflow's sign-in
+   step needs the second one to turn the key into an access token).
 2. Under IAM & Admin → Service accounts, create a service account
    (e.g. `cws-publisher`), open it, and under Keys → Add key → JSON download a key.
 3. In the [developer dashboard](https://chrome.google.com/webstore/devconsole),
