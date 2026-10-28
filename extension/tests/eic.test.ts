@@ -103,3 +103,23 @@ describe('ID links look like E-MC additions', () => {
     expect(a.style.fontWeight).toBe('700');
   });
 });
+
+describe('pages with ID links still parse', () => {
+  it('reads the same queue before and after the IDs are linked', async () => {
+    const { parsePage } = await import('../parsers');
+    const { highlightRevisions } = await import('../lib/highlight');
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'queue-status-tables.html'), 'utf8').replace(/^<!doctype html>/i, '');
+    const url = 'https://mc.manuscriptcentral.com/xyzj';
+    const before = parsePage(document, url);
+    expect(before.pageType).toBe('queue-list');
+    expect(linkIds(document)).toBeGreaterThan(0);
+    const after = parsePage(document, url);
+    expect(after.pageType).toBe('queue-list');
+    expect(after.rows?.map((r) => r.id)).toEqual(before.rows?.map((r) => r.id));
+    expect(after.fingerprint).toBe(before.fingerprint);
+    // Revisions stay highlighted with the links in place.
+    expect(highlightRevisions(document)).toBe(highlightRevisions(document));
+  });
+});

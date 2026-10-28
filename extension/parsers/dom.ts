@@ -195,11 +195,14 @@ export function skeleton(doc: Document): string {
 
 // Things on the page that aren't part of Manuscript Central's content: the
 // OneTrust cookie dialog (present but hidden on every page), other hidden
-// elements, and our own overlay.
+// elements, and our own additions. Our ID links wrap MC's own text, so they
+// are unwrapped instead: dropping one dropped the ID inside it, and the
+// queue page then parsed as unknown (0.0.33 to 0.0.39).
+const WRAPPERS = '[data-electric-mc="id-link"]';
 const IGNORE_SEL = [
   '#onetrust-consent-sdk', '[id^=onetrust]', '[id^=ot-]', '[class^="ot-"]', '[class*=" ot-"]', '.ot-sdk-container',
   '[class*=cookie-banner]', '[id*=cookie-consent]',
-  '[hidden]', '[aria-hidden=true]', 'script', 'style', 'noscript', 'template', '[data-electric-mc]',
+  '[hidden]', '[aria-hidden=true]', 'script', 'style', 'noscript', 'template', `[data-electric-mc]:not(${WRAPPERS})`,
 ].join(',');
 
 /**
@@ -225,6 +228,7 @@ export function cleanDocument(doc: Document): Document {
   const copy = doc.implementation.createHTMLDocument('');
   copy.replaceChild(copy.importNode(doc.documentElement, true), copy.documentElement);
   for (const el of marked) el.removeAttribute(MARK);
+  copy.querySelectorAll(WRAPPERS).forEach((e) => e.replaceWith(...Array.from(e.childNodes)));
   copy.querySelectorAll(`[${MARK}], ${IGNORE_SEL}`).forEach((e) => e.remove());
   return copy;
 }

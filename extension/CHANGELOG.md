@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.40 (2026-10-28)
+
+- Fixed: on queue grids, revisions lost their yellow highlight (and the page was no longer recognized as a queue) a moment after the manuscript IDs became links. The parser now reads the ID inside our link instead of skipping it.
+
 ## 0.0.39 (2026-10-28)
 
 - On MC's login page, the two "Create an Account" links stay where they were and still work, but are drawn as pictures of the words "New Account". 0.0.38 showed that their wording was what made 1Password offer to generate a password instead of filling your login. The "more..." button is gone.
