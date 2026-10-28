@@ -49,6 +49,13 @@ pitch to associate editors. "Now" means it works in the test extension today.
   pull-down reports it. Search by name, column or expertise. No web hosting:
   the roster is a file you load, and it stays in your browser.
 
+- **Suggested AEs for each manuscript (now).** Open a manuscript and the
+  side panel ranks your AEs by how close their published work is to its
+  title, abstract and keywords, with each AE's current load and the paper of
+  theirs that matched best. AE profiles are built from public OpenAlex and
+  DBLP records; the matching runs on your computer with no AI service and
+  nothing about the manuscript leaves it.
+
 ## Privacy
 
 - Nothing leaves your browser in the test extension.

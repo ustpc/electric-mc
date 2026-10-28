@@ -2,6 +2,12 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.41 (2026-10-28)
+
+- **Suggested AEs.** On a manuscript's page, the side panel's Page tab ranks the AEs whose published work is closest to the manuscript's title, abstract and keywords, with each AE's current load from MC's Assign Associate Editor pull-down and the AE paper that matched best. The comparison runs on your computer with a bundled embedding model (bge-small-en-v1.5); the manuscript is never stored or sent.
+- AE expertise profiles are built by `make ae-profiles ROSTER=roster.json` from public OpenAlex and DBLP records and loaded from the resulting `ae-profiles.json` (see tools/ae-profiles/README.md). Clear all data removes them.
+- The build now bundles the model and the ONNX WebAssembly runtime (about 50 MB), and the extension's pages allow WebAssembly (`wasm-unsafe-eval`). No new permission.
+
 ## 0.0.39 (2026-10-28)
 
 - On MC's login page, the two "Create an Account" links stay where they were and still work, but are drawn as pictures of the words "New Account". 0.0.38 showed that their wording was what made 1Password offer to generate a password instead of filling your login. The "more..." button is gone.

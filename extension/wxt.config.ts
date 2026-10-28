@@ -1,5 +1,6 @@
 import { defineConfig } from 'wxt';
 import preact from '@preact/preset-vite';
+import { defaultClientConditions } from 'vite';
 import pkg from './package.json' with { type: 'json' };
 
 // Electric MC test extension. See doc/Technical Stack and Architecture.md.
@@ -25,8 +26,18 @@ export default defineConfig({
       default_icon: { 16: 'icon/16.png', 32: 'icon/32.png', 48: 'icon/48.png', 128: 'icon/128.png' },
     },
     side_panel: { default_path: 'sidepanel.html' },
+    // The side panel runs the bundled embedding model in WebAssembly for AE
+    // suggestions (lib/embed.ts). Only the extension's own files can run.
+    content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';" },
   },
   vite: () => ({
     plugins: [preact()],
+    resolve: {
+      // AE suggestions run the model on the CPU, so use ONNX's plain WASM
+      // build, loaded from public/ort (scripts/fetch-model.mjs), instead of
+      // the WebGPU build with its own 27 MB copy.
+      alias: { 'onnxruntime-web/webgpu': 'onnxruntime-web/wasm' },
+      conditions: ['onnxruntime-web-use-extern-wasm', ...defaultClientConditions],
+    },
   }),
 });

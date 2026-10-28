@@ -211,6 +211,19 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
   return { value, strategies, warnings };
 }
 
+/**
+ * The abstract and keywords on a manuscript page, whole, for AE suggestions
+ * (lib/match.ts). Read on request from the side panel and never stored or
+ * logged, unlike the parse result.
+ */
+export function abstractAndKeywords(doc: Document): { abstract?: string; keywords?: string } {
+  const fields = labeledValues(doc.body);
+  return {
+    abstract: pick(fields, [/^abstract$/, /^summary$/])?.[1]?.slice(0, 6000),
+    keywords: pick(fields, [/^keywords?$/, /^key ?words$/, /^author keywords$/])?.[1]?.slice(0, 1000),
+  };
+}
+
 const REVIEWER_HEADER = /reviewer|name/;
 const REVIEWER_STATUS = /\b(invited|agreed|declined|completed|overdue|scores? (returned|received)|un-?invited|selected|alternate|review (due|submitted))\b/i;
 

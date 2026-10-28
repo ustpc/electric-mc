@@ -20,7 +20,8 @@ export type Msg =
   | { type: 'reparse' }
   | { type: 'capture' }
   | { type: 'ping' }
-  | { type: 'open'; id: string };
+  | { type: 'open'; id: string }
+  | { type: 'abstract' };
 
 export interface CaptureReply {
   url: string;
@@ -154,6 +155,8 @@ export const KEY = {
   roles: 'roles',
   /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
   eic: 'eic',
+  /** AE expertise profiles the person loaded, as the file was written (lib/match.ts). */
+  aeProfiles: 'aeProfiles',
   tab: (id: number) => `tab:${id}`,
 } as const;
 

@@ -87,6 +87,22 @@ The prospect list is one `Query` on `PK = JOURNAL#<site>`, `SK` begins with
 
 ## 3. Expertise matching with vectors, without an LLM
 
+**Built so far (extension 0.0.41, 2026-10-28).** The first working version
+skips the backend:
+
+- `extension/tools/ae-profiles/build.ts` (`make ae-profiles`) builds every
+  assignable AE's profile from the editorial-matrix roster, using OpenAlex
+  (titles and abstracts) and DBLP (titles, when a pid is given in `ids.json`),
+  and writes `var/ae-profiles.json` plus a report of which OpenAlex author
+  each AE was matched to.
+- The side panel loads that file into `chrome.storage.local`, embeds the
+  open manuscript on the device (`lib/embed.ts`, Transformers.js, WASM on the
+  CPU) and ranks AEs with `lib/match.ts` (`rankAes`, `keywordScore`), showing
+  load from MC's AE pull-down. The manuscript vector is not stored.
+- Still to come: storing profiles on the server (#31) so every editor's
+  extension shares them, the Scholar "use this profile" button, conflict
+  checks, and the prospect → manuscripts view.
+
 ### 3.1 Approach
 
 Matching needs no LLM and no vector database.
