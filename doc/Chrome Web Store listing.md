@@ -150,13 +150,17 @@ visibility, publish once by hand before the workflow can publish again.
 2. Under IAM & Admin → Service accounts, create a service account
    (e.g. `cws-publisher`), open it, and under Keys → Add key → JSON download a key.
 3. In the [developer dashboard](https://chrome.google.com/webstore/devconsole),
-   open the publisher's **Account** page and add the service account's email
-   in the service-account section.
+   click **Settings** under PUBLISHER in the left column (not the account's
+   Profile page) and add the service account's email in the Service account
+   section.
 4. In GitHub, ustpc/electric-mc → Settings → Environments, create an environment
    named `chrome-web-store`, add the secret `CWS_SERVICE_ACCOUNT_KEY` (the whole
-   JSON key), then add repository variables `CWS_PUBLISHER_ID` (from the
-   dashboard's Account page) and `CWS_ITEM_ID` (the extension's 32-letter ID).
-   Delete the downloaded key file afterwards.
+   JSON key), then add the variables `CWS_PUBLISHER_ID` (the ID in the
+   dashboard's address, `devconsole/<publisher ID>/…`) and `CWS_ITEM_ID` (the
+   extension's 32-letter ID), on the environment or the repository.
+5. Check it: run the workflow by hand from the Actions tab with **submit**
+   unticked. It signs in and uploads a draft without sending anything for
+   review. Then delete the downloaded key file.
 
 Requiring a reviewer on the `chrome-web-store` environment makes every
 release wait for your approval in GitHub before it is uploaded.
