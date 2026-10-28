@@ -1,7 +1,8 @@
 // Login page help. Password managers (1Password, Chrome) look for standard
 // autocomplete hints and a form around the fields; Manuscript Central's
 // login page doesn't give them reliably. We add the hints, and optionally
-// press "Log In" once a password manager has filled both fields.
+// press "Log In" once a password manager has filled both fields. The
+// "Create an Account" links are drawn as pictures, with no text to read.
 
 export interface LoginFields {
   user: HTMLInputElement;
@@ -91,4 +92,68 @@ export function watchForAutofill(f: LoginFields, onSubmit: (how: string) => void
       el.removeEventListener('change', check);
     }
   };
+}
+
+const ACCOUNT_LINK = /^\s*create an? account\s*$/i;
+const PICTURED = 'pictured-link';
+export const NEW_ACCOUNT = 'New Account';
+
+/**
+ * Draw MC's "Create an Account" links as pictures of the words "New
+ * Account", in the same place and the link's own font and color. Password
+ * managers read sign-up wording near the fields as a registration form and
+ * offer to generate a password instead of filling the saved login; a
+ * picture has no text for them to read. The link itself still works. The
+ * words go as soon as the links exist; the picture is drawn once the
+ * page's styles are in (call again then). Returns how many were changed.
+ */
+export function pictureAccountLinks(doc: Document): number {
+  let n = 0;
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>('a, button'))) {
+    let img = el.querySelector<HTMLImageElement>(`img[data-electric-mc="${PICTURED}"]`);
+    if (!img) {
+      if (!ACCOUNT_LINK.test(el.textContent ?? '')) continue;
+      img = doc.createElement('img');
+      img.alt = '';
+      img.setAttribute('data-electric-mc', PICTURED);
+      img.style.cssText = 'vertical-align:baseline;border:0';
+      el.replaceChildren(img);
+      n++;
+    }
+    drawLabel(el, img);
+  }
+  return n;
+}
+
+/** Render "New Account" in the link's font and color into the image. */
+function drawLabel(el: HTMLElement, img: HTMLImageElement): void {
+  const view = el.ownerDocument.defaultView;
+  const cs = view?.getComputedStyle(el);
+  const size = parseFloat(cs?.fontSize ?? '') || 16;
+  const font = `${cs?.fontStyle ?? 'normal'} ${cs?.fontWeight ?? '400'} ${size}px ${cs?.fontFamily || 'sans-serif'}`;
+  const color = cs?.color || '#000';
+  const scale = Math.max(1, view?.devicePixelRatio ?? 1);
+  const canvas = el.ownerDocument.createElement('canvas');
+  let ctx: CanvasRenderingContext2D | null = null;
+  try {
+    ctx = canvas.getContext('2d');
+  } catch {
+    ctx = null;
+  }
+  if (!ctx) return; // no canvas (tests): the link keeps its empty picture
+  ctx.font = font;
+  const width = Math.ceil(ctx.measureText(NEW_ACCOUNT).width);
+  const height = Math.ceil(size * 1.25);
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  ctx.scale(scale, scale);
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(NEW_ACCOUNT, 0, Math.round(size));
+  img.src = canvas.toDataURL('image/png');
+  img.width = width;
+  img.height = height;
+  // Sit the picture's baseline on the line's baseline.
+  img.style.verticalAlign = `-${height - Math.round(size)}px`;
 }

@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.37). The version shows
+Semantic versioning, set in `package.json` (now 0.0.39). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -50,7 +50,11 @@ build instead.
   page loads, before the password manager looks. Optionally (Settings, off by
   default) it presses Log In once they fill both fields, at most once a minute
   so a wrong saved password can't loop. The extension
-  can't read Chrome's saved passwords: Chrome has no API for that.
+  can't read Chrome's saved passwords: Chrome has no API for that. MC's two
+  "Create an Account" links are drawn as pictures of the words "New
+  Account", in the same place and style, and still work. The sign-up wording
+  made 1Password offer to generate a password instead of filling your
+  login; a picture has no words for it to read.
 - **Revisions.** Queue rows for revisions (.R1, .R2, …) are bold on light
   yellow. Turn it off in Settings.
 - **Earlier versions.** Every manuscript page you open records that
