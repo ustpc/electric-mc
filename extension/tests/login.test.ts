@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { annotateLogin, findLoginFields, tuckAccountLinks, watchForAutofill } from '../lib/login';
+import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 
 const html = readFileSync(join(__dirname, 'fixtures', 'login.html'), 'utf8');
 
@@ -70,38 +70,31 @@ describe('login help', () => {
   });
 });
 
-describe('tuckAccountLinks', () => {
+describe('pictureAccountLinks', () => {
   const PAGE = `<nav><a href="#">Log In</a> <a href="#">Reset Password</a> <a href="#" id="nav-create">Create An Account</a></nav>
     <div><label>User ID</label> <a href="#" id="side-create">Create an Account</a><input type="text"><input type="password"><button>Log In</button></div>`;
 
-  it('replaces both links with one brown "more..." button', () => {
+  it('leaves no sign-up words on the page, and keeps both links where they were', () => {
     document.body.innerHTML = PAGE;
-    expect(tuckAccountLinks(document)).toBe(2);
-    expect(document.getElementById('nav-create')!.style.display).toBe('none');
-    expect(document.getElementById('side-create')!.style.display).toBe('none');
-    const more = document.querySelectorAll<HTMLButtonElement>('[data-electric-mc="more-links"]');
-    expect(more).toHaveLength(1);
-    expect(more[0]!.textContent).toBe('more...');
-    expect(more[0]!.style.color).toMatch(/rgb\(180, 83, 9\)|#b45309/i);
-    expect(more[0]!.previousElementSibling!.id).toBe('nav-create');
-    // Reset Password and Log In are left alone.
-    expect(Array.from(document.querySelectorAll('a')).filter((a) => a.style.display === 'none')).toHaveLength(2);
+    expect(pictureAccountLinks(document)).toBe(2);
+    expect(document.body.textContent).not.toMatch(/create|account/i);
+    for (const id of ['nav-create', 'side-create']) {
+      const a = document.getElementById(id)!;
+      const img = a.querySelector('img')!;
+      expect(img.getAttribute('data-electric-mc')).toBe('pictured-link');
+      expect(img.alt).toBe('');
+    }
+    expect(document.querySelector('nav')!.textContent).toMatch(/Log In\s+Reset Password/);
   });
 
-  it('brings them back when clicked, and stays out of the way after', () => {
+  it('keeps the links working, and is safe to run again', () => {
     document.body.innerHTML = PAGE;
-    tuckAccountLinks(document);
-    document.querySelector<HTMLButtonElement>('[data-electric-mc="more-links"]')!.click();
-    expect(document.getElementById('nav-create')!.style.display).toBe('');
-    expect(document.getElementById('side-create')!.style.display).toBe('');
-    expect(tuckAccountLinks(document)).toBe(0);
-  });
-
-  it('tucks a link drawn later behind the same button', () => {
-    document.body.innerHTML = PAGE;
-    tuckAccountLinks(document);
-    document.body.insertAdjacentHTML('beforeend', '<a href="#" id="late">Create an account</a>');
-    expect(tuckAccountLinks(document)).toBe(1);
-    expect(document.querySelectorAll('[data-electric-mc="more-links"]')).toHaveLength(1);
+    pictureAccountLinks(document);
+    let clicks = 0;
+    document.getElementById('side-create')!.addEventListener('click', (e) => { e.preventDefault(); clicks++; });
+    document.querySelector<HTMLImageElement>('#side-create img')!.click();
+    expect(clicks).toBe(1);
+    expect(pictureAccountLinks(document)).toBe(0);
+    expect(document.querySelectorAll('img[data-electric-mc="pictured-link"]')).toHaveLength(2);
   });
 });

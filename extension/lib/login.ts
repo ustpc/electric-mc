@@ -2,9 +2,7 @@
 // autocomplete hints and a form around the fields; Manuscript Central's
 // login page doesn't give them reliably. We add the hints, and optionally
 // press "Log In" once a password manager has filled both fields. The
-// "Create an Account" links are tucked behind a "more..." button.
-
-import { EMC_STYLE } from './milestones';
+// "Create an Account" links are drawn as pictures, with no text to read.
 
 export interface LoginFields {
   user: HTMLInputElement;
@@ -97,52 +95,65 @@ export function watchForAutofill(f: LoginFields, onSubmit: (how: string) => void
 }
 
 const ACCOUNT_LINK = /^\s*create an? account\s*$/i;
-const TUCKED = 'tucked-link';
-const MORE = 'more-links';
+const PICTURED = 'pictured-link';
+export const NEW_ACCOUNT = 'New Account';
 
 /**
- * Tuck MC's "Create an Account" links behind one bold brown "more..."
- * button on the login page, which brings them back when clicked. Password
- * managers may read the sign-up wording as a registration form and offer to
- * generate a password instead of filling the saved login. Safe to call
- * repeatedly: links that appear later are tucked behind the same button.
+ * Draw MC's "Create an Account" links as pictures of the words "New
+ * Account", in the same place and the link's own font and color. Password
+ * managers read sign-up wording near the fields as a registration form and
+ * offer to generate a password instead of filling the saved login; a
+ * picture has no text for them to read. The link itself still works. The
+ * words go as soon as the links exist; the picture is drawn once the
+ * page's styles are in (call again then). Returns how many were changed.
  */
-export function tuckAccountLinks(doc: Document): number {
-  if (doc.querySelector(`[data-electric-mc="${MORE}"][data-shown]`)) return 0;
-  const links = Array.from(doc.querySelectorAll<HTMLElement>('a, button')).filter(
-    (el) => ACCOUNT_LINK.test(el.textContent ?? '') && !el.hasAttribute('data-electric-mc'),
-  );
-  if (!links.length) return 0;
-  for (const el of links) {
-    el.setAttribute('data-electric-mc', TUCKED);
-    el.setAttribute('data-emc-display', el.style.display);
-    el.style.setProperty('display', 'none', 'important');
+export function pictureAccountLinks(doc: Document): number {
+  let n = 0;
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>('a, button'))) {
+    let img = el.querySelector<HTMLImageElement>(`img[data-electric-mc="${PICTURED}"]`);
+    if (!img) {
+      if (!ACCOUNT_LINK.test(el.textContent ?? '')) continue;
+      img = doc.createElement('img');
+      img.alt = '';
+      img.setAttribute('data-electric-mc', PICTURED);
+      img.style.cssText = 'vertical-align:baseline;border:0';
+      el.replaceChildren(img);
+      n++;
+    }
+    drawLabel(el, img);
   }
-  if (!doc.querySelector(`[data-electric-mc="${MORE}"]`)) {
-    const more = doc.createElement('button');
-    more.type = 'button';
-    more.textContent = 'more...';
-    more.title = 'Show "Create an Account" (hidden by Electric MC)';
-    more.setAttribute('data-electric-mc', MORE);
-    more.style.cssText = `${EMC_STYLE};background:none;border:0;padding:0;cursor:pointer;font:inherit;font-weight:700`;
-    more.addEventListener('click', (e) => {
-      e.preventDefault();
-      untuckAccountLinks(doc);
-      more.setAttribute('data-shown', '');
-      more.style.display = 'none';
-    });
-    links[0]!.after(more);
-  }
-  return links.length;
+  return n;
 }
 
-/** Bring the tucked links back. */
-export function untuckAccountLinks(doc: Document): void {
-  doc.querySelectorAll<HTMLElement>(`[data-electric-mc="${TUCKED}"]`).forEach((el) => {
-    el.style.removeProperty('display');
-    const was = el.getAttribute('data-emc-display');
-    if (was) el.style.display = was;
-    el.removeAttribute('data-emc-display');
-    el.removeAttribute('data-electric-mc');
-  });
+/** Render "New Account" in the link's font and color into the image. */
+function drawLabel(el: HTMLElement, img: HTMLImageElement): void {
+  const view = el.ownerDocument.defaultView;
+  const cs = view?.getComputedStyle(el);
+  const size = parseFloat(cs?.fontSize ?? '') || 16;
+  const font = `${cs?.fontStyle ?? 'normal'} ${cs?.fontWeight ?? '400'} ${size}px ${cs?.fontFamily || 'sans-serif'}`;
+  const color = cs?.color || '#000';
+  const scale = Math.max(1, view?.devicePixelRatio ?? 1);
+  const canvas = el.ownerDocument.createElement('canvas');
+  let ctx: CanvasRenderingContext2D | null = null;
+  try {
+    ctx = canvas.getContext('2d');
+  } catch {
+    ctx = null;
+  }
+  if (!ctx) return; // no canvas (tests): the link keeps its empty picture
+  ctx.font = font;
+  const width = Math.ceil(ctx.measureText(NEW_ACCOUNT).width);
+  const height = Math.ceil(size * 1.25);
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  ctx.scale(scale, scale);
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(NEW_ACCOUNT, 0, Math.round(size));
+  img.src = canvas.toDataURL('image/png');
+  img.width = width;
+  img.height = height;
+  // Sit the picture's baseline on the line's baseline.
+  img.style.verticalAlign = `-${height - Math.round(size)}px`;
 }
