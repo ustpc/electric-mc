@@ -154,6 +154,7 @@ other than the one the command prints, run
 ```sh
 npm test                 # fixtures + simulated template changes
 npm run typecheck
+npm run coverage         # tests plus a coverage report in coverage/index.html
 npm run validate -- ~/Downloads/electric-mc/captures --mutate
 ```
 
@@ -161,6 +162,11 @@ npm run validate -- ~/Downloads/electric-mc/captures --mutate
 capture, and with `--mutate` reports any capture whose result changes under
 the simulated ScholarOne template changes in `tests/mutate.ts`. Add
 `--json --redact` for output you can share.
+
+GitHub runs the typecheck, the tests with coverage, and the build on every
+push and pull request (`.github/workflows/ci.yml`). Each run's summary shows
+the coverage table, pull requests get it as a comment, and the full HTML
+report is attached to the run as the `coverage` artifact.
 
 When a real page parses wrongly, the fix is usually a new label or signal in
 `parsers/classify.ts` or `parsers/extract.ts`, plus a synthetic fixture in
