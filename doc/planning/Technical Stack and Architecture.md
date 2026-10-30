@@ -356,7 +356,7 @@ confidential manuscript data.
 
 ### 6.5 Test extension (built 2026-10-18)
 
-The test build in [`extension/`](../extension/README.md) implements the page
+The test build in [`extension/`](../../extension/README.md) implements the page
 parsers, title rewriting, capture mode and a shareable debug log, with no
 backend yet.
 

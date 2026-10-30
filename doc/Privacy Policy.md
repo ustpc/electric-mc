@@ -97,7 +97,7 @@ which MC roles you have. It never keeps your comments to the EIC or the
 author. Items leave the list when the EIC acts; Clear all data removes the
 list and the roles.
 
-Details: [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
+Details: [Technical Stack and Architecture.md](planning/Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
 
 ## 4. Notification emails
@@ -117,7 +117,7 @@ rest**:
 - a small processing log (message ID, type, result) is kept for 90 days to
   avoid processing the same email twice.
 
-Details: [Email ingestion.md](Email%20ingestion.md).
+Details: [Email ingestion.md](planning/Email%20ingestion.md).
 
 ## 5. Chat
 
@@ -197,7 +197,7 @@ suited to handle, never author names, manuscript IDs, or abstracts. A
 journal can turn this off (`showTitlesToProspects`), and a person reviews
 every invitation before it is sent.
 
-Details: [AE recruitment and matching.md](AE%20recruitment%20and%20matching.md).
+Details: [AE recruitment and matching.md](planning/AE%20recruitment%20and%20matching.md).
 
 ## 8. AI and matching
 
