@@ -2,12 +2,21 @@
 
 Newest first. Every version bump gets an entry here.
 
-## 0.0.41 (2026-10-28)
+## 0.0.43 (2026-10-30)
 
 - **Suggested AEs.** On a manuscript's page, the side panel's Page tab ranks the AEs whose published work is closest to the manuscript's title, abstract and keywords, with each AE's current load from MC's Assign Associate Editor pull-down and the AE paper that matched best. The comparison runs on your computer with a bundled embedding model (bge-small-en-v1.5); the manuscript is never stored or sent.
 - AE expertise profiles are built by `make ae-profiles ROSTER=roster.json` from public OpenAlex and DBLP records and loaded from the resulting `ae-profiles.json` (see tools/ae-profiles/README.md). Clear all data removes them.
 - The build now bundles the model and the ONNX WebAssembly runtime (about 50 MB), and the extension's pages allow WebAssembly (`wasm-unsafe-eval`). No new permission.
 
+## 0.0.42 (2026-10-28)
+
+- Fixed: once 0.0.37 made the manuscript IDs clickable, the next look at the page no longer found the IDs (it skips what E-MC adds), so the grid read as an unknown page and revisions lost their highlight. The parser now reads the ID text inside those links. (0.0.40 and 0.0.43 are on the authored-notes branch.)
+
+## 0.0.40 (2026-10-28)
+- Notes are signed. Each one shows its author and the time its editing session began. Typing keeps updating the same note, and after an hour away your next note starts fresh. Authors can edit or delete their own notes; co-chairs and the EIC can delete any note.
+- The extension reads who is logged in from MC's page, and asks once for the name to put on your notes. If it differs from MC's name, notes show both: "Pat Example (Opinions Co-Chair)".
+- Optional notes server (Settings > Notes server): notes are shared through a small AWS Lambda (`backend/notes`). Each browser makes its own signing key, which can't be copied out of it. Requests carry a hash of the manuscript's title, never the title. The project owner can ban a key. No new permission.
+- Notes from earlier versions become your notes, dated when you upgrade.
 ## 0.0.39 (2026-10-28)
 
 - On MC's login page, the two "Create an Account" links stay where they were and still work, but are drawn as pictures of the words "New Account". 0.0.38 showed that their wording was what made 1Password offer to generate a password instead of filling your login. The "more..." button is gone.

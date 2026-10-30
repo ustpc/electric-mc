@@ -87,7 +87,7 @@ The prospect list is one `Query` on `PK = JOURNAL#<site>`, `SK` begins with
 
 ## 3. Expertise matching with vectors, without an LLM
 
-**Built so far (extension 0.0.41, 2026-10-28).** The first working version
+**Built so far (extension 0.0.43, 2026-10-28).** The first working version
 skips the backend:
 
 - `extension/tools/ae-profiles/build.ts` (`make ae-profiles`) builds every

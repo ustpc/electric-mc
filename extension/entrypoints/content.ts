@@ -22,6 +22,7 @@ import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
 import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
 import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
+import { readIdentity } from '../lib/identity';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -78,6 +79,7 @@ async function start() {
     recordThisVersion(r);
     recordAeLoad();
     recordRoles(r);
+    recordIdentity(r);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
@@ -105,6 +107,17 @@ async function start() {
     if (!found.length || !r.site) return;
     found.forEach((x) => rolesSent.add(x));
     send({ type: 'roles', site: r.site, roles: found });
+  };
+
+  // Who is logged in, from MC's own page metadata; sent when it changes.
+  let identitySent = '';
+  const recordIdentity = (r: ParseResult) => {
+    const id = r.site ? readIdentity(document) : null;
+    if (!id || !r.site) return;
+    const key = JSON.stringify(id);
+    if (key === identitySent) return;
+    identitySent = key;
+    send({ type: 'identity', site: r.site, identity: id });
   };
 
   // The person's own recommendation to the EIC, from the Recommendations box

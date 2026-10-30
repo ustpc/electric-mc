@@ -7,6 +7,7 @@ import type { AeLoadEntry } from './aeload';
 import type { VersionInfo } from './milestones';
 import type { EicItem } from './recommend';
 import type { Role } from './roles';
+import type { McIdentity } from './identity';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
@@ -16,6 +17,7 @@ export type Msg =
   | { type: 'ae-load'; journal: string; entries: AeLoadEntry[] }
   | { type: 'roles'; site: string; roles: Role[] }
   | { type: 'eic'; set?: EicItem; remove?: string }
+  | { type: 'identity'; site: string; identity: McIdentity }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -61,6 +63,10 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
+  /** The person's name on their notes; shown with MC's name in parentheses when the two differ. */
+  displayName: string;
+  /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
+  notesServer: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +81,8 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTakeAction: false,
   hidePageHeader: false,
   autoAttach: true,
+  displayName: '',
+  notesServer: '',
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {
@@ -157,6 +165,8 @@ export const KEY = {
   eic: 'eic',
   /** AE expertise profiles the person loaded, as the file was written (lib/match.ts). */
   aeProfiles: 'aeProfiles',
+  /** Who is logged in to MC, per site (lib/identity.ts). */
+  identity: 'identity',
   tab: (id: number) => `tab:${id}`,
 } as const;
 
