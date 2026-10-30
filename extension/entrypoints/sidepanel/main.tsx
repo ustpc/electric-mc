@@ -1,19 +1,26 @@
 // Side panel (and pop-out window). Shows what the parsers found on the
-// current Manuscript Central tab, the seen-manuscripts index, local notes,
+// current Manuscript Central tab, the seen-manuscripts index, authored notes,
 // the debug log and its export, and capture of page HTML for the validator.
 
 import { render } from 'preact';
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 import { filterSeen } from '../../lib/seen';
+import { canDelete, canEdit, mergeNotes, nowS, removeNote, sessionNote, titleHash, upsertNote, type Note, type NotesStore } from '../../lib/notes';
+import { authorLabel, mcName, type McIdentity } from '../../lib/identity';
+import { banKey, deleteNote, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
+import type { KnownRoles } from '../../lib/roles';
+import { eicSummary, type EicItem } from '../../lib/recommend';
+import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
 
-type Tab = 'page' | 'seen' | 'notes' | 'log' | 'settings';
+type Tab = 'page' | 'seen' | 'eic' | 'notes' | 'log' | 'settings';
+const TAB_LABEL: Partial<Record<Tab, string>> = { eic: 'To EIC' };
 
 interface TabState {
   result: ParseResult;
@@ -105,24 +112,45 @@ function SiteSwitch({ url }: { url?: string }) {
   );
 }
 
+/** Messages to the content script go to the tab's top frame only. */
+const TOP = { frameId: 0 };
+
 /**
  * Chrome doesn't put a new build into tabs that were already open, so they
  * keep running the old code until reloaded. Ask the tab which version it
- * runs; no answer from an MC tab means it needs a reload.
+ * runs. A different version is stale at once; no answer may just mean MC is
+ * between pages (its URL often doesn't change), so the tab is asked again,
+ * and asked afresh whenever it finishes loading.
  */
 function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
   const [stale, setStale] = useState<string | null>(null);
   useEffect(() => {
     setStale(null);
-    if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return;
+    if (tabId === undefined || !panelEnabledFor(url)) return;
     const mine = chrome.runtime.getManifest().version;
-    const t = setTimeout(() => {
+    const timers: number[] = [];
+    const ask = (triesLeft: number) =>
       chrome.tabs
-        .sendMessage(tabId, { type: 'ping' })
-        .then((r: { version?: string } | undefined) => setStale(r?.version === mine ? null : r?.version ?? 'an older build'))
-        .catch(() => setStale('an older build'));
-    }, 800);
-    return () => clearTimeout(t);
+        .sendMessage(tabId, { type: 'ping' }, TOP)
+        .then((r: { version?: string } | undefined) => r?.version ?? Promise.reject(new Error('no version')))
+        .then((v: string) => setStale(v === mine ? null : v))
+        .catch(() => {
+          if (triesLeft > 0) timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
+          else setStale('an older build');
+        });
+    const check = () => {
+      timers.splice(0).forEach(clearTimeout);
+      timers.push(window.setTimeout(() => void ask(2), 800));
+    };
+    const loaded = (id: number, change: { status?: string }) => {
+      if (id === tabId && change.status === 'complete') check();
+    };
+    chrome.tabs.onUpdated.addListener(loaded);
+    check();
+    return () => {
+      chrome.tabs.onUpdated.removeListener(loaded);
+      timers.forEach(clearTimeout);
+    };
   }, [tabId, url]);
   if (!stale || tabId === undefined) return null;
   return (
@@ -158,6 +186,9 @@ function App() {
   const url = useTabUrl(tabId);
   const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
   const dev = !!saved.developer;
+  // The To EIC list is for co-chairs: shown once co-chair privileges were seen on any site.
+  const roles = useStorage<Record<string, KnownRoles>>('local', KEY.roles, {});
+  const coChair = Object.values(roles).some((r) => !!r.coChair);
   const flash = useCallback((s: string) => {
     setToast(s);
     setTimeout(() => setToast(null), 3500);
@@ -166,6 +197,16 @@ function App() {
   const popOut = async () => {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
+  };
+  // The Opinions editorial matrix, in its own window; one window only.
+  const openMatrix = async () => {
+    const url = chrome.runtime.getURL('matrix.html');
+    const [open] = await chrome.tabs.query({ url });
+    if (open?.windowId !== undefined) {
+      await chrome.windows.update(open.windowId, { focused: true });
+      return;
+    }
+    await chrome.windows.create({ url, type: 'popup', width: 1280, height: 900 });
   };
   const popIn = async () => {
     const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
@@ -179,6 +220,7 @@ function App() {
         <div class="row">
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
+          <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -188,9 +230,9 @@ function App() {
         </div>
         <StaleTab tabId={tabId} url={url} />
         <nav>
-          {((dev ? ['page', 'seen', 'notes', 'log', 'settings'] : ['page', 'seen', 'notes', 'settings']) as Tab[]).map((t) => (
+          {(['page', 'seen', ...(coChair ? ['eic'] : []), 'notes', ...(dev ? ['log'] : []), 'settings'] as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-              {t[0]!.toUpperCase() + t.slice(1)}
+              {TAB_LABEL[t] ?? t[0]!.toUpperCase() + t.slice(1)}
             </button>
           ))}
         </nav>
@@ -198,7 +240,8 @@ function App() {
       <main>
         {tab === 'page' && <PageView state={state} tabId={tabId} flash={flash} dev={dev} />}
         {tab === 'seen' && <SeenView tabId={tabId} url={url} flash={flash} />}
-        {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} />}
+        {tab === 'eic' && coChair && <EicView tabId={tabId} url={url} flash={flash} />}
+        {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} title={state?.result.manuscript?.title} site={state?.result.site} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
         {tab === 'settings' && <SettingsView />}
       </main>
@@ -217,12 +260,12 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
 
   const reparse = async () => {
     if (tabId === undefined) return;
-    await chrome.tabs.sendMessage(tabId, { type: 'reparse' }).catch((e) => flash(`Re-parse failed: ${e}`));
+    await chrome.tabs.sendMessage(tabId, { type: 'reparse' }, TOP).catch((e) => flash(`Re-parse failed: ${e}`));
   };
   const capture = async () => {
     if (tabId === undefined) return;
     try {
-      const c = (await chrome.tabs.sendMessage(tabId, { type: 'capture' })) as CaptureReply;
+      const c = (await chrome.tabs.sendMessage(tabId, { type: 'capture' }, TOP)) as CaptureReply;
       const meta = {
         url: c.url,
         title: c.title,
@@ -342,7 +385,7 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   // Opens the manuscript in the current MC tab through MC's own search.
   const open = async (id: string) => {
     if (tabId === undefined || !url || !/^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(url)) return flash('Switch to a Manuscript Central tab first.');
-    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }).catch(() => null)) as { ok?: boolean } | null;
+    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
     if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
   };
   const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});
@@ -376,19 +419,264 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   );
 }
 
-function NotesView({ current }: { current?: string }) {
-  const notes = useStorage<Record<string, string>>('local', KEY.notes, {});
+/**
+ * Manuscripts the person has recommended to the EIC and that are still
+ * waiting for the EIC. Kept only in this browser for now.
+ */
+function EicView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (s: string) => void }) {
+  const items = useStorage<Record<string, EicItem>>('local', KEY.eic, {});
+  const list = Object.values(items).sort((a, b) => a.seen.localeCompare(b.seen));
+  const open = async (id: string) => {
+    if (tabId === undefined || !panelEnabledFor(url)) return flash('Switch to a Manuscript Central tab first.');
+    const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
+    if (!r?.ok) flash('No search box on this page. Go to a dashboard page and try again.');
+  };
+  const remove = (id: string) => void chrome.runtime.sendMessage({ type: 'eic', remove: id });
+  const copy = async () => {
+    await navigator.clipboard.writeText(eicSummary(list));
+    flash('Copied. Paste it into a message to the EIC.');
+  };
+  return (
+    <section>
+      <h2>Waiting for the EIC ({list.length})</h2>
+      <p class="muted">Your recommendations, read from each manuscript's Recommendations box. An item leaves the list when the recommendation is gone (rescinded or acted on) or the decision letter is sent. Only the recommendation is kept, never your comments.</p>
+      <table>
+        <tr><th>ID</th><th>Title</th><th>Recommended</th><th>Seen</th><th /></tr>
+        {list.map((m) => (
+          <tr>
+            <td><a href="#" onClick={(e) => { e.preventDefault(); void open(m.id); }} title="Open in MC">{m.id}</a></td>
+            <td>{m.title ?? '—'}</td>
+            <td>{m.recommendation}</td>
+            <td class="muted">{m.seen}</td>
+            <td><button class="act" title="Remove from this list" onClick={() => remove(m.id)}>×</button></td>
+          </tr>
+        ))}
+      </table>
+      {list.length > 0 && <button class="act" onClick={() => void copy()}>Copy summary for the EIC</button>}
+    </section>
+  );
+}
+
+/** The note being typed saves itself shortly after typing stops, on leaving the box, and on switching manuscript. */
+const NOTE_SAVE_MS = 600;
+
+/** Change one manuscript's notes, reading storage just before writing so another window's edits aren't lost. */
+async function updateNotes(m: string, change: (list: Note[]) => Note[]): Promise<void> {
+  const all = ((await chrome.storage.local.get(KEY.notes))[KEY.notes] as NotesStore | undefined) ?? {};
+  const next = change(all[m] ?? []);
+  const { [m]: _old, ...rest } = all;
+  await chrome.storage.local.set({ [KEY.notes]: next.length ? { ...rest, [m]: next } : rest });
+}
+
+function when(t: number): string {
+  return new Date(t * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/** The person writing notes on a site, once MC has shown who is logged in and they've given a name. */
+function useMe(site: string | null | undefined): Me | null {
+  const ids = useStorage<Record<string, McIdentity>>('local', KEY.identity, {});
+  const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
+  const identity = (site && ids[site]) || Object.values(ids)[0];
+  if (!identity || !saved.displayName?.trim()) return null;
+  const mc = mcName(identity);
+  return { identity, mcName: mc, label: authorLabel(saved.displayName, mc) };
+}
+
+/** First use: ask for the name to sign notes with, suggesting MC's. */
+function AskName({ site }: { site?: string | null }) {
+  const ids = useStorage<Record<string, McIdentity>>('local', KEY.identity, {});
+  const identity = (site && ids[site]) || Object.values(ids)[0];
+  const [name, setName] = useState('');
+  useEffect(() => {
+    if (identity && !name) setName(mcName(identity));
+  }, [identity]);
+  if (!identity) return <p class="muted">Open any Manuscript Central page while logged in, so Electric MC can see who you are. Notes are signed in your MC account's name.</p>;
+  const save = async () => {
+    if (!name.trim()) return;
+    await saveSettings({ ...(await getSettings()), displayName: name.trim() });
+  };
+  return (
+    <section>
+      <h2>Your name on notes</h2>
+      <p>MC knows you as <b>{mcName(identity)}</b>. If you give a different name, notes show both: <i>{authorLabel(name || mcName(identity), mcName(identity))}</i>.</p>
+      <input class="search" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Enter' && void save()} />
+      <button class="act" onClick={() => void save()}>Save</button>
+    </section>
+  );
+}
+
+function NotesView({ current, title, site }: { current?: string; title?: string; site?: string | null }) {
+  const me = useMe(site);
+  const all = useStorage<NotesStore>('local', KEY.notes, {});
+  const seen = useStorage<Record<string, SeenManuscript>>('local', KEY.seen, {});
+  const roleMap = useStorage<Record<string, KnownRoles>>('local', KEY.roles, {});
+  const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
+  const server = saved.notesServer?.trim() ?? '';
+  const roles: KnownRoles = (site && roleMap[site]) || Object.assign({}, ...Object.values(roleMap));
+  const knownTitle = title ?? (current ? seen[current]?.title : undefined);
   const [draft, setDraft] = useState('');
-  useEffect(() => setDraft(current ? notes[current] ?? '' : ''), [current, notes]);
+  const [status, setStatus] = useState('');
+  const [editing, setEditing] = useState<{ t: number; text: string } | null>(null);
+  // The session note's time, once this session has written one.
+  const session = useRef<{ m: string; t: number } | null>(null);
+  const pending = useRef<{ m: string; text: string } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const meRef = useRef(me);
+  meRef.current = me;
+  const list = current ? all[current] ?? [] : [];
+
+  /** Send one note (or its deletion) to the server, if there is one; says how it went. */
+  const share = async (m: string, n: Note | null, del?: { t: number; email: string }) => {
+    const who = meRef.current;
+    if (!server || !who) return setStatus(server ? '' : 'Saved in this browser only (no notes server set in Settings).');
+    if (!knownTitle) return setStatus("Saved here, not shared: open the manuscript's details so Electric MC can read its title.");
+    try {
+      const h = await titleHash(knownTitle);
+      if (n) {
+        await putNote(server, who, n, h);
+        await updateNotes(m, (l) => l.map((x) => (x.t === n.t && x.email === n.email && x.updated === n.updated ? { ...x, synced: true } : x)));
+      } else if (del) await deleteNote(server, who, m, h, del.t, del.email);
+      setStatus('Saved and shared');
+    } catch (e) {
+      setStatus(`Saved here, not shared: ${e instanceof Error ? e.message : e}`);
+    }
+  };
+
+  /** Save the session note: the first edit starts it, later ones overwrite it. */
+  const flush = () => {
+    clearTimeout(timer.current);
+    const p = pending.current;
+    const who = meRef.current;
+    pending.current = null;
+    if (!p || !who) return;
+    void (async () => {
+      const now = nowS();
+      const all = ((await chrome.storage.local.get(KEY.notes))[KEY.notes] as NotesStore | undefined) ?? {};
+      const email = who.identity.email;
+      let t = session.current?.m === p.m ? session.current.t : sessionNote(all[p.m] ?? [], email, now)?.t;
+      if (!p.text.trim()) {
+        if (t === undefined) return;
+        await updateNotes(p.m, (l) => removeNote(l, t!, email));
+        session.current = null;
+        return share(p.m, null, { t, email });
+      }
+      t ??= now;
+      session.current = { m: p.m, t };
+      const note: Note = { m: p.m, t, email, author: who.label, text: p.text, updated: now, keyId: await myKeyId(email) };
+      await updateNotes(p.m, (l) => upsertNote(l, note));
+      await share(p.m, note);
+    })().catch((e) => setStatus(`Not saved: ${e}`));
+  };
+
+  // A new manuscript: save the old one's note, pick up this session's note
+  // if it's still under an hour old, and fetch the shared notes.
+  useEffect(() => {
+    flush();
+    setStatus('');
+    setEditing(null);
+    session.current = null;
+    if (!current || !me) return setDraft('');
+    const open = sessionNote(list, me.identity.email, nowS());
+    if (open) session.current = { m: current, t: open.t };
+    setDraft(open?.text ?? '');
+    if (!server || !knownTitle) return;
+    let live = true;
+    void titleHash(knownTitle)
+      .then((h) => listNotes(server, me, current, h))
+      .then((got) => (live ? updateNotes(current, (l) => mergeNotes(l, got)) : undefined))
+      .catch((e) => live && setStatus(`Couldn't fetch shared notes: ${e instanceof Error ? e.message : e}`));
+    return () => {
+      live = false;
+    };
+  }, [current, !!me, server, knownTitle]);
+  useEffect(() => {
+    addEventListener('pagehide', flush);
+    return () => {
+      removeEventListener('pagehide', flush);
+      flush();
+    };
+  }, []);
+
   if (!current) return <p class="muted">Open a manuscript to see its notes.</p>;
-  const save = () => void chrome.storage.local.set({ [KEY.notes]: { ...notes, [current]: draft } });
+  if (!me) return <AskName site={site} />;
+  const email = me.identity.email;
+  const type = (text: string) => {
+    setDraft(text);
+    setStatus('Saving…');
+    pending.current = { m: current, text };
+    clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, NOTE_SAVE_MS);
+  };
+  const saveEdit = async (n: Note, text: string) => {
+    setEditing(null);
+    if (!text.trim()) return remove(n);
+    const next: Note = { ...n, text, updated: nowS(), synced: false, keyId: await myKeyId(email) };
+    await updateNotes(current, (l) => upsertNote(l, next));
+    if (session.current?.t === n.t) setDraft(text);
+    await share(current, next);
+  };
+  const remove = async (n: Note) => {
+    if (!window.confirm(`Delete this note by ${n.author}?`)) return;
+    await updateNotes(current, (l) => removeNote(l, n.t, n.email));
+    if (n.email === email && session.current?.t === n.t) {
+      session.current = null;
+      setDraft('');
+    }
+    await share(current, null, { t: n.t, email: n.email });
+  };
+  const ban = async (n: Note) => {
+    if (!n.keyId || !window.confirm(`Ban the key ${n.author} wrote this note with? It won't be able to send notes again.`)) return;
+    await banKey(server, me, n.keyId).then(() => setStatus('Key banned')).catch((e) => setStatus(`Not banned: ${e instanceof Error ? e.message : e}`));
+  };
+  // The session note shows in the box below, not in the list.
+  const shown = list.filter((n) => !(n.email === email && n.t === session.current?.t));
   return (
     <section>
       <h2>Notes on {current}</h2>
-      <p class="muted">Stored only in this browser in the test build. Shared chat needs the backend.</p>
-      <textarea value={draft} onInput={(e) => setDraft((e.target as HTMLTextAreaElement).value)} onBlur={save} />
-      <button class="act" onClick={save}>Save</button>
+      {shown.length === 0 && <p class="muted">No other notes yet.</p>}
+      {shown.map((n) => (
+        <div class="note">
+          <div class="note-head">
+            {n.author} · {when(n.t)}
+            {n.updated - n.t > 60 && <span class="muted"> (edited {when(n.updated)})</span>}
+          </div>
+          {editing?.t === n.t && n.email === email ? (
+            <>
+              <textarea value={editing.text} onInput={(e) => setEditing({ t: n.t, text: (e.target as HTMLTextAreaElement).value })} />
+              <button class="act" onClick={() => void saveEdit(n, editing.text)}>Save</button>{' '}
+              <button class="act" onClick={() => setEditing(null)}>Cancel</button>
+            </>
+          ) : (
+            <div class="note-text">{n.text}</div>
+          )}
+          <div class="note-actions">
+            {canEdit(n, email) && editing?.t !== n.t && <button class="act" onClick={() => setEditing({ t: n.t, text: n.text })}>Edit</button>}
+            {canDelete(n, email, roles) && <button class="act" onClick={() => void remove(n)}>Delete</button>}
+            {server && n.keyId && n.email !== email && (roles.coChair || roles.eic) && <button class="act" title="Project owner only" onClick={() => void ban(n)}>Ban key</button>}
+          </div>
+        </div>
+      ))}
+      <h2 style="margin-top:10px">{session.current ? `Your note · ${when(session.current.t)}` : 'New note'}</h2>
+      <textarea
+        value={draft}
+        placeholder={`Signed as ${me.label}`}
+        onInput={(e) => type((e.target as HTMLTextAreaElement).value)}
+        onBlur={flush}
+      />
+      <p class="muted">{status || (server ? 'Saved as you type and shared with the notes server.' : 'Saved as you type, in this browser only.')} After an hour away, your next note starts fresh.</p>
     </section>
+  );
+}
+
+/** Whether the live log file is being written (test builds, developer mode). */
+function LiveLogStatus() {
+  const s = useStorage<LiveLogState | null>('session', LIVE_LOG_KEY, null);
+  if (!chrome.runtime.getManifest().permissions?.includes('nativeMessaging')) return null;
+  return (
+    <p class="muted">
+      Live log file:{' '}
+      {s?.state === 'writing' ? <code>{s.path}</code> : s ? `not available (${s.error ?? 'unknown'}). Run make install-log-host, then reload the extension.` : 'nothing written yet'}
+    </p>
   );
 }
 
@@ -414,6 +702,7 @@ function LogView({ flash }: { flash: (s: string) => void }) {
         <button class="act" onClick={() => void chrome.storage.local.set({ [KEY.log]: [] })}>Clear</button>
         <label class="chk"><input type="checkbox" checked={saveAs} onChange={(e) => setSaveAs((e.target as HTMLInputElement).checked)} />Ask where to save</label>
       </section>
+      <LiveLogStatus />
       <section>
         <h2>Log ({log.length} entries, newest first)</h2>
         <select value={level} onChange={(e) => setLevel((e.target as HTMLSelectElement).value as Level | 'all')}>
@@ -443,6 +732,18 @@ function summary(d: unknown): string {
     return `${r.pageType} ${Math.round((r.confidence ?? 0) * 100)}%${n}${r.warnings?.length ? ` ⚠ ${r.warnings.join('; ')}` : ''}`;
   }
   return JSON.stringify(d).slice(0, 160);
+}
+
+/**
+ * Remove everything Electric MC stored about manuscripts: Seen, notes, the
+ * log, AE workloads, the loaded roster and each tab's latest parse. Settings stay, and so does the record of
+ * tabs whose side panel is switched off, which Chrome needs to put it back.
+ */
+async function clearAllData() {
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts and the Opinions roster? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.eic, KEY.roles, KEY.identity]);
+  const session = await chrome.storage.session.get(null);
+  await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }
 
 function SettingsView() {
@@ -475,10 +776,19 @@ function SettingsView() {
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
-      {box('lookupEarlierVersions', 'On a revision, look up the AEs of earlier versions')}
+      {box('lookupEarlierVersions', "On a revision, show earlier versions' AEs (from versions you've opened)")}
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
       {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
       {box('autoAttach', 'Press Attach as soon as I select a file')}
+      <h2 style="margin-top:12px">Notes</h2>
+      <label>
+        Your name on notes (MC's name is shown with it when they differ)
+        <input class="search" value={s.displayName} onChange={(e) => update({ displayName: (e.target as HTMLInputElement).value.trim() })} />
+      </label>
+      <label>
+        Notes server (blank keeps notes in this browser)
+        <input class="search" value={s.notesServer} placeholder="https://….lambda-url.us-east-2.on.aws/" onChange={(e) => update({ notesServer: (e.target as HTMLInputElement).value.trim() })} />
+      </label>
       <h2 style="margin-top:12px">Developer</h2>
       {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
       {s.developer && <label>
@@ -487,6 +797,9 @@ function SettingsView() {
       </label>}
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
       <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version v{chrome.runtime.getManifest().version}</p>
+      <h2 style="margin-top:12px">Stored data</h2>
+      <p>Manuscripts you haven't viewed in 2 years are removed automatically.</p>
+      <button class="act" onClick={() => void clearAllData()}>Clear all data</button>
     </section>
   );
 }

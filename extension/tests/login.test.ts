@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
+import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 
 const html = readFileSync(join(__dirname, 'fixtures', 'login.html'), 'utf8');
 
@@ -67,5 +67,34 @@ describe('login help', () => {
     vi.advanceTimersByTime(500);
     expect(click).not.toHaveBeenCalled();
     vi.useRealTimers();
+  });
+});
+
+describe('pictureAccountLinks', () => {
+  const PAGE = `<nav><a href="#">Log In</a> <a href="#">Reset Password</a> <a href="#" id="nav-create">Create An Account</a></nav>
+    <div><label>User ID</label> <a href="#" id="side-create">Create an Account</a><input type="text"><input type="password"><button>Log In</button></div>`;
+
+  it('leaves no sign-up words on the page, and keeps both links where they were', () => {
+    document.body.innerHTML = PAGE;
+    expect(pictureAccountLinks(document)).toBe(2);
+    expect(document.body.textContent).not.toMatch(/create|account/i);
+    for (const id of ['nav-create', 'side-create']) {
+      const a = document.getElementById(id)!;
+      const img = a.querySelector('img')!;
+      expect(img.getAttribute('data-electric-mc')).toBe('pictured-link');
+      expect(img.alt).toBe('');
+    }
+    expect(document.querySelector('nav')!.textContent).toMatch(/Log In\s+Reset Password/);
+  });
+
+  it('keeps the links working, and is safe to run again', () => {
+    document.body.innerHTML = PAGE;
+    pictureAccountLinks(document);
+    let clicks = 0;
+    document.getElementById('side-create')!.addEventListener('click', (e) => { e.preventDefault(); clicks++; });
+    document.querySelector<HTMLImageElement>('#side-create img')!.click();
+    expect(clicks).toBe(1);
+    expect(pictureAccountLinks(document)).toBe(0);
+    expect(document.querySelectorAll('img[data-electric-mc="pictured-link"]')).toHaveLength(2);
   });
 });

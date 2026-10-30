@@ -12,7 +12,17 @@ nothing off your device and uses no analytics or tracking. It reads
 Manuscript Central pages in your browser to restyle them and rename tabs.
 Your settings are stored in `chrome.storage.sync`, so they follow your Chrome
 profile. Page data and debug logs are stored in `chrome.storage.local`, in
-that browser only, and leave it only if you export a log yourself.
+that browser only, and leave it only if you export a log yourself. Test
+builds can also append the log, in developer mode only, to a file on the
+same computer through a helper you install yourself (`make
+install-log-host`); nothing is sent anywhere else.
+Manuscripts you haven't viewed in 2 years are removed from that storage
+automatically, with your notes on them, and **Clear all data** in Settings
+removes all of it at once (extension 0.0.30).
+
+The one exception is **shared notes** (extension 0.0.40), and only if you
+enter a notes server address in Settings. Without one, notes stay in your
+browser as before. See section 5.1.
 
 The rest of this page also covers **planned** features: the shared backend,
 chat, activity tracking, AE recruitment, matching, and email (sections 4 to
@@ -56,6 +66,9 @@ turn it off for a site, it:
   assigned, so it can show the right chat and rename the browser tab (the tab
   title rewrite makes your browser history readable);
 - restyles the page. Styling rules are data, never remote code;
+- reads the Assign Associate Editor pull-down when it is on the page, and
+  keeps each editor's name and current number of assigned manuscripts, the
+  latest reading only, for the editorial matrix (extension 0.0.32);
 - (planned) if you opt in, notes when the tab is visible and you are active (mouse,
   keyboard, focus, Chrome idle state). It never records keystrokes, page
   content, or screenshots.
@@ -71,6 +84,18 @@ are only feature switches, layout options, and the list of Manuscript
 Central sites where you turned the extension off. No manuscript data is
 synced: page data and logs stay in `chrome.storage.local`, in that browser
 only.
+
+**The editorial matrix's roster** (names, roles, affiliations, public
+contact links and headshots of the section's editors) is not part of the
+extension. You load it from a file, and it is kept in `chrome.storage.local`
+in that browser only, like the AE counts. Clear all data removes both.
+
+**The To EIC list and your roles.** The extension keeps, in
+`chrome.storage.local` only, each recommendation you sent to the EIC
+(manuscript ID, title, the recommendation, and when it was first seen) and
+which MC roles you have. It never keeps your comments to the EIC or the
+author. Items leave the list when the EIC acts; Clear all data removes the
+list and the roles.
 
 Details: [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
@@ -102,6 +127,45 @@ visibility, so you only ever receive messages meant for a role you hold.
 When a message's visibility is changed later, the change is logged with who
 made it. Messages are capped at 2 KB. How long they are kept after a final
 decision is still to be decided (Design Goals open question 9).
+
+## 5.1 Notes (extension 0.0.40)
+
+Each note on a manuscript is signed with its author's name and the time its
+editing session began.
+
+**Who you are.** The extension reads who is logged in from information MC
+puts in its own pages: your MC email, first and last name, MC person number
+and role type. The first time you write a note, it asks for the name you
+want on notes. If that name differs from MC's, notes show both, like "Pat
+Example (Opinions Co-Chair)". Your name is kept in your Chrome profile's
+synced settings, and the MC details in this browser's local storage.
+
+**Without a notes server** (the default), notes stay in this browser.
+
+**With a notes server** set in Settings, the extension sends the server:
+- once per browser, a public key it made for you, with your MC email, MC
+  name, person number, role type, journal and the name you chose. The
+  matching private key can't be exported and never leaves the browser.
+  You may have several keys (one per browser profile);
+- for each note: the manuscript's base ID, the session time, the text and
+  when it was last edited. The server records the author from your key,
+  not from anything the request says;
+- with every request, a SHA-256 hash of the manuscript's title. **The title
+  itself is never sent or stored.** The server keeps only an HMAC (a keyed
+  hash, with a secret only the server knows) of the ID and that hash, to
+  check that later requests are about the same paper.
+
+The server lets you edit and delete your own notes. Co-chairs and the EIC
+can delete anyone's. The project owner can ban a key or an email, and a
+banned key can't send anything more. Notes sent to the server stay there
+until they are deleted; Clear all data removes only this browser's copy.
+
+**Current limit.** For now, the first upload of a key is taken as
+legitimate. Anyone could register a key with someone else's MC details, and
+the person who knows a paper's ID and exact title (including its authors)
+can read its notes. Until the owner approves identities, use the notes
+server only for notes that wouldn't harm anyone if read. Approval and
+per-assignment visibility come later (sections 5 and 10).
 
 ## 6. Activity tracking (opt-in)
 
@@ -191,3 +255,8 @@ staff will be switched on later, and this page will say so.
 |------|--------|
 | 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
 | 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
+| 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |
+| 2026-10-23 | The editorial matrix: AE assignment counts read from MC's pull-down, and a roster loaded from a file, both kept in local storage only; Clear all data removes them (extension 0.0.32). |
+| 2026-10-24 | The To EIC list (your recommendations, without comments) and the MC roles you have, kept in local storage only; Clear all data removes them (extension 0.0.33). |
+| 2026-10-27 | Test builds in developer mode can append the log to a local file through a helper the user installs (native messaging; not in the Web Store build) (extension 0.0.34). |
+| 2026-10-28 | Authored notes (section 5.1): the extension reads the logged-in person from MC's page metadata; with a notes server set, notes, a public key per browser and the person's MC details go to the server; titles never leave the browser, only a hash, which the server stores as an HMAC (extension 0.0.40). |

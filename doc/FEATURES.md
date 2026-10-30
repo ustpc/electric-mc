@@ -31,11 +31,34 @@ pitch to associate editors. "Now" means it works in the test extension today.
   side panel, to turn Electric MC off for a site.
 - **A side panel that follows you (now).** Everything known about the
   manuscript on screen, which pops out into its own window.
-- **Private notes per manuscript (now).** Kept only in your browser.
+- **Signed notes per manuscript (now).** Each note shows who wrote it and
+  when. Keep typing and it updates the same note; come back after an hour
+  and you start a new one. You can edit or delete your own notes, and
+  co-chairs and the EIC can delete any note. Notes stay in your browser
+  unless you set a notes server, which shares them with the other editors.
+  Each browser signs its notes with its own key, and the manuscript's title
+  never leaves your computer.
+
+## For co-chairs
+
+- **What's waiting for the EIC (now).** Recommend a decision under
+  Co-Chair Recommends and the extension keeps it in a To EIC list and marks
+  the manuscript in the queue grid, which MC itself doesn't, until the EIC
+  acts. One click copies the list for the EIC.
+- **Click the ID to open a manuscript (now).** No more aiming for the
+  little Take Action checkbox.
+
+- **The editorial matrix, with workloads (now).** One window lists the
+  whole section team (column heads, columnists and associate editors) with
+  photos, roles, institutions and expertise, and shows next to each editor
+  how many manuscripts they have right now, as MC's Assign Associate Editor
+  pull-down reports it. Search by name, column or expertise. No web hosting:
+  the roster is a file you load, and it stays in your browser.
 
 ## Privacy
 
-- Nothing leaves your browser in the test extension.
+- Nothing leaves your browser in the test extension unless you set a notes
+  server, and then only notes, your MC identity and a hash of each title.
 - Logs keep only problems unless you turn on developer mode, and the export
   meant for sharing strips names, titles, emails and manuscript IDs.
 - No manuscript content ever goes to a third-party AI service (ACM peer

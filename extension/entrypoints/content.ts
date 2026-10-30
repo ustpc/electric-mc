@@ -7,15 +7,21 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { applyRestyle, clearRestyle, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
-import { annotateLogin, findLoginFields, watchForAutofill } from '../lib/login';
-import { addMilestoneRows, decisionLettersIn, findAuditTrailLink, labelsOn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
-import { annotateVersionRow, findVersionLinks, loadInHiddenFrame, plainHref } from '../lib/versions';
+import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
+import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { annotateVersionRow, findVersionLinks } from '../lib/versions';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
+import { journalKey, readAeLoad } from '../lib/aeload';
+import { linkIds, unlinkIds } from '../lib/idlink';
+import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
+import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { rolesIn as editorBlock } from '../parsers/dom';
+import { readIdentity } from '../lib/identity';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -39,6 +45,8 @@ async function start() {
   let timer: number | undefined;
 
   const enabled = () => isEnabledFor(settings, location.href);
+  // Recommendations sent to the EIC, kept up to date from storage.
+  let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
 
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
@@ -68,6 +76,10 @@ async function start() {
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
     recordLetters(r);
     recordThisVersion(r);
+    recordAeLoad();
+    recordRoles(r);
+    recordIdentity(r);
+    recordRecommendation(r);
     if (reason === 'load') followSearch(r);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
@@ -78,9 +90,66 @@ async function start() {
     }
     if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
     else clearHighlights(document);
+    if (r.pageType === 'queue-list') {
+      linkIds(document, settings.idPattern);
+      annotateEicRows(document, eicItems, settings.idPattern);
+    }
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
+  };
+
+  // The person's roles, from the role switcher and breadcrumb; sent only when new.
+  const rolesSent = new Set<string>();
+  const recordRoles = (r: ParseResult) => {
+    const found = rolesNamed(roleLabels(document, r.breadcrumb)).filter((x) => !rolesSent.has(x));
+    if (!found.length || !r.site) return;
+    found.forEach((x) => rolesSent.add(x));
+    send({ type: 'roles', site: r.site, roles: found });
+  };
+
+  // Who is logged in, from MC's own page metadata; sent when it changes.
+  let identitySent = '';
+  const recordIdentity = (r: ParseResult) => {
+    const id = r.site ? readIdentity(document) : null;
+    if (!id || !r.site) return;
+    const key = JSON.stringify(id);
+    if (key === identitySent) return;
+    identitySent = key;
+    send({ type: 'identity', site: r.site, identity: id });
+  };
+
+  // The person's own recommendation to the EIC, from the Recommendations box
+  // on the details page. It leaves the To EIC list when it's gone from the
+  // box (rescinded or acted on) or a decision letter has gone out.
+  const recordRecommendation = (r: ParseResult) => {
+    const m = r.manuscript;
+    if (!m) return;
+    const box = recommendationsBox(document);
+    const mine = box && myRecommendation(readRecommendations(box), editorBlock(document.body).get('cc'));
+    if (mine) {
+      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today() };
+      const had = eicItems[m.id];
+      if (!had || had.recommendation !== item.recommendation || had.title !== item.title) {
+        send({ type: 'eic', set: item });
+        send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
+      }
+    } else if (eicItems[m.id] && (box || decisionLettersIn(document, settings.idPattern).has(m.id))) {
+      send({ type: 'eic', remove: m.id });
+      send({ type: 'log', level: 'info', event: 'recommendation to EIC cleared', data: { reason: box ? 'no longer in Recommendations' : 'decision sent' } });
+    }
+  };
+
+  // MC's AE-assignment pull-down shows each editor's current number of
+  // manuscripts; keep the latest counts for the Opinions matrix.
+  let aeLoadKey = '';
+  const recordAeLoad = () => {
+    const entries = readAeLoad(document);
+    if (!entries) return;
+    const key = JSON.stringify(entries);
+    if (key === aeLoadKey) return;
+    aeLoadKey = key;
+    send({ type: 'ae-load', journal: journalKey(location.href), entries });
   };
 
   // Every manuscript page, original or revision, records its own version's
@@ -90,7 +159,9 @@ async function start() {
     const m = r.manuscript;
     if (!m) return;
     const read = versionInfoFrom(document, m.id);
-    const info: VersionInfo = { ...read, ae: read.ae ?? m.handlingEditor, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
+    // "AE: Not Assigned" means unknown, never a name to remember.
+    const named = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
+    const info: VersionInfo = { ...read, ae: read.ae ?? named, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
     const key = JSON.stringify(info);
     if (key === recorded) return;
     recorded = key;
@@ -99,78 +170,47 @@ async function start() {
 
   // Earlier versions: show each one's AE in the Version History table, and
   // add the previous version's dates and editors to Peer Review Milestones,
-  // from what was recorded when those versions were viewed, loading in the
-  // background only links with a plain address. Once per manuscript per page.
-  let skipLogged = false;
+  // from what was recorded when those versions were viewed. Once per manuscript
+  // per page.
   const looked = new Set<string>();
   let milestones: { on: string; info: VersionInfo } | null = null;
   const earlierVersions = async (r: ParseResult) => {
     const m = r.manuscript!;
     if (looked.has(m.id)) return;
-    looked.add(m.id);
     const links = findVersionLinks(document, m, settings.idPattern);
     if (!links.length) {
-      send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
+      // MC may draw Version History later; the next parse tries again.
+      if (!noLinksLogged) send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
+      noLinksLogged = true;
       return;
     }
+    looked.add(m.id);
     const idCol = (row: HTMLTableRowElement) => Array.from(row.cells).findIndex((c) => c.textContent?.includes(m.baseId));
     const got = await chrome.storage.local.get(KEY.seen);
     const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
     const fromBackend = await askBackend(m.baseId);
-    for (const [i, v] of links.entries()) {
-      const previous = i === 0;
-      let info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
+    const infos: VersionInfo[] = links.map((v) => {
+      const info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
       info.ae = fromBackend?.[v.ref.id] ?? info.ae ?? known?.aeByVersion?.[v.ref.id];
       info.submitted ??= v.submitted;
-      // The previous version also needs its dates and co-chair for the milestones rows.
-      const complete = info.ae && (!previous || (info.submitted && info.responded && info.coChair));
-      if (!complete && !plainHref(document, v.link)) {
-        // MC's Switch Details links are scripts that navigate the whole tab,
-        // so they are never clicked from here.
-        if (!skipLogged) send({ type: 'log', level: 'info', event: 'earlier version not loaded in the background (script link)' });
-        skipLogged = true;
-      } else if (!complete) {
-        try {
-          const t0 = performance.now();
-          const d = await loadInHiddenFrame(document, v.link);
-          const vr = parsePage(d, d.location.href, { idPattern: settings.idPattern });
-          const vm = vr.manuscript;
-          if (vm && vm.id !== v.ref.id) throw new Error(`loaded ${vm.id}, expected ${v.ref.id}`);
-          const read = versionInfoFrom(d, v.ref.id);
-          info = { ...info, ...Object.fromEntries(Object.entries(read).filter(([, x]) => x)) };
-          if (previous) info.responded = (await decisionSent(v.ref.id)) ?? info.responded;
-          const missing = (['submitted', 'responded', 'ae', 'coChair'] as const).filter((k) => !info[k]);
-          send({ type: 'version-info', baseId: m.baseId, id: v.ref.id, ae: info.ae, status: vm?.status, info, source: 'page' });
-          send({ type: 'log', level: 'info', event: 'looked up earlier version', data: { id: v.ref.id, missing, ms: Math.round(performance.now() - t0) } });
-          // Labels only, no values, so we can teach the parser MC's wording.
-          if (missing.length) send({ type: 'log', level: 'debug', event: 'earlier version labels', data: { id: v.ref.id, missing, labels: labelsOn(d) } });
-        } catch (e) {
-          send({ type: 'log', level: 'warn', event: 'earlier version lookup failed', data: { id: v.ref.id, error: String(e) } });
+      info.responded ??= decisionLettersIn(document, settings.idPattern).get(v.ref.id);
+      return info;
+    });
+    const show = (missingNote: string) =>
+      links.forEach((v, i) => {
+        const info = infos[i]!;
+        annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : missingNote);
+        if (i === 0) {
+          milestones = { on: m.id, info };
+          if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
         }
-      }
-      annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : 'AE: open this version once to record it');
-      if (previous) {
-        milestones = { on: m.id, info };
-        if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
-      }
-    }
+      });
+    // Versions not opened yet have no AE here. They are never looked up in
+    // the background: loading MC pages beside the person's tab logged them
+    // out (0.0.26 to 0.0.33).
+    show('AE: open this version once to record it');
   };
-
-  // When the previous version's decision letter went out, from the Audit
-  // Trail: on this page if it's there, else the Audit Trail tab in a frame.
-  const decisionSent = async (id: string): Promise<string | undefined> => {
-    const here = decisionLettersIn(document, settings.idPattern).get(id);
-    if (here) return here;
-    const link = findAuditTrailLink(document);
-    if (!link || !plainHref(document, link)) return undefined;
-    try {
-      const d = await loadInHiddenFrame(document, link, 10_000);
-      return decisionLettersIn(d, settings.idPattern).get(id);
-    } catch (e) {
-      send({ type: 'log', level: 'warn', event: 'audit trail lookup failed', data: String(e) });
-      return undefined;
-    }
-  };
+  let noLinksLogged = false;
 
   // Any Audit Trail on screen tells us when decisions were sent; keep them.
   const recordLetters = (r: ParseResult) => {
@@ -213,7 +253,8 @@ async function start() {
       return;
     }
     annotateLogin(f);
-    send({ type: 'log', level: 'info', event: 'login form annotated for password managers', data: { submit: !!f.submit, pageType: last?.pageType } });
+    const pictured = pictureAccountLinks(document);
+    send({ type: 'log', level: 'info', event: 'login form annotated for password managers', data: { submit: !!f.submit, pageType: last?.pageType, pictured } });
     stopLogin = settings.autoLogin
       ? watchForAutofill(f, (how) => send({ type: 'log', level: 'info', event: 'auto-submitted login', data: how }))
       : () => {};
@@ -241,7 +282,8 @@ async function start() {
     clearHighlights(document);
     clearRestyle(document);
     hidePageHeader(document, false);
-    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"]`).forEach((e) => e.remove());
+    unlinkIds(document);
+    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
@@ -281,6 +323,11 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes[KEY.eic]) {
+      eicItems = (changes[KEY.eic]!.newValue as Record<string, EicItem> | undefined) ?? {};
+      if (enabled() && last?.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
+      return;
+    }
     if (area !== SETTINGS_AREA || !changes[KEY.settings]) return;
     void getSettings().then((s) => {
       const was = enabled();
@@ -304,6 +351,12 @@ async function start() {
  */
 async function askBackend(_baseId: string): Promise<Record<string, string> | null> {
   return null;
+}
+
+/** Today as yyyy-mm-dd, local time. */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function idsKey(r: ParseResult): string {
