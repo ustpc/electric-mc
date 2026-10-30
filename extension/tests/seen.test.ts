@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterSeen, pruneSeen, withNote } from '../lib/seen';
+import { filterSeen, pruneSeen } from '../lib/seen';
 import type { SeenManuscript } from '../lib/messages';
 
 const m = (latestId: string, title?: string): SeenManuscript =>
@@ -54,11 +54,3 @@ describe('pruneSeen', () => {
   });
 });
 
-describe('withNote', () => {
-  it('sets a note and keeps the others', () => {
-    expect(withNote({ 'XYZJ-26-01-9001': 'a' }, 'XYZJ-26-01-9002', 'b')).toEqual({ 'XYZJ-26-01-9001': 'a', 'XYZJ-26-01-9002': 'b' });
-  });
-  it('removes a note emptied out', () => {
-    expect(withNote({ 'XYZJ-26-01-9001': 'a', 'XYZJ-26-01-9002': 'b' }, 'XYZJ-26-01-9001', '  ')).toEqual({ 'XYZJ-26-01-9002': 'b' });
-  });
-});
