@@ -6,7 +6,7 @@ so history and the Back menu make sense, highlights revisions, fills in what
 earlier versions of a revision looked like, and logs problems. Nothing leaves your machine: there is no backend yet.
 
 Design notes are in
-[Technical Stack and Architecture.md](../doc/Technical%20Stack%20and%20Architecture.md#65-test-extension-built-2026-10-18).
+[Technical Stack and Architecture.md](../doc/planning/Technical%20Stack%20and%20Architecture.md#65-test-extension-built-2026-10-18).
 
 ## Version
 
