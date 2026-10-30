@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.42 (2026-10-28)
+
+- Fixed: once 0.0.37 made the manuscript IDs clickable, the next look at the page no longer found the IDs (it skips what E-MC adds), so the grid read as an unknown page and revisions lost their highlight. The parser now reads the ID text inside those links. (0.0.40 and 0.0.41 are on the authored-notes branch.)
+
 ## 0.0.39 (2026-10-28)
 
 - On MC's login page, the two "Create an Account" links stay where they were and still work, but are drawn as pictures of the words "New Account". 0.0.38 showed that their wording was what made 1Password offer to generate a password instead of filling your login. The "more..." button is gone.
