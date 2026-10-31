@@ -42,4 +42,4 @@ plus DBLP titles when a pid is given), each embedded with
 `Xenova/bge-small-en-v1.5` (8-bit). The profile is the mean vector, weighted
 by `0.5^(age/5 years)`, plus the vectors of the 20 most recent papers. A
 manuscript's score is `0.6 · cos(manuscript, mean) + 0.4 · best cos(manuscript,
-paper)`. See doc/AE recruitment and matching.md §3.
+paper)`. See doc/planning/AE recruitment and matching.md §3.

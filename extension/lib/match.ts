@@ -4,7 +4,7 @@
 // embedded with the same model the extension bundles) and loaded from
 // ae-profiles.json into this browser's chrome.storage.local. The manuscript
 // is embedded on this device (lib/embed.ts) and never leaves it.
-// See doc/AE recruitment and matching.md §3.
+// See doc/planning/AE recruitment and matching.md §3.
 
 import { fold } from './roster';
 
