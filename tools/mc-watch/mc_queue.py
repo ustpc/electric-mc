@@ -5,8 +5,8 @@
 # ///
 """List the manuscript IDs in the Co-Chair "Awaiting AE Assignment" queue.
 
-Test program for the auto-print idea. It drives an offscreen (headless)
-Chromium through the same clicks a person makes:
+Test program for the auto-print idea. It drives a Chromium window placed
+off-screen (not headless) through the same clicks a person makes:
 
     https://mc.manuscriptcentral.com/cacm -> log in -> Manage ->
     Co-Chair Center -> Co-Chair Tasks: Awaiting AE Assignment ->
@@ -22,6 +22,9 @@ var/mc-watch/profile (git-ignored), so MC's "Remember this device" cookie
 survives between runs and the emailed verification code is needed only once.
 --fresh deletes that profile first. It never touches your installed Chrome or
 its profile. If MC asks for a verification code, type it at the terminal.
+If Cloudflare's "Just a moment..." check doesn't clear by itself, the window
+moves on-screen so you can complete it; the profile keeps its cookie, so
+later runs should pass. Run it next to your screen the first time.
 
 The browser is Selenium-driven Chromium. By default Selenium Manager fetches
 "Chrome for Testing" (a stock Chromium build) into ~/.cache/selenium the first
@@ -66,6 +69,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 PROFILE = os.path.join(REPO, "var", "mc-watch", "profile")  # git-ignored
 STEP_TIMEOUT = 30  # seconds
 PAUSE = 0.5  # seconds between clicks, roughly a person's pace
+CF_WAIT = 15  # seconds to let a Cloudflare check clear by itself
+HUMAN_WAIT = 5 * 60  # seconds for a person to complete it
+OFFSCREEN = (-3000, 0)
+show_window = False  # --show: keep the window on-screen
 
 
 def log(msg):
@@ -132,7 +139,31 @@ def click(d, locator, what):
     el = WebDriverWait(d, STEP_TIMEOUT).until(EC.element_to_be_clickable(locator))
     el.click()
     time.sleep(PAUSE)
+    cloudflare(d)
     snap(d, what)
+
+
+def challenged(d):
+    return d.title.strip().startswith("Just a moment")
+
+
+def cloudflare(d):
+    """If Cloudflare's "Just a moment..." page is up, give it CF_WAIT seconds,
+    then bring the window on-screen for a person to complete the check."""
+    if not challenged(d):
+        return
+    snap(d, "cloudflare check")
+    log(f"Cloudflare check; waiting up to {CF_WAIT} s for it to clear")
+    try:
+        WebDriverWait(d, CF_WAIT).until(lambda d: not challenged(d))
+    except TimeoutException:
+        d.set_window_position(0, 0)
+        log("Cloudflare check: please complete it in the browser window")
+        WebDriverWait(d, HUMAN_WAIT).until(lambda d: not challenged(d))
+        if not show_window:
+            d.set_window_position(*OFFSCREEN)
+    time.sleep(PAUSE)
+    snap(d, "after cloudflare")
 
 
 def wait_text(d, text):
@@ -149,7 +180,7 @@ def visible(d, xpath):
 
 def enter_code(d):
     """MC's "Unrecognized Device" dialog: ask for the emailed code on the
-    terminal (the browser is offscreen), tick "Remember this device" so the
+    terminal (the browser is off-screen), tick "Remember this device" so the
     persistent profile skips this next time, and press Verify."""
     log("MC says this is an unrecognized device and emailed a verification code")
     snap(d, "code dialog")
@@ -188,9 +219,13 @@ def log_in(d, username, password):
     if not buttons:
         raise SystemExit("couldn't find the Log In button")
     buttons[0].click()
+    time.sleep(PAUSE)
+    cloudflare(d)
     WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or needs_code(d))
     if needs_code(d):
         enter_code(d)
+        time.sleep(PAUSE)
+        cloudflare(d)
         WebDriverWait(d, STEP_TIMEOUT).until(logged_in)
     snap(d, "after login")
 
@@ -230,6 +265,7 @@ def all_queue_ids(d):
         old = sel._el
         sel.select_by_index(i)
         WebDriverWait(d, STEP_TIMEOUT).until(EC.staleness_of(old))
+        cloudflare(d)
         wait_text(d, "Take Action")
         time.sleep(PAUSE)
         snap(d, f"queue page {opts[i]}")
@@ -244,7 +280,7 @@ def main():
     ap.add_argument("username", help="your MC user ID")
     ap.add_argument("--chromium", help="path to a Chromium binary (default: Chrome for Testing via Selenium Manager)")
     ap.add_argument("--chromedriver", help="path to the chromedriver that matches --chromium")
-    ap.add_argument("--show", action="store_true", help="show the browser window (for debugging)")
+    ap.add_argument("--show", action="store_true", help="put the browser window on-screen from the start")
     ap.add_argument("--fresh", action="store_true", help="delete the saved profile (cookies) first")
     ap.add_argument("--no-debug", action="store_true", help="don't save HTML/PNG snapshots of each step")
     ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
@@ -259,8 +295,10 @@ def main():
         shutil.rmtree(PROFILE, ignore_errors=True)
     os.makedirs(PROFILE, exist_ok=True)
     opts = webdriver.ChromeOptions()
+    global show_window
+    show_window = a.show
     if not a.show:
-        opts.add_argument("--headless=new")
+        opts.add_argument(f"--window-position={OFFSCREEN[0]},{OFFSCREEN[1]}")
     opts.add_argument(f"--user-data-dir={PROFILE}")
     opts.add_argument("--window-size=1400,1000")
     opts.add_argument("--no-first-run")
@@ -282,6 +320,7 @@ def main():
     try:
         log(f"opening {START_URL}")
         d.get(START_URL)
+        cloudflare(d)
         snap(d, "start page")
         log_in(d, a.username, password)
         click(d, link("Manage", exact=False), "Manage")
