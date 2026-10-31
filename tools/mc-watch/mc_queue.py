@@ -14,6 +14,7 @@ Chromium through the same clicks a person makes:
 
 Usage:
     uv run tools/mc-watch/mc_queue.py USERNAME [--show] [--chromium PATH]
+    make mc-queue USERID=USERNAME [ARGS="--show --fresh"]
 
 The password is read from a prompt (never from the command line or a file).
 The browser keeps its own persistent profile (cookie jar) in
