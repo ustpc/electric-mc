@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["selenium>=4.30"]
+# ///
 """List the manuscript IDs in the Co-Chair "Awaiting AE Assignment" queue.
 
 Test program for the auto-print idea. It drives an offscreen (headless)
@@ -9,7 +13,7 @@ Chromium through the same clicks a person makes:
     print each Manuscript ID (all pages) -> log out
 
 Usage:
-    python3 tools/mc-watch/mc_queue.py USERNAME [--show] [--chromium PATH]
+    uv run tools/mc-watch/mc_queue.py USERNAME [--show] [--chromium PATH]
 
 The password is read from a prompt (never from the command line or a file).
 The browser keeps its own persistent profile (cookie jar) in
@@ -26,9 +30,8 @@ Pass --chromium (and --chromedriver) to use another Chromium instead.
 
 Nothing from MC is written to disk; the IDs go to stdout only.
 
-Setup (once):
-    python3 -m venv var/mc-watch/venv
-    var/mc-watch/venv/bin/pip install selenium
+Run with uv (it installs Selenium from the script header on first use):
+    uv run tools/mc-watch/mc_queue.py USERNAME
 """
 
 import argparse
