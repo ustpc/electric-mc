@@ -206,3 +206,41 @@ def test_wal_mode(tmp_path):
     s = mc_store.Store(str(tmp_path / "db.sqlite"))
     assert s.db.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     assert s.db.execute("PRAGMA synchronous").fetchone()[0] == 2  # FULL
+
+
+def test_missing_download_is_fetched_again(tmp_path):
+    dl = tmp_path / "downloads"
+    (dl / ".incoming").mkdir(parents=True)
+    s = mc_store.Store(str(tmp_path / "db.sqlite"))
+    s.seen("TEST-26-10-9011")
+    s.downloaded("TEST-26-10-9011", str(dl / "TEST-26-10-9011.pdf"))  # file deleted by hand
+    msgs = []
+    assert s.reconcile(str(dl), log=msgs.append) == []
+    row = s.get("TEST-26-10-9011")
+    assert (row["state"], row["download_path"]) == ("seen", None)
+    assert s.needs_download("TEST-26-10-9011") and s.pending_print() == []
+    assert any("again" in m for m in msgs)
+    assert not (dl / ".incoming").exists()
+
+
+def test_force_targets(tmp_path, cfg):
+    s = mc_store.Store(":memory:")
+    for m in ("TEST-26-10-9012", "TEST-26-10-9013", "TEST-26-10-9014"):
+        s.seen(m)
+    s.downloaded("TEST-26-10-9013", os.path.join(cfg["downloads_dir"], "TEST-26-10-9013.pdf"))
+    filed = mc_store.printed_destination(cfg["printed_dir"], "TEST-26-10-9014")
+    s.printed("TEST-26-10-9014", filed, "Fake_Printer-7")
+    dl = lambda m: (os.path.join(cfg["downloads_dir"], f"{m}.pdf"), False)
+    assert mc_store.force_target(s.get("TEST-26-10-9012"), cfg) == dl("TEST-26-10-9012")
+    assert mc_store.force_target(s.get("TEST-26-10-9013"), cfg) == dl("TEST-26-10-9013")
+    assert mc_store.force_target(s.get("TEST-26-10-9014"), cfg) == (filed, True)
+    # a refreshed printed copy keeps its state and is never queued to print
+    mc_store.save_pdf(b"%PDF-1.4 refreshed", filed)
+    s.replace_printed("TEST-26-10-9014", filed)
+    row = s.get("TEST-26-10-9014")
+    assert (row["state"], row["lp_job"]) == ("printed", "Fake_Printer-7")
+    assert all(r["msid"] != "TEST-26-10-9014" for r in s.pending_print())
+    # skipped with --mark-seen: no filed copy yet, so it gets one in printed_dir
+    s.mark_seen("TEST-26-10-9012")
+    assert mc_store.force_target(s.get("TEST-26-10-9012"), cfg) == (
+        mc_store.printed_destination(cfg["printed_dir"], "TEST-26-10-9012"), True)

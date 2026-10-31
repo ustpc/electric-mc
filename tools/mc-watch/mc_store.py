@@ -192,11 +192,23 @@ class Store:
 
     def reconcile(self, downloads_dir, log=print):
         """Make the database match downloads_dir after an interrupted run:
-        delete leftover *.part files, and record any {msid}.pdf the database
-        doesn't know was downloaded. Returns the IDs it recorded."""
+        delete leftover *.part files, record any {msid}.pdf the database
+        doesn't know was downloaded, and send a "downloaded" row whose file
+        is gone back to "seen" so it is downloaded again. Returns the IDs it
+        recorded as downloaded."""
         found = []
+        for row in self.db.execute("SELECT msid, download_path FROM documents WHERE state='downloaded'").fetchall():
+            if not row["download_path"] or not os.path.exists(row["download_path"]):
+                self.db.execute("UPDATE documents SET state='seen', downloaded_at=NULL, download_path=NULL,"
+                                " lp_job=NULL WHERE msid=?", (row["msid"],))
+                self.db.commit()
+                log(f"{row['msid']}: its downloaded PDF is gone; will download it again")
         if not os.path.isdir(downloads_dir):
             return found
+        try:
+            os.rmdir(os.path.join(downloads_dir, ".incoming"))  # left by older versions; only if empty
+        except OSError:
+            pass
         for f in sorted(os.listdir(downloads_dir)):
             path = os.path.join(downloads_dir, f)
             if f.endswith(".part"):
@@ -213,6 +225,11 @@ class Store:
                 found.append(msid)
                 log(f"{msid}: found downloaded in {downloads_dir}; recorded")
         return found
+
+    def replace_printed(self, msid, path):
+        """--force refreshed an already-printed document's filed copy."""
+        self.db.execute("UPDATE documents SET printed_path=? WHERE msid=?", (path, msid))
+        self.db.commit()
 
     def printed(self, msid, path, job):
         self.db.execute(
@@ -286,6 +303,16 @@ def print_file(file, printer, options, lp="lp"):
 def printed_destination(printed_dir, msid):
     _, _, year = split_msid(msid)
     return os.path.join(printed_dir, str(year), msid, f"{msid}.pdf")
+
+
+def force_target(row, cfg):
+    """Where a (re-)download of row's document goes: (path, already_printed).
+    A printed document's filed copy is replaced in place; anything else goes
+    to downloads_dir and waits to be printed as usual."""
+    msid = row["msid"]
+    if row["state"] == "printed":
+        return row["printed_path"] or printed_destination(cfg["printed_dir"], msid), True
+    return os.path.join(cfg["downloads_dir"], f"{msid}.pdf"), False
 
 
 def print_and_file(store, row, cfg, lp="lp"):

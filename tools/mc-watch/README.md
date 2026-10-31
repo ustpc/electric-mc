@@ -92,6 +92,7 @@ and exits with status 130.
 | `mc_queue.py --list` | Only lists and records the queue. Downloads and prints nothing. |
 | `mc_queue.py --no-print` | Lists and downloads, but doesn't print. Already-downloaded PDFs wait for a later printing run. |
 | `mc_queue.py --mark-seen` | Records everything now in the queue as already printed, without downloading or printing. Use it once to skip a backlog. |
+| `mc_queue.py --force` | Downloads every manuscript in the queue again, replacing the local copy. Already-printed manuscripts aren't printed again: their filed copy in `printed_dir` is replaced. Combine it with `--no-print` to refresh files without printing anything. |
 
 Manuscript IDs go to the terminal. Every run ends with a summary like
 `summary: 9 in queue, 2 new, 2 downloaded, 2 printed, 0 errors`.
@@ -169,7 +170,8 @@ Repeat `--queue` to watch several lists.
     run tries again.
 
 If printing fails (for example, the printer is off), the PDF stays in
-`downloads_dir` and prints on the next printing run.
+`downloads_dir` and prints on the next printing run. If you delete a
+downloaded PDF by hand before it prints, the next run downloads it again.
 
 ## Debug snapshots
 

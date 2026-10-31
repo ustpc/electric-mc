@@ -39,6 +39,9 @@ Usage:
     --no-print   list and download, don't print
     --mark-seen  record the current queue as printed without downloading or
                  printing, to skip a backlog; later revisions still print
+    --force      download every manuscript in the queue again, replacing the
+                 local copy; already-printed ones are refreshed in place and
+                 not printed again
 
 The password is kept in the macOS Keychain (service "electric-mc mc-watch",
 account = the MC user ID), asked for only when there is none, and saved only
@@ -499,6 +502,9 @@ def main():
     mode.add_argument("--no-print", action="store_true", help="download new PDFs but don't print")
     mode.add_argument("--mark-seen", action="store_true",
                       help="record the current queue as printed, without downloading or printing")
+    ap.add_argument("--force", action="store_true",
+                    help="download every manuscript in the queue again, replacing the local copy "
+                         "(already-printed ones are refreshed in printed_dir, not reprinted)")
     ap.add_argument("--role", choices=sorted(mc_store.ROLES), help="preset center and queues (default: config role)")
     ap.add_argument("--center", help="the item under Manage, e.g. 'Associate Editor Center'")
     ap.add_argument("--queue", action="append", help="a list on that center's dashboard; repeat for several")
@@ -568,16 +574,23 @@ def main():
                 tally["new"] += 1
             if a.mark_seen:
                 store.mark_seen(mid)
-            elif not a.list and store.needs_download(mid):
+            elif not a.list and (a.force or store.needs_download(mid)):
+                needed = store.needs_download(mid)
+                dest, printed = mc_store.force_target(store.get(mid), cfg)
                 try:
-                    path = download(d, mid, os.path.join(cfg["downloads_dir"], f"{mid}.pdf"))
-                    store.downloaded(mid, path)
+                    path = download(d, mid, dest)
+                    if printed:
+                        store.replace_printed(mid, path)  # refreshed copy; not printed again
+                        log(f"{mid}: downloaded again into {os.path.dirname(path)} (already printed)")
+                    else:
+                        store.downloaded(mid, path)
+                        log(f"{mid}: downloaded" + ("" if needed else " again"))
                     tally["downloaded"] += 1
-                    log(f"{mid}: downloaded")
                 except Exception as e:
-                    store.error(mid, f"download: {e}")
+                    if needed:
+                        store.error(mid, f"download: {e}")
                     tally["errors"] += 1
-                    log(f"{mid}: download failed: {e}")
+                    log(f"{mid}: download failed: {e}" + ("" if needed else "; kept the copy already here"))
                     snap(d, f"{mid} download error")
                 time.sleep(PAUSE * 4)  # one at a time, at a person's pace
 
