@@ -29,18 +29,24 @@ time and the script refuses to start any browser under /Applications. (Asked
 only for "stable", Selenium Manager would pick the installed Google Chrome.)
 Pass --chromium (and --chromedriver) to use another Chromium instead.
 
-Nothing from MC is written to disk; the IDs go to stdout only.
+The IDs go to stdout. For debugging, after each step it saves the page's
+HTML and a PNG screenshot as NN-step.html / NN-step.png in a new private
+(0700) directory under the system temp dir, never under this repository,
+since they contain real MC data. The path is printed at the start; the
+directory is never deleted automatically. --no-debug turns this off.
 
 Run with uv (it installs Selenium from the script header on first use):
     uv run tools/mc-watch/mc_queue.py USERNAME
 """
 
 import argparse
+import base64
 import getpass
 import re
 import shutil
 import sys
 import os
+import tempfile
 import time
 
 from selenium import webdriver
@@ -64,6 +70,42 @@ PAUSE = 0.5  # seconds between clicks, roughly a person's pace
 
 def log(msg):
     print(f"[mc_queue] {msg}", file=sys.stderr, flush=True)
+
+
+class Snapshots:
+    """Numbered HTML + PNG captures of each step, for debugging."""
+
+    def __init__(self, enabled):
+        self.dir = tempfile.mkdtemp(prefix="mc-watch-") if enabled else None  # mkdtemp is 0700
+        self.n = 0
+
+    def __call__(self, d, step):
+        if not self.dir:
+            return
+        self.n += 1
+        base = os.path.join(self.dir, f"{self.n:02d}-{re.sub(r'[^A-Za-z0-9]+', '-', step).strip('-')}")
+        try:
+            with open(base + ".html", "w", encoding="utf-8") as f:
+                f.write(d.page_source)
+        except Exception as e:
+            log(f"snapshot {step}: no HTML ({e.__class__.__name__})")
+        try:
+            # Whole page, not just the window.
+            size = d.execute_cdp_cmd("Page.getLayoutMetrics", {})["cssContentSize"]
+            shot = d.execute_cdp_cmd("Page.captureScreenshot", {
+                "format": "png", "captureBeyondViewport": True,
+                "clip": {"x": 0, "y": 0, "width": size["width"], "height": size["height"], "scale": 1},
+            })
+            with open(base + ".png", "wb") as f:
+                f.write(base64.b64decode(shot["data"]))
+        except Exception:
+            try:
+                d.save_screenshot(base + ".png")
+            except Exception as e:
+                log(f"snapshot {step}: no PNG ({e.__class__.__name__})")
+
+
+snap = Snapshots(False)
 
 
 def xp_text(s):
@@ -90,6 +132,7 @@ def click(d, locator, what):
     el = WebDriverWait(d, STEP_TIMEOUT).until(EC.element_to_be_clickable(locator))
     el.click()
     time.sleep(PAUSE)
+    snap(d, what)
 
 
 def wait_text(d, text):
@@ -109,6 +152,7 @@ def enter_code(d):
     terminal (the browser is offscreen), tick "Remember this device" so the
     persistent profile skips this next time, and press Verify."""
     log("MC says this is an unrecognized device and emailed a verification code")
+    snap(d, "code dialog")
     code = input("Verification code from the 'Communications of the ACM Verification Code' email: ").strip()
     dialog = "//*[contains(normalize-space(.),'Unrecognized Device') and .//input]"
     fields = visible(d, f"({dialog})[last()]//input[@type='text' or @type='tel' or @type='number' or not(@type)]")
@@ -130,7 +174,9 @@ def log_in(d, username, password):
     WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or d.find_elements(By.NAME, "USERID"))
     if logged_in(d):
         log("still logged in from the saved profile")
+        snap(d, "already logged in")
         return
+    snap(d, "login form")
     log("logging in")
     d.find_element(By.NAME, "USERID").send_keys(username)
     d.find_element(By.NAME, "PASSWORD").send_keys(password)
@@ -146,6 +192,7 @@ def log_in(d, username, password):
     if needs_code(d):
         enter_code(d)
         WebDriverWait(d, STEP_TIMEOUT).until(logged_in)
+    snap(d, "after login")
 
 
 def ids_on_page(d):
@@ -185,6 +232,7 @@ def all_queue_ids(d):
         WebDriverWait(d, STEP_TIMEOUT).until(EC.staleness_of(old))
         wait_text(d, "Take Action")
         time.sleep(PAUSE)
+        snap(d, f"queue page {opts[i]}")
         for mid in ids_on_page(d):
             if mid not in ids:
                 ids.append(mid)
@@ -198,9 +246,14 @@ def main():
     ap.add_argument("--chromedriver", help="path to the chromedriver that matches --chromium")
     ap.add_argument("--show", action="store_true", help="show the browser window (for debugging)")
     ap.add_argument("--fresh", action="store_true", help="delete the saved profile (cookies) first")
+    ap.add_argument("--no-debug", action="store_true", help="don't save HTML/PNG snapshots of each step")
     ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
     a = ap.parse_args()
 
+    global snap
+    snap = Snapshots(not a.no_debug)
+    if snap.dir:
+        log(f"debug snapshots (real MC data; delete when done): {snap.dir}")
     password = getpass.getpass(f"MC password for {a.username}: ")
     if a.fresh:
         shutil.rmtree(PROFILE, ignore_errors=True)
@@ -229,12 +282,15 @@ def main():
     try:
         log(f"opening {START_URL}")
         d.get(START_URL)
+        snap(d, "start page")
         log_in(d, a.username, password)
         click(d, link("Manage", exact=False), "Manage")
         click(d, link("Co-Chair Center"), "Co-Chair Center")
         wait_text(d, "Co-Chair Tasks")
+        snap(d, "co-chair center")
         click(d, link("Awaiting AE Assignment"), "Awaiting AE Assignment")
         wait_text(d, "Take Action")
+        snap(d, "queue")
         ids, total = all_queue_ids(d)
         for mid in ids:
             print(mid)
@@ -246,9 +302,15 @@ def main():
         return 0
     except TimeoutException:
         log(f"timed out at {d.current_url.split('?')[0]} (page title {d.title!r})")
+        snap(d, "error timeout")
         return 1
+    except BaseException as e:
+        snap(d, f"error {e.__class__.__name__}")
+        raise
     finally:
         d.quit()
+        if snap.dir:
+            log(f"debug snapshots: {snap.dir}")
 
 
 if __name__ == "__main__":
