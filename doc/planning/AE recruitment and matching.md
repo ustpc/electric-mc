@@ -1,7 +1,7 @@
 # Electric MC: AE Recruitment and Manuscript Matching
 
 Status: draft, 2026-10-18. Requested by Simson in the project thread. What
-this means for users' data is in [Privacy Policy.md](Privacy%20Policy.md).
+this means for users' data is in [Privacy Policy.md](../Privacy%20Policy.md).
 
 Related documents: [Design Goals.md](Design%20Goals.md),
 [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md),

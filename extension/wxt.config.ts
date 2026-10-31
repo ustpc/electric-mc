@@ -3,7 +3,7 @@ import preact from '@preact/preset-vite';
 import { defaultClientConditions } from 'vite';
 import pkg from './package.json' with { type: 'json' };
 
-// Electric MC test extension. See doc/Technical Stack and Architecture.md.
+// Electric MC test extension. See doc/planning/Technical Stack and Architecture.md.
 // STORE=1 builds the Chrome Web Store package: its name and description
 // are the listing's. Without it the build is labeled as a test build.
 const STORE = !!process.env.STORE;
