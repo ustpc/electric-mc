@@ -149,6 +149,10 @@ class Store:
             os.makedirs(os.path.dirname(path), exist_ok=True)
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
+        # Every method commits right after its change, so ^C at any point
+        # leaves the database consistent with the files.
+        self.db.execute("PRAGMA journal_mode=WAL")
+        self.db.execute("PRAGMA synchronous=FULL")
         self.db.executescript(SCHEMA)
 
     def seen(self, msid):
@@ -179,6 +183,36 @@ class Store:
             (now(), path, msid),
         )
         self.db.commit()
+
+    def print_sent(self, msid, job):
+        """lp accepted the job; recorded before the file moves so a ^C in
+        between can't print it twice."""
+        self.db.execute("UPDATE documents SET lp_job=? WHERE msid=?", (job, msid))
+        self.db.commit()
+
+    def reconcile(self, downloads_dir, log=print):
+        """Make the database match downloads_dir after an interrupted run:
+        delete leftover *.part files, and record any {msid}.pdf the database
+        doesn't know was downloaded. Returns the IDs it recorded."""
+        found = []
+        if not os.path.isdir(downloads_dir):
+            return found
+        for f in sorted(os.listdir(downloads_dir)):
+            path = os.path.join(downloads_dir, f)
+            if f.endswith(".part"):
+                os.remove(path)
+                log(f"deleted the partial download {f}")
+                continue
+            msid = f[:-4] if f.endswith(".pdf") else None
+            if not msid or not MSID_RE.match(msid):
+                continue
+            row = self.get(msid)
+            if row is None or (row["state"] in ("seen", "error") and not row["download_path"]):
+                self.seen(msid)
+                self.downloaded(msid, path)
+                found.append(msid)
+                log(f"{msid}: found downloaded in {downloads_dir}; recorded")
+        return found
 
     def printed(self, msid, path, job):
         self.db.execute(
@@ -211,6 +245,27 @@ class Store:
 
 # --- Printing ---------------------------------------------------------------
 
+def save_pdf(data, dest):
+    """Write data to dest atomically: {dest}.part, fsync, rename, fsync the
+    directory. Raises ValueError unless data starts with %PDF-."""
+    if not data.startswith(b"%PDF-"):
+        raise ValueError("not a PDF")
+    folder = os.path.dirname(dest)
+    os.makedirs(folder, exist_ok=True)
+    part = dest + ".part"
+    with open(part, "wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(part, dest)
+    fd = os.open(folder, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+    return dest
+
+
 def lp_command(file, printer, options, lp="lp"):
     cmd = [lp, "-d", printer]
     for o in options:
@@ -237,11 +292,14 @@ def print_and_file(store, row, cfg, lp="lp"):
     """Print one downloaded document and move it into printed_dir.
     Returns the job id, or None after recording an error."""
     msid, src = row["msid"], row["download_path"]
-    try:
-        job = print_file(src, cfg["printer"], cfg["lp_options"], lp)
-    except (RuntimeError, OSError) as e:
-        store.error(msid, f"print: {e}")
-        return None
+    job = row["lp_job"]  # set if an interrupted run already sent it
+    if not job:
+        try:
+            job = print_file(src, cfg["printer"], cfg["lp_options"], lp)
+        except (RuntimeError, OSError) as e:
+            store.error(msid, f"print: {e}")
+            return None
+        store.print_sent(msid, job)
     dest = printed_destination(cfg["printed_dir"], msid)
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     shutil.move(src, dest)

@@ -53,7 +53,13 @@ its profile. If MC asks for a verification code, type it at the terminal (or
 in the browser window). The window is minimized right after launch: macOS
 keeps windows on some display, so no position is reliably off-screen. If
 Cloudflare's "Just a moment..." check doesn't clear by itself, the window is
-restored so you can complete it; the profile keeps its cookie.
+restored so you can complete it; the profile keeps its cookie. The app you
+were using is brought back to the front after launch, and PDFs are fetched
+inside the list page rather than through View Submission's popup, because
+every new window on macOS makes the browser the active app.
+
+The database is committed after every change and PDFs are written
+atomically, so ^C is safe at any point; the next run reconciles.
 
 The browser is Selenium-driven Chromium. By default Selenium Manager fetches
 "Chrome for Testing" (a stock Chromium build) into ~/.cache/selenium the first
@@ -78,6 +84,9 @@ import sys
 import os
 import tempfile
 import time
+import subprocess
+from html import unescape
+from urllib.parse import urljoin
 
 import mc_store
 from selenium import webdriver
@@ -100,8 +109,8 @@ PAUSE = 0.5  # seconds between clicks, roughly a person's pace
 CF_WAIT = 15  # seconds to let a Cloudflare check clear by itself
 HUMAN_WAIT = 5 * 60  # seconds for a person to complete it
 WINDOW = dict(x=0, y=0, width=1400, height=1000)
-DOWNLOAD_WAIT = 60  # seconds for one PDF
 show_window = False  # --show: keep the window on-screen
+focus_owner = None  # the app that was in front at launch
 
 
 class BadLogin(Exception):
@@ -203,6 +212,7 @@ def cloudflare(d):
         log("Cloudflare check: please complete it in the browser window")
         WebDriverWait(d, HUMAN_WAIT).until(lambda d: not challenged(d))
         hide(d)
+        give_back_focus(focus_owner)
     time.sleep(PAUSE)
     snap(d, "after cloudflare")
 
@@ -373,23 +383,6 @@ def all_queue_ids(d, on_page=lambda d, ids: None):
     return ids, total
 
 
-def finished_files(folder):
-    return [os.path.join(folder, f) for f in os.listdir(folder)
-            if not f.endswith(".crdownload") and not f.startswith(".")]
-
-
-def wait_for_file(folder, seconds):
-    """The first completed download in folder, or None."""
-    deadline = time.time() + seconds
-    while time.time() < deadline:
-        done = finished_files(folder)
-        if done:
-            time.sleep(1)  # let Chrome finish the rename
-            return done[0]
-        time.sleep(0.5)
-    return None
-
-
 VIEW_SUBMISSION = ".//a[contains(normalize-space(.),'View Submission')]"
 
 
@@ -413,45 +406,79 @@ def view_submission_link(d, msid):
     raise RuntimeError("no View Submission link in its row")
 
 
-def download(d, msid, staging, dest):
-    """Click msid's "View Submission" and save the PDF as dest. Chrome is set
-    to download PDFs (not show them) into staging. If the popup turns out to be
-    a page around the PDF instead, follow its embedded PDF."""
-    link_el = view_submission_link(d, msid)
-    for f in os.listdir(staging):
-        os.remove(os.path.join(staging, f))
-    main, before = d.current_window_handle, set(d.window_handles)
+FETCH_JS = """
+const url = arguments[0], done = arguments[arguments.length - 1];
+fetch(url, {credentials: "include"}).then(async r => {
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  done({status: r.status, type: r.headers.get("content-type") || "", url: r.url, b64: btoa(bin)});
+}).catch(e => done({error: String(e)}));
+"""
+
+
+def fetch(d, url):
+    """GET url from inside the current page, with its session and cookies
+    (so Cloudflare sees the same browser), without opening a window.
+    Returns (bytes, final URL)."""
+    r = d.execute_async_script(FETCH_JS, url)
+    if r.get("error"):
+        raise RuntimeError(f"fetch failed: {r['error']}")
+    if r["status"] != 200:
+        raise RuntimeError(f"HTTP {r['status']}")
+    return base64.b64decode(r["b64"]), r["url"]
+
+
+def embedded_pdf_urls(html, base):
+    """URLs a proof page wraps its PDF in (iframe/embed/object/frame, or a .pdf link)."""
+    urls = re.findall(r"<(?:iframe|embed|frame)\b[^>]*\bsrc=[\"']([^\"']+)", html, re.I)
+    urls += re.findall(r"<object\b[^>]*\bdata=[\"']([^\"']+)", html, re.I)
+    urls += re.findall(r"<a\b[^>]*\bhref=[\"']([^\"']*pdf[^\"']*)", html, re.I)
+    return [urljoin(base, unescape(u)) for u in urls if not u.startswith(("about:", "javascript:"))]
+
+
+def download(d, msid, dest):
+    """Fetch msid's "View Submission" PDF and save it as dest. Instead of
+    clicking the link (which opens a popup window, and on macOS every new
+    window makes the browser the active app), read the URL its onclick would
+    open and fetch it inside the list page. If that returns a page around
+    the PDF, follow the embedded PDF."""
+    el = view_submission_link(d, msid)
+    m = re.search(r"window\.open\(\s*['\"]([^'\"]+)", el.get_attribute("onclick") or "")
+    href = el.get_attribute("href") or ""
+    target = m.group(1) if m else href
+    if not target or target.startswith("javascript:") or target == d.current_url:
+        raise RuntimeError("couldn't read the View Submission address")
+    url = urljoin(d.current_url, target)
     log(f"{msid}: View Submission")
-    link_el.click()
+    data, final = fetch(d, url)
+    if not data.startswith(b"%PDF-"):
+        html = data.decode("utf-8", "replace")
+        if "<title>Just a moment" in html:
+            raise RuntimeError("Cloudflare challenged the download")
+        inner = embedded_pdf_urls(html, final)
+        if not inner:
+            raise RuntimeError("View Submission returned neither a PDF nor a page with one")
+        log(f"{msid}: following the PDF inside the proof page")
+        data, _ = fetch(d, inner[0])
     try:
-        got = wait_for_file(staging, DOWNLOAD_WAIT / 2)
-        popups = [h for h in d.window_handles if h not in before]
-        if not got and popups:
-            d.switch_to.window(popups[-1])
-            snap(d, f"{msid} proof window")
-            srcs = [e.get_attribute("src") or e.get_attribute("data") for e in
-                    d.find_elements(By.XPATH, "//iframe | //embed | //object | //frame")]
-            srcs += [e.get_attribute("href") for e in
-                     d.find_elements(By.XPATH, "//a[contains(translate(@href,'PDF','pdf'),'pdf')]")]
-            srcs = [u for u in srcs if u and not u.startswith("about:")]
-            if srcs:
-                log(f"{msid}: following the PDF inside the proof window")
-                d.get(srcs[0])
-                got = wait_for_file(staging, DOWNLOAD_WAIT / 2)
-        if not got:
-            raise RuntimeError("no PDF arrived")
-        with open(got, "rb") as f:
-            if f.read(5) != b"%PDF-":
-                raise RuntimeError(f"download is not a PDF: {os.path.basename(got)}")
-        os.makedirs(os.path.dirname(dest), exist_ok=True)
-        shutil.move(got, dest)
-        return dest
-    finally:
-        for h in d.window_handles:
-            if h not in before:
-                d.switch_to.window(h)
-                d.close()
-        d.switch_to.window(main)
+        return mc_store.save_pdf(data, dest)
+    except ValueError:
+        raise RuntimeError("download is not a PDF") from None
+
+
+def frontmost_app():
+    """Bundle ID of the app in front (NSWorkspace; needs no Automation permission)."""
+    r = subprocess.run(["osascript", "-l", "JavaScript", "-e",
+                        'ObjC.import("AppKit"); $.NSWorkspace.sharedWorkspace.frontmostApplication.bundleIdentifier.js'],
+                       capture_output=True, text=True)
+    return r.stdout.strip() or None
+
+
+def give_back_focus(bundle_id):
+    """Re-activate the app that was in front before the browser took over."""
+    if bundle_id and not show_window:
+        subprocess.run(["open", "-b", bundle_id], capture_output=True)
 
 
 def get_password(username, ask):
@@ -491,8 +518,7 @@ def main():
     if not username:
         raise SystemExit(f"no MC user ID: give one, or set username in {cfg['path']}")
     store = mc_store.Store(cfg["database"])
-    staging = os.path.join(cfg["downloads_dir"], ".incoming")
-    os.makedirs(staging, exist_ok=True)
+    store.reconcile(cfg["downloads_dir"], log=log)
     log(f"config {cfg['path']}; downloads {cfg['downloads_dir']}; database {cfg['database']}")
 
     global snap
@@ -516,11 +542,9 @@ def main():
     opts.add_argument("--disable-backgrounding-occluded-windows")
     opts.add_argument("--disable-renderer-backgrounding")
     opts.add_argument("--disable-background-timer-throttling")
-    opts.add_experimental_option("prefs", {
-        "download.default_directory": staging,
-        "download.prompt_for_download": False,
-        "plugins.always_open_pdf_externally": True,  # download PDFs instead of showing them
-    })
+    # PDFs are fetched inside the page (download()), so no download prompts
+    # or new windows; just in case, never ask where to save.
+    opts.add_experimental_option("prefs", {"download.prompt_for_download": False})
     if a.chromium:
         browser, driver = a.chromium, a.chromedriver
     else:
@@ -546,7 +570,7 @@ def main():
                 store.mark_seen(mid)
             elif not a.list and store.needs_download(mid):
                 try:
-                    path = download(d, mid, staging, os.path.join(cfg["downloads_dir"], f"{mid}.pdf"))
+                    path = download(d, mid, os.path.join(cfg["downloads_dir"], f"{mid}.pdf"))
                     store.downloaded(mid, path)
                     tally["downloaded"] += 1
                     log(f"{mid}: downloaded")
@@ -557,10 +581,30 @@ def main():
                     snap(d, f"{mid} download error")
                 time.sleep(PAUSE * 4)  # one at a time, at a person's pace
 
+    global focus_owner
+    front = focus_owner = frontmost_app()
+    try:
+        return run(a, cfg, store, opts, browser, driver, username, password, from_keychain,
+                   center, queues, tally, on_page, front)
+    except KeyboardInterrupt:
+        print(file=sys.stderr)
+        log("interrupted; the database is up to date")
+        log_summary(tally)
+        return 130
+
+
+def log_summary(tally):
+    log("summary: {in_queue} in queue, {new} new, {downloaded} downloaded, {printed} printed, {errors} errors"
+        .format(**tally))
+
+
+def run(a, cfg, store, opts, browser, driver, username, password, from_keychain,
+        center, queues, tally, on_page, front):
     d = webdriver.Chrome(options=opts, service=Service(driver) if driver else None)
     status = 0
     try:
-        hide(d)
+        hide(d)  # minimized once, and restored only for a Cloudflare check
+        give_back_focus(front)  # launching made the browser the active app
         log(f"opening {cfg['site_url']}")
         d.get(cfg["site_url"])
         cloudflare(d)
@@ -610,7 +654,10 @@ def main():
         snap(d, f"error {e.__class__.__name__}")
         raise
     finally:
-        d.quit()
+        try:
+            d.quit()
+        except Exception:
+            pass  # already gone, e.g. after ^C
         if snap.dir:
             log(f"debug snapshots: {snap.dir}")
 
@@ -623,8 +670,7 @@ def main():
             else:
                 tally["errors"] += 1
                 log(f"{row['msid']}: print failed: {store.get(row['msid'])['last_error']}")
-    log("summary: {in_queue} in queue, {new} new, {downloaded} downloaded, {printed} printed, {errors} errors"
-        .format(**tally))
+    log_summary(tally)
     return status or (1 if tally["errors"] else 0)
 
 

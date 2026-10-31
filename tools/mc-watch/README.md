@@ -14,7 +14,9 @@ Every run:
    each list you chose (for example *Awaiting AE Assignment*), every page of
    it;
 3. records every manuscript ID it sees, and downloads each new one's
-   **View Submission** PDF, one at a time;
+   **View Submission** PDF, one at a time. It fetches the PDF inside the list
+   page instead of opening the popup window, so the browser doesn't take
+   over your screen;
 4. logs out, then prints every downloaded PDF that hasn't been printed yet,
    and files it away.
 
@@ -74,6 +76,13 @@ cookie last from run to run. `--fresh` deletes it and starts over.
 already in your queue. A run without `--list`, `--no-print` or `--mark-seen`
 prints *every* manuscript it hasn't printed before. If a dozen are waiting, all of them
 print. To print only new arrivals from now on, run once with `--mark-seen`.
+
+**You can press ^C at any time.** The database is updated right after each
+manuscript is recorded, downloaded or printed. Each PDF is written to a
+`.part` file and renamed only when it's complete. The next run tidies up:
+it deletes leftover `.part` files, records any finished PDF the database
+missed, and never prints a job twice. An interrupted run prints its summary
+and exits with status 130.
 
 ## Modes
 
@@ -187,7 +196,7 @@ To turn snapshots off, run with `--no-debug`.
 | `MC rejected the user ID or password` | Check the user ID, then run with `--forget-password`. |
 | `download failed` | ScholarOne may show the PDF differently on your site. Send the developer the step names in the snapshot folder, but not the files themselves. |
 | Nothing prints | Check `printer` against `lpstat -p`, and check `lp_options`. Failed jobs stay in `downloads_dir` with state `error`. |
-| The window is in the way | It is minimized after launch. It comes back only for a Cloudflare check, or when you use `--show`. |
+| The window is in the way | It is minimized after launch, and the app you were using is brought back to the front. It reappears only for a Cloudflare check, or when you use `--show`. |
 | Nothing happens while the Mac sleeps | A sleeping Mac runs nothing. A screensaver or locked screen is fine. To keep the Mac awake for a run: `caffeinate -i uv run tools/mc-watch/mc_queue.py` |
 
 ## Privacy and confidentiality

@@ -5,7 +5,8 @@ layout table whose single row holds the whole list, an inner table with one
 row per manuscript, the ID as plain text in its cell, and the "[ View
 Submission]" link in the title cell; one row nests the ID in a table of its
 own. Placeholder IDs and invented titles only. It runs Chrome for Testing
-(headless) against a local HTTP server, so it never touches MC; it is
+(headless) against a local HTTP server; downloads are fetched inside the
+page, so no window opens, so it never touches MC; it is
 skipped if Selenium or the browser isn't available.
 """
 
@@ -66,16 +67,11 @@ def driver(tmp_path_factory):
             ["--browser", "chrome", "--browser-version", "stable", "--force-browser-download"])
     except Exception as e:
         pytest.skip(f"no Chrome for Testing: {e}")
-    staging = str(tmp_path_factory.mktemp("incoming"))
     o = webdriver.ChromeOptions()
     o.add_argument("--headless=new")
     o.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
-    o.add_experimental_option("prefs", {"download.default_directory": staging,
-                                        "download.prompt_for_download": False,
-                                        "plugins.always_open_pdf_externally": True})
     o.binary_location = paths["browser_path"]
     d = webdriver.Chrome(options=o, service=Service(paths["driver_path"]))
-    d.staging = staging
     yield d
     d.quit()
 
@@ -93,11 +89,20 @@ def test_link_found_in_nested_tables(site, driver):
 
 
 def test_download_direct_and_wrapped(site, driver, tmp_path):
-    mc_queue.PAUSE = 0
     driver.get(site)
     for msid in ("XYZJ-26-01-9001", "XYZJ-26-01-9001.R1", "XYZJ-26-01-9002"):
         dest = str(tmp_path / f"{msid}.pdf")
-        assert mc_queue.download(driver, msid, driver.staging, dest) == dest
+        assert mc_queue.download(driver, msid, dest) == dest
         assert open(dest, "rb").read(5) == b"%PDF-"
-        assert len(driver.window_handles) == 1  # the proof window was closed
-    assert os.listdir(driver.staging) == []
+        assert len(driver.window_handles) == 1  # fetched in the page: no popup window
+    assert sorted(os.listdir(tmp_path)) == sorted(f"{m}.pdf" for m in
+                                                  ("XYZJ-26-01-9001", "XYZJ-26-01-9001.R1", "XYZJ-26-01-9002"))
+
+
+def test_html_that_is_not_a_proof_page_is_an_error(site, driver, tmp_path):
+    driver.get(site)
+    driver.execute_script("document.querySelector('a[onclick*=\"a.pdf\"]').setAttribute("
+                          "'onclick', \"window.open('queue.html','pdf_proof_window'); return false;\")")
+    with pytest.raises(RuntimeError, match="neither a PDF"):
+        mc_queue.download(driver, "XYZJ-26-01-9001", str(tmp_path / "x.pdf"))
+    assert os.listdir(tmp_path) == []

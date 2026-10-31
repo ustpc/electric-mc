@@ -154,3 +154,55 @@ def test_role_queues_precedence():
     assert mc_store.role_queues(cfg, queues=["Only"]) == ("Handling Editor Center", ["Only"])
     with pytest.raises(SystemExit):
         mc_store.role_queues({"role": "publisher"})
+
+
+def test_save_pdf_is_atomic(tmp_path):
+    dest = str(tmp_path / "d" / "TEST-26-10-9005.pdf")
+    assert mc_store.save_pdf(b"%PDF-1.4 fake", dest) == dest
+    assert open(dest, "rb").read() == b"%PDF-1.4 fake"
+    assert os.listdir(tmp_path / "d") == ["TEST-26-10-9005.pdf"]  # no .part left
+    with pytest.raises(ValueError):
+        mc_store.save_pdf(b"<html>Just a moment...</html>", str(tmp_path / "d" / "TEST-26-10-9006.pdf"))
+    assert os.listdir(tmp_path / "d") == ["TEST-26-10-9005.pdf"]
+
+
+def test_reconcile_after_interrupt(tmp_path):
+    dl = tmp_path / "downloads"
+    dl.mkdir()
+    (dl / "TEST-26-10-9007.pdf").write_bytes(b"%PDF-1.4 saved, then ^C before the DB update")
+    (dl / "TEST-26-10-9008.pdf.part").write_bytes(b"%PDF-1.4 half")
+    (dl / "TEST-26-10-9009.pdf").write_bytes(b"%PDF-1.4 known")
+    (dl / "notes.txt").write_text("not ours")
+    s = mc_store.Store(str(tmp_path / "db.sqlite"))
+    s.seen("TEST-26-10-9007")
+    s.error("TEST-26-10-9007", "download: interrupted")
+    s.seen("TEST-26-10-9009")
+    s.downloaded("TEST-26-10-9009", str(dl / "TEST-26-10-9009.pdf"))
+    found = s.reconcile(str(dl), log=lambda m: None)
+    assert found == ["TEST-26-10-9007"]
+    assert s.get("TEST-26-10-9007")["state"] == "downloaded"
+    assert not (dl / "TEST-26-10-9008.pdf.part").exists()
+    assert (dl / "notes.txt").exists()
+    assert sorted(r["msid"] for r in s.pending_print()) == ["TEST-26-10-9007", "TEST-26-10-9009"]
+    assert s.reconcile(str(dl), log=lambda m: None) == []  # idempotent
+
+
+def test_interrupted_print_is_not_sent_twice(tmp_path, cfg):
+    lp, args = fake_lp(tmp_path)
+    s = mc_store.Store(str(tmp_path / "db.sqlite"))
+    pdf = os.path.join(cfg["downloads_dir"], "TEST-26-10-9010.pdf")
+    open(pdf, "wb").write(b"%PDF-1.4 fake")
+    s.seen("TEST-26-10-9010")
+    s.downloaded("TEST-26-10-9010", pdf)
+    s.print_sent("TEST-26-10-9010", "Fake_Printer-41")  # lp ran, then ^C before the move
+    s = mc_store.Store(str(tmp_path / "db.sqlite"))  # next run
+    [row] = s.pending_print()
+    assert mc_store.print_and_file(s, row, cfg, lp=lp) == "Fake_Printer-41"
+    assert not args.exists()  # lp was not run again
+    assert s.get("TEST-26-10-9010")["state"] == "printed"
+
+
+def test_wal_mode(tmp_path):
+    s = mc_store.Store(str(tmp_path / "db.sqlite"))
+    assert s.db.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    assert s.db.execute("PRAGMA synchronous").fetchone()[0] == 2  # FULL
