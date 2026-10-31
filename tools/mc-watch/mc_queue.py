@@ -3,15 +3,21 @@
 # requires-python = ">=3.11"
 # dependencies = ["selenium>=4.30", "keyring>=25"]
 # ///
-"""Watch the Co-Chair "Awaiting AE Assignment" queue: list it, download
-each new manuscript's "View Submission" PDF, and print it.
+"""Watch one or more ScholarOne queues (by default the Co-Chair "Awaiting AE
+Assignment" list): list them, download each new manuscript's "View
+Submission" PDF, and print it. For co-chairs, AEs, and EICs; see README.md
+in this directory for setup and use.
 
 It drives a Chromium window, minimized, through the same clicks a person
 makes:
 
     https://mc.manuscriptcentral.com/cacm -> log in -> Manage ->
-    Co-Chair Center -> Co-Chair Tasks: Awaiting AE Assignment ->
-    each page: record each Manuscript ID, download new PDFs -> log out
+    <center> (e.g. Co-Chair Center) -> <queue> (e.g. Awaiting AE Assignment) ->
+    each page: record each Manuscript ID, download new PDFs -> next queue ->
+    log out
+
+The center and queues come from --role (cochair, ae, eic; mc_store.ROLES),
+or the config's role / center / queues, or --center / --queue.
 
 then prints every downloaded-but-unprinted PDF with CUPS `lp` and files it
 under printed_dir/{year}/{msid}/.
@@ -25,7 +31,7 @@ downloaded / printed (mc_store.py), by default under ~/cacm-opn, outside the
 repository, because they are real MC data.
 
 Usage:
-    uv run tools/mc-watch/mc_queue.py [USERNAME] [--list | --no-print | --mark-seen]
+    uv run tools/mc-watch/mc_queue.py [USERNAME] [--role ROLE] [--list | --no-print | --mark-seen]
     make mc-queue [USERID=USERNAME] [ARGS="--show --fresh"]
 
     (default)    list the queue, download new PDFs, print everything pending
@@ -201,6 +207,33 @@ def cloudflare(d):
     snap(d, "after cloudflare")
 
 
+def list_loaded(d):
+    """A manuscript list is showing (an ID, or the Co-Chair list's Take Action header)."""
+    text = body_text(d)
+    return "Take Action" in text or bool(ID_RE.search(text))
+
+
+def manage_menu(d):
+    """The item names under Manage, for error messages."""
+    items = d.find_elements(By.XPATH, "//a[starts-with(normalize-space(.),'Manage')]/ancestor::li[1]//a"
+                                      " | //a[contains(normalize-space(.),'Center')]")
+    names = []
+    for e in items:
+        t = " ".join(e.get_attribute("textContent").split())
+        if t and not t.startswith("Manage") and t not in names:
+            names.append(t)
+    return names
+
+
+def open_center(d, center):
+    click(d, link("Manage", exact=False), "Manage")
+    if not d.find_elements(*link(center)):
+        items = manage_menu(d)
+        raise SystemExit(f"no {center!r} under Manage for this account; the menu has: "
+                         + (", ".join(repr(i) for i in items) or "nothing recognizable"))
+    click(d, link(center), center)
+
+
 def wait_text(d, text):
     WebDriverWait(d, STEP_TIMEOUT).until(lambda d: text in body_text(d))
 
@@ -331,7 +364,7 @@ def all_queue_ids(d, on_page=lambda d, ids: None):
         sel.select_by_index(i)
         WebDriverWait(d, STEP_TIMEOUT).until(EC.staleness_of(old))
         cloudflare(d)
-        wait_text(d, "Take Action")
+        WebDriverWait(d, STEP_TIMEOUT).until(list_loaded)
         time.sleep(PAUSE)
         snap(d, f"queue page {opts[i]}")
         here = [mid for mid in ids_on_page(d) if mid not in ids]
@@ -419,6 +452,9 @@ def main():
     mode.add_argument("--no-print", action="store_true", help="download new PDFs but don't print")
     mode.add_argument("--mark-seen", action="store_true",
                       help="record the current queue as printed, without downloading or printing")
+    ap.add_argument("--role", choices=sorted(mc_store.ROLES), help="preset center and queues (default: config role)")
+    ap.add_argument("--center", help="the item under Manage, e.g. 'Associate Editor Center'")
+    ap.add_argument("--queue", action="append", help="a list on that center's dashboard; repeat for several")
     ap.add_argument("--forget-password", action="store_true", help="delete the Keychain password first")
     ap.add_argument("--chromium", help="path to a Chromium binary (default: Chrome for Testing via Selenium Manager)")
     ap.add_argument("--chromedriver", help="path to the chromedriver that matches --chromium")
@@ -430,6 +466,8 @@ def main():
 
     cfg = mc_store.load_config(mc_store.config_path(a.config, log=log))
     username = a.username or cfg["username"]
+    center, queues = mc_store.role_queues(cfg, a.role, a.center, a.queue)
+    log(f"center {center!r}; queues {', '.join(repr(q) for q in queues)}")
     if not username:
         raise SystemExit(f"no MC user ID: give one, or set username in {cfg['path']}")
     store = mc_store.Store(cfg["database"])
@@ -521,20 +559,25 @@ def main():
         if not from_keychain:
             mc_store.set_password(username, password)
             log(f"saved the password for {username} in the Keychain")
-        click(d, link("Manage", exact=False), "Manage")
-        click(d, link("Co-Chair Center"), "Co-Chair Center")
-        wait_text(d, "Co-Chair Tasks")
-        snap(d, "co-chair center")
-        # The dashboard shows "N Awaiting AE Assignment"; at 0 it's plain text, not a link.
-        m = re.search(r"(\d+)\s+Awaiting AE Assignment", body_text(d))
-        if (m and m.group(1) == "0") or not d.find_elements(*link("Awaiting AE Assignment")):
-            log("0 manuscripts awaiting AE assignment")
-        else:
-            click(d, link("Awaiting AE Assignment"), "Awaiting AE Assignment")
-            wait_text(d, "Take Action")
+        for n, queue in enumerate(queues):
+            if n:
+                log(f"back to {center}")
+            open_center(d, center)
+            try:
+                WebDriverWait(d, STEP_TIMEOUT).until(lambda d: any(q in body_text(d) for q in queues))
+            except TimeoutException:
+                pass  # reported below as "no such list"
+            snap(d, "center dashboard")
+            # The dashboard shows "N <queue>"; at 0 it's plain text, not a link.
+            m = re.search(rf"(\d+)\s+{re.escape(queue)}", body_text(d))
+            if (m and m.group(1) == "0") or not d.find_elements(*link(queue)):
+                log(f"0 manuscripts in {queue!r}" + ("" if m else " (no such list on this dashboard?)"))
+                continue
+            click(d, link(queue), queue)
+            WebDriverWait(d, STEP_TIMEOUT).until(list_loaded)
             snap(d, "queue")
             ids, total = all_queue_ids(d, on_page)
-            log(f"{len(ids)} manuscript IDs" + (f" (MC says {total})" if total is not None else ""))
+            log(f"{queue}: {len(ids)} manuscript IDs" + (f" (MC says {total})" if total is not None else ""))
             if total is not None and total != len(ids):
                 log("WARNING: count differs from MC's total")
         if not a.stay_logged_in and logged_in(d):

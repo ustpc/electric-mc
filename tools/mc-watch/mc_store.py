@@ -34,6 +34,26 @@ with open(TEMPLATE, "rb") as _f:
     DEFAULTS = tomllib.load(_f)
 PATH_KEYS = ("downloads_dir", "printed_dir", "database")
 
+# Role presets: (the item under Manage, the dashboard lists to watch).
+# Only cochair has been checked against the live CACM site; the ae and eic
+# names are ScholarOne's usual ones and may differ per journal.
+ROLES = {
+    "cochair": ("Co-Chair Center", ["Awaiting AE Assignment"]),
+    "ae": ("Associate Editor Center", ["Awaiting Reviewer Selection"]),  # list name unverified
+    "eic": ("Editor-in-Chief Center", ["Awaiting EIC Assignment"]),  # both unverified
+}
+
+
+def role_queues(cfg, role=None, center=None, queues=None):
+    """(center, [queues]): command-line values first, then the config's
+    center / queues, then the role preset (command line, else config)."""
+    role = role or cfg.get("role") or "cochair"
+    if role not in ROLES:
+        raise SystemExit(f"unknown role {role!r}; choose one of {', '.join(sorted(ROLES))}")
+    preset_center, preset_queues = ROLES[role]
+    return (center or cfg.get("center") or preset_center,
+            list(queues or cfg.get("queues") or preset_queues))
+
 
 def config_path(cli=None, env=None, repo_config=REPO_CONFIG, old_config=OLD_CONFIG, log=print):
     """Which config file to use: --config, then $MC_WATCH_CONFIG, then

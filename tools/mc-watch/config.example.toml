@@ -11,6 +11,17 @@ username = ""
 
 site_url = "https://mc.manuscriptcentral.com/cacm"
 
+# Which queue(s) to watch. role picks a preset:
+#   "cochair"  Co-Chair Center / "Awaiting AE Assignment"   (checked on CACM)
+#   "ae"       Associate Editor Center / "Awaiting Reviewer Selection"  (list unverified)
+#   "eic"      Editor-in-Chief Center / "Awaiting EIC Assignment"       (both unverified)
+# center and queues override the preset. Copy them exactly as MC shows them:
+# center is the item under the Manage menu, and each queue is a list name on
+# that center's dashboard (the link next to the count).
+role = "cochair"
+# center = "Associate Editor Center"
+# queues = ["Awaiting Reviewer Selection", "Awaiting AE Recommendation"]
+
 # New "View Submission" PDFs land here as {msid}.pdf until printed.
 downloads_dir = "~/cacm-opn/downloads"
 

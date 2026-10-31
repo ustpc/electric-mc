@@ -142,3 +142,15 @@ def test_download_error_retries_download():
     s.error("TEST-26-10-9004", "download: no PDF arrived")
     assert s.needs_download("TEST-26-10-9004")
     assert s.pending_print() == []
+
+
+def test_role_queues_precedence():
+    cfg = {"role": "ae"}
+    assert mc_store.role_queues(cfg) == mc_store.ROLES["ae"][0:1] + (mc_store.ROLES["ae"][1],)
+    assert mc_store.role_queues({}) == ("Co-Chair Center", ["Awaiting AE Assignment"])
+    assert mc_store.role_queues(cfg, role="eic")[0] == "Editor-in-Chief Center"
+    cfg = {"role": "ae", "center": "Handling Editor Center", "queues": ["List A", "List B"]}
+    assert mc_store.role_queues(cfg) == ("Handling Editor Center", ["List A", "List B"])
+    assert mc_store.role_queues(cfg, queues=["Only"]) == ("Handling Editor Center", ["Only"])
+    with pytest.raises(SystemExit):
+        mc_store.role_queues({"role": "publisher"})
