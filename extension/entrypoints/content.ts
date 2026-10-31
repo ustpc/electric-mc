@@ -16,6 +16,7 @@ import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
+import { watchRadioRows } from '../lib/radiorow';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -301,6 +302,9 @@ async function start() {
     () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
     (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
   );
+
+  // Clicking anywhere in a radio-button row picks its radio button.
+  watchRadioRows(document, () => !!chrome.runtime?.id && enabled());
 
   // Back/forward cache restores don't re-run content scripts.
   window.addEventListener('pageshow', (e) => {

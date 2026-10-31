@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.44 (2026-10-31)
+
+- In MC's radio-button tables (Co-Chair Recommends and the like), clicking anywhere in a row picks that row's choice, not just the little button.
+
 ## 0.0.43 (2026-10-30)
 
 - **Suggested AEs.** On a manuscript's page, the side panel's Page tab ranks the AEs whose published work is closest to the manuscript's title, abstract and keywords, with each AE's current load from MC's Assign Associate Editor pull-down and the AE paper that matched best. The comparison runs on your computer with a bundled embedding model (bge-small-en-v1.5); the manuscript is never stored or sent.
