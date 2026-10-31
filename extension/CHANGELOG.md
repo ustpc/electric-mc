@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.45 (2026-10-31)
+
+- New setting (off by default): "Send keepalives to prevent auto logout". After 10 idle minutes the extension opens and closes MC's "+ Search" bar, which pings MC's server; it stops after 8 idle hours. Ctrl+Shift+K sends one at once, for testing.
+
 ## 0.0.44 (2026-10-31)
 
 - In MC's radio-button tables (Co-Chair Recommends and the like), clicking anywhere in a row picks that row's choice, not just the little button.

@@ -8,7 +8,7 @@ import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { applyRestyle, clearRestyle, enlargeNavArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
-import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { EMC_COLOR, EMC_STYLE, addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
 import { annotateVersionRow, findVersionLinks } from '../lib/versions';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
@@ -17,6 +17,7 @@ import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
+import { keepaliveDue, sendKeepalive } from '../lib/keepalive';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -308,6 +309,36 @@ async function start() {
   // Clicking anywhere in a radio-button row picks its radio button.
   watchRadioRows(document, () => !!chrome.runtime?.id && enabled());
 
+  // Keepalives (lib/keepalive.ts). Activity is shared through storage, at
+  // most once a minute; our own clicks fire no mousedown, so they don't count.
+  let activityWritten = 0;
+  const onActivity = () => {
+    if (!chrome.runtime?.id || Date.now() - activityWritten < 60_000) return;
+    activityWritten = Date.now();
+    void chrome.storage.local.set({ [KEY.lastActivity]: activityWritten }).catch(() => {});
+  };
+  for (const t of ['keydown', 'mousedown', 'mousemove', 'wheel', 'touchstart']) window.addEventListener(t, onActivity, { passive: true, capture: true });
+  onActivity();
+  const keepalive = async (trigger: 'idle' | 'hotkey') => {
+    await chrome.storage.local.set({ [KEY.lastKeepalive]: Date.now() });
+    const r = await sendKeepalive(document);
+    send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r } });
+    if (trigger === 'hotkey') toast(r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
+  };
+  window.setInterval(() => {
+    if (!chrome.runtime?.id || !enabled() || !settings.keepAlive) return;
+    void chrome.storage.local.get([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
+      const activity = (got[KEY.lastActivity] as number | undefined) ?? Date.now();
+      const sent = (got[KEY.lastKeepalive] as number | undefined) ?? 0;
+      if (keepaliveDue(Date.now(), activity, sent)) void keepalive('idle');
+    });
+  }, 60_000);
+  window.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey || e.key.toLowerCase() !== 'k' || !enabled()) return;
+    e.preventDefault();
+    void keepalive('hotkey');
+  });
+
   // Back/forward cache restores don't re-run content scripts.
   window.addEventListener('pageshow', (e) => {
     if (e.persisted) run('bfcache');
@@ -360,6 +391,16 @@ async function start() {
  */
 async function askBackend(_baseId: string): Promise<Record<string, string> | null> {
   return null;
+}
+
+/** A short brown note at the bottom of the page, for a few seconds. */
+function toast(text: string) {
+  const el = document.createElement('div');
+  el.setAttribute(MARK, 'toast');
+  el.textContent = text;
+  el.style.cssText = `position:fixed;right:12px;bottom:12px;z-index:2147483647;background:#fff;border:2px solid ${EMC_COLOR};padding:6px 10px;border-radius:6px;${EMC_STYLE}`;
+  document.documentElement.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
 }
 
 /** Today as yyyy-mm-dd, local time. */

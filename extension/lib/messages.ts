@@ -63,6 +63,8 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
+  /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). Off by default. */
+  keepAlive: boolean;
   /** The person's name on their notes; shown with MC's name in parentheses when the two differ. */
   displayName: string;
   /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTakeAction: false,
   hidePageHeader: false,
   autoAttach: true,
+  keepAlive: false,
   displayName: '',
   notesServer: '',
 };
@@ -161,6 +164,9 @@ export const KEY = {
   roster: 'roster',
   /** MC roles seen, per site (lib/roles.ts). */
   roles: 'roles',
+  /** Last keyboard or mouse activity in any MC tab, and the last keepalive (ms since epoch). */
+  lastActivity: 'lastActivity',
+  lastKeepalive: 'lastKeepalive',
   /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
   eic: 'eic',
   /** AE expertise profiles the person loaded, as the file was written (lib/match.ts). */
