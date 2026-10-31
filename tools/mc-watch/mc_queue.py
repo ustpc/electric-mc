@@ -1,30 +1,49 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["selenium>=4.30"]
+# dependencies = ["selenium>=4.30", "keyring>=25"]
 # ///
-"""List the manuscript IDs in the Co-Chair "Awaiting AE Assignment" queue.
+"""Watch the Co-Chair "Awaiting AE Assignment" queue: list it, download
+each new manuscript's "View Submission" PDF, and print it.
 
-Test program for the auto-print idea. It drives a Chromium window placed
-off-screen (not headless) through the same clicks a person makes:
+It drives a Chromium window, minimized, through the same clicks a person
+makes:
 
     https://mc.manuscriptcentral.com/cacm -> log in -> Manage ->
     Co-Chair Center -> Co-Chair Tasks: Awaiting AE Assignment ->
-    print each Manuscript ID (all pages) -> log out
+    each page: record each Manuscript ID, download new PDFs -> log out
+
+then prints every downloaded-but-unprinted PDF with CUPS `lp` and files it
+under printed_dir/{year}/{msid}/. State lives outside the repository (it is
+real MC data), as set in ~/cacm-opn/config.toml, written with commented
+defaults on first run: downloads_dir, printed_dir, the SQLite database of
+every document seen / downloaded / printed (mc_store.py), the printer and its
+options, and the default MC account.
 
 Usage:
-    uv run tools/mc-watch/mc_queue.py USERNAME [--show] [--chromium PATH]
-    make mc-queue USERID=USERNAME [ARGS="--show --fresh"]
+    uv run tools/mc-watch/mc_queue.py [USERNAME] [--list | --no-print | --mark-seen]
+    make mc-queue [USERID=USERNAME] [ARGS="--show --fresh"]
 
-The password is read from a prompt (never from the command line or a file).
+    (default)    list the queue, download new PDFs, print everything pending
+    --list       only list and record the queue
+    --no-print   list and download, don't print
+    --mark-seen  record the current queue as printed without downloading or
+                 printing, to skip a backlog; later revisions still print
+
+The password is kept in the macOS Keychain (service "electric-mc mc-watch",
+account = the MC user ID), asked for only when there is none, and saved only
+after a login succeeds; a rejected stored password is deleted and asked for
+once more. --forget-password deletes it first.
+
 The browser keeps its own persistent profile (cookie jar) in
 var/mc-watch/profile (git-ignored), so MC's "Remember this device" cookie
 survives between runs and the emailed verification code is needed only once.
 --fresh deletes that profile first. It never touches your installed Chrome or
-its profile. If MC asks for a verification code, type it at the terminal.
-If Cloudflare's "Just a moment..." check doesn't clear by itself, the window
-moves on-screen so you can complete it; the profile keeps its cookie, so
-later runs should pass. Run it next to your screen the first time.
+its profile. If MC asks for a verification code, type it at the terminal (or
+in the browser window). The window is minimized right after launch: macOS
+keeps windows on some display, so no position is reliably off-screen. If
+Cloudflare's "Just a moment..." check doesn't clear by itself, the window is
+restored so you can complete it; the profile keeps its cookie.
 
 The browser is Selenium-driven Chromium. By default Selenium Manager fetches
 "Chrome for Testing" (a stock Chromium build) into ~/.cache/selenium the first
@@ -37,9 +56,6 @@ HTML and a PNG screenshot as NN-step.html / NN-step.png in a new private
 (0700) directory under the system temp dir, never under this repository,
 since they contain real MC data. The path is printed at the start; the
 directory is never deleted automatically. --no-debug turns this off.
-
-Run with uv (it installs Selenium from the script header on first use):
-    uv run tools/mc-watch/mc_queue.py USERNAME
 """
 
 import argparse
@@ -53,6 +69,7 @@ import os
 import tempfile
 import time
 
+import mc_store
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
@@ -72,8 +89,22 @@ STEP_TIMEOUT = 30  # seconds
 PAUSE = 0.5  # seconds between clicks, roughly a person's pace
 CF_WAIT = 15  # seconds to let a Cloudflare check clear by itself
 HUMAN_WAIT = 5 * 60  # seconds for a person to complete it
-OFFSCREEN = (-3000, 0)
+WINDOW = dict(x=0, y=0, width=1400, height=1000)
+DOWNLOAD_WAIT = 60  # seconds for one PDF
 show_window = False  # --show: keep the window on-screen
+
+
+class BadLogin(Exception):
+    """MC showed the login form again: the user ID or password was rejected."""
+
+
+def hide(d):
+    if not show_window:
+        d.minimize_window()
+
+
+def unhide(d):
+    d.set_window_rect(**WINDOW)  # also restores a minimized window
 
 
 def log(msg):
@@ -158,11 +189,10 @@ def cloudflare(d):
     try:
         WebDriverWait(d, CF_WAIT).until(lambda d: not challenged(d))
     except TimeoutException:
-        d.set_window_position(0, 0)
+        unhide(d)
         log("Cloudflare check: please complete it in the browser window")
         WebDriverWait(d, HUMAN_WAIT).until(lambda d: not challenged(d))
-        if not show_window:
-            d.set_window_position(*OFFSCREEN)
+        hide(d)
     time.sleep(PAUSE)
     snap(d, "after cloudflare")
 
@@ -243,7 +273,13 @@ def log_in(d, username, password):
     buttons[0].click()
     time.sleep(PAUSE)
     cloudflare(d)
-    WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or needs_code(d))
+    try:
+        WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or needs_code(d))
+    except TimeoutException:
+        if visible(d, "//input[@name='USERID']"):
+            snap(d, "login rejected")
+            raise BadLogin(username)
+        raise
     if needs_code(d):
         enter_code(d)
         time.sleep(PAUSE)
@@ -277,8 +313,11 @@ def expected_total(d):
     return int(m.group(1)) if m else None
 
 
-def all_queue_ids(d):
+def all_queue_ids(d, on_page=lambda d, ids: None):
+    """Every ID in the queue, in order, calling on_page(d, new_ids) while
+    each page of the list is showing."""
     ids = ids_on_page(d)
+    on_page(d, ids)
     total = expected_total(d)
     _, opts = page_picker(d)
     for i in range(1, len(opts)):
@@ -291,40 +330,135 @@ def all_queue_ids(d):
         wait_text(d, "Take Action")
         time.sleep(PAUSE)
         snap(d, f"queue page {opts[i]}")
-        for mid in ids_on_page(d):
-            if mid not in ids:
-                ids.append(mid)
+        here = [mid for mid in ids_on_page(d) if mid not in ids]
+        ids += here
+        on_page(d, here)
     return ids, total
+
+
+def finished_files(folder):
+    return [os.path.join(folder, f) for f in os.listdir(folder)
+            if not f.endswith(".crdownload") and not f.startswith(".")]
+
+
+def wait_for_file(folder, seconds):
+    """The first completed download in folder, or None."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        done = finished_files(folder)
+        if done:
+            time.sleep(1)  # let Chrome finish the rename
+            return done[0]
+        time.sleep(0.5)
+    return None
+
+
+def download(d, msid, staging, dest):
+    """Click msid's "View Submission" and save the PDF as dest. Chrome is set
+    to download PDFs (not show them) into staging. If the popup turns out to be
+    a page around the PDF instead, follow its embedded PDF."""
+    links = d.find_elements(By.XPATH, f"//a[normalize-space(.)={xp_text(msid)}]/ancestor::tr[1]"
+                                      "//a[contains(normalize-space(.),'View Submission')]")
+    if not links:
+        raise RuntimeError("no View Submission link in its row")
+    for f in os.listdir(staging):
+        os.remove(os.path.join(staging, f))
+    main, before = d.current_window_handle, set(d.window_handles)
+    log(f"{msid}: View Submission")
+    links[0].click()
+    try:
+        got = wait_for_file(staging, DOWNLOAD_WAIT / 2)
+        popups = [h for h in d.window_handles if h not in before]
+        if not got and popups:
+            d.switch_to.window(popups[-1])
+            snap(d, f"{msid} proof window")
+            srcs = [e.get_attribute("src") or e.get_attribute("data") for e in
+                    d.find_elements(By.XPATH, "//iframe | //embed | //object | //frame")]
+            srcs += [e.get_attribute("href") for e in
+                     d.find_elements(By.XPATH, "//a[contains(translate(@href,'PDF','pdf'),'pdf')]")]
+            srcs = [u for u in srcs if u and not u.startswith("about:")]
+            if srcs:
+                log(f"{msid}: following the PDF inside the proof window")
+                d.get(srcs[0])
+                got = wait_for_file(staging, DOWNLOAD_WAIT / 2)
+        if not got:
+            raise RuntimeError("no PDF arrived")
+        with open(got, "rb") as f:
+            if f.read(5) != b"%PDF-":
+                raise RuntimeError(f"download is not a PDF: {os.path.basename(got)}")
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.move(got, dest)
+        return dest
+    finally:
+        for h in d.window_handles:
+            if h not in before:
+                d.switch_to.window(h)
+                d.close()
+        d.switch_to.window(main)
+
+
+def get_password(username, ask):
+    """(password, from_keychain)."""
+    if not ask:
+        pw = mc_store.get_password(username)
+        if pw:
+            return pw, True
+    return getpass.getpass(f"MC password for {username}: "), False
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("username", help="your MC user ID")
+    ap.add_argument("username", nargs="?", help="MC user ID (default: username in the config)")
+    ap.add_argument("--config", default=mc_store.DEFAULT_CONFIG, help="config file (default %(default)s)")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--list", action="store_true", help="only list and record the queue")
+    mode.add_argument("--no-print", action="store_true", help="download new PDFs but don't print")
+    mode.add_argument("--mark-seen", action="store_true",
+                      help="record the current queue as printed, without downloading or printing")
+    ap.add_argument("--forget-password", action="store_true", help="delete the Keychain password first")
     ap.add_argument("--chromium", help="path to a Chromium binary (default: Chrome for Testing via Selenium Manager)")
     ap.add_argument("--chromedriver", help="path to the chromedriver that matches --chromium")
-    ap.add_argument("--show", action="store_true", help="put the browser window on-screen from the start")
+    ap.add_argument("--show", action="store_true", help="keep the browser window on-screen")
     ap.add_argument("--fresh", action="store_true", help="delete the saved profile (cookies) first")
     ap.add_argument("--no-debug", action="store_true", help="don't save HTML/PNG snapshots of each step")
     ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
     a = ap.parse_args()
 
+    cfg = mc_store.load_config(a.config)
+    username = a.username or cfg["username"]
+    if not username:
+        raise SystemExit(f"no MC user ID: give one, or set username in {cfg['path']}")
+    store = mc_store.Store(cfg["database"])
+    staging = os.path.join(cfg["downloads_dir"], ".incoming")
+    os.makedirs(staging, exist_ok=True)
+    log(f"config {cfg['path']}; downloads {cfg['downloads_dir']}; database {cfg['database']}")
+
     global snap
     snap = Snapshots(not a.no_debug)
     if snap.dir:
         log(f"debug snapshots (real MC data; delete when done): {snap.dir}")
-    password = getpass.getpass(f"MC password for {a.username}: ")
+    if a.forget_password and mc_store.forget_password(username):
+        log(f"deleted the Keychain password for {username}")
+    password, from_keychain = get_password(username, ask=False)
     if a.fresh:
         shutil.rmtree(PROFILE, ignore_errors=True)
     os.makedirs(PROFILE, exist_ok=True)
     opts = webdriver.ChromeOptions()
     global show_window
     show_window = a.show
-    if not a.show:
-        opts.add_argument(f"--window-position={OFFSCREEN[0]},{OFFSCREEN[1]}")
     opts.add_argument(f"--user-data-dir={PROFILE}")
-    opts.add_argument("--window-size=1400,1000")
+    opts.add_argument(f"--window-size={WINDOW['width']},{WINDOW['height']}")
     opts.add_argument("--no-first-run")
     opts.add_argument("--no-default-browser-check")
+    # Keep working while minimized, covered, or behind a locked screen.
+    opts.add_argument("--disable-backgrounding-occluded-windows")
+    opts.add_argument("--disable-renderer-backgrounding")
+    opts.add_argument("--disable-background-timer-throttling")
+    opts.add_experimental_option("prefs", {
+        "download.default_directory": staging,
+        "download.prompt_for_download": False,
+        "plugins.always_open_pdf_externally": True,  # download PDFs instead of showing them
+    })
     if a.chromium:
         browser, driver = a.chromium, a.chromedriver
     else:
@@ -338,13 +472,51 @@ def main():
     log(f"browser: {browser}")
     opts.binary_location = browser
 
+    tally = dict(in_queue=0, new=0, downloaded=0, printed=0, errors=0)
+
+    def on_page(d, ids):
+        for mid in ids:
+            print(mid, flush=True)
+            tally["in_queue"] += 1
+            if store.seen(mid):
+                tally["new"] += 1
+            if a.mark_seen:
+                store.mark_seen(mid)
+            elif not a.list and store.needs_download(mid):
+                try:
+                    path = download(d, mid, staging, os.path.join(cfg["downloads_dir"], f"{mid}.pdf"))
+                    store.downloaded(mid, path)
+                    tally["downloaded"] += 1
+                    log(f"{mid}: downloaded")
+                except Exception as e:
+                    store.error(mid, f"download: {e}")
+                    tally["errors"] += 1
+                    log(f"{mid}: download failed: {e}")
+                    snap(d, f"{mid} download error")
+                time.sleep(PAUSE * 4)  # one at a time, at a person's pace
+
     d = webdriver.Chrome(options=opts, service=Service(driver) if driver else None)
+    status = 0
     try:
-        log(f"opening {START_URL}")
-        d.get(START_URL)
+        hide(d)
+        log(f"opening {cfg['site_url']}")
+        d.get(cfg["site_url"])
         cloudflare(d)
         snap(d, "start page")
-        log_in(d, a.username, password)
+        try:
+            log_in(d, username, password)
+        except BadLogin:
+            if not from_keychain:
+                raise SystemExit(f"MC rejected the user ID or password for {username}")
+            log("MC rejected the Keychain password; deleting it")
+            mc_store.forget_password(username)
+            password, from_keychain = get_password(username, ask=True)
+            d.get(cfg["site_url"])
+            cloudflare(d)
+            log_in(d, username, password)
+        if not from_keychain:
+            mc_store.set_password(username, password)
+            log(f"saved the password for {username} in the Keychain")
         click(d, link("Manage", exact=False), "Manage")
         click(d, link("Co-Chair Center"), "Co-Chair Center")
         wait_text(d, "Co-Chair Tasks")
@@ -353,25 +525,20 @@ def main():
         m = re.search(r"(\d+)\s+Awaiting AE Assignment", body_text(d))
         if (m and m.group(1) == "0") or not d.find_elements(*link("Awaiting AE Assignment")):
             log("0 manuscripts awaiting AE assignment")
-            if not a.stay_logged_in and logged_in(d):
-                click(d, link("Log Out"), "logging out")
-            return 0
-        click(d, link("Awaiting AE Assignment"), "Awaiting AE Assignment")
-        wait_text(d, "Take Action")
-        snap(d, "queue")
-        ids, total = all_queue_ids(d)
-        for mid in ids:
-            print(mid)
-        log(f"{len(ids)} manuscript IDs" + (f" (MC says {total})" if total is not None else ""))
-        if total is not None and total != len(ids):
-            log("WARNING: count differs from MC's total")
+        else:
+            click(d, link("Awaiting AE Assignment"), "Awaiting AE Assignment")
+            wait_text(d, "Take Action")
+            snap(d, "queue")
+            ids, total = all_queue_ids(d, on_page)
+            log(f"{len(ids)} manuscript IDs" + (f" (MC says {total})" if total is not None else ""))
+            if total is not None and total != len(ids):
+                log("WARNING: count differs from MC's total")
         if not a.stay_logged_in and logged_in(d):
             click(d, link("Log Out"), "logging out")
-        return 0
     except TimeoutException:
         log(f"timed out at {d.current_url.split('?')[0]} (page title {d.title!r})")
         snap(d, "error timeout")
-        return 1
+        status = 1
     except BaseException as e:
         snap(d, f"error {e.__class__.__name__}")
         raise
@@ -379,6 +546,19 @@ def main():
         d.quit()
         if snap.dir:
             log(f"debug snapshots: {snap.dir}")
+
+    if not (a.list or a.no_print or a.mark_seen):
+        for row in store.pending_print():
+            job = mc_store.print_and_file(store, row, cfg)
+            if job:
+                tally["printed"] += 1
+                log(f"{row['msid']}: printed on {cfg['printer']} ({job})")
+            else:
+                tally["errors"] += 1
+                log(f"{row['msid']}: print failed: {store.get(row['msid'])['last_error']}")
+    log("summary: {in_queue} in queue, {new} new, {downloaded} downloaded, {printed} printed, {errors} errors"
+        .format(**tally))
+    return status or (1 if tally["errors"] else 0)
 
 
 if __name__ == "__main__":
