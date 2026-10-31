@@ -1,192 +1,219 @@
 #!/usr/bin/env python3
 """List the manuscript IDs in the Co-Chair "Awaiting AE Assignment" queue.
 
-Test program for the auto-print idea. It drives a real browser through the
-same clicks a person makes:
+Test program for the auto-print idea. It drives an offscreen (headless)
+Chromium through the same clicks a person makes:
 
-    log in -> Manage -> Co-Chair Center -> Co-Chair Tasks:
-    Awaiting AE Assignment -> print each Manuscript ID (all pages)
+    https://mc.manuscriptcentral.com/cacm -> log in -> Manage ->
+    Co-Chair Center -> Co-Chair Tasks: Awaiting AE Assignment ->
+    print each Manuscript ID (all pages) -> log out
 
 Usage:
-    python3 tools/mc-watch/mc_queue.py USERNAME [--site cacm] [--headless]
+    python3 tools/mc-watch/mc_queue.py USERNAME [--show] [--chromium PATH]
 
 The password is read from a prompt (never from the command line or a file).
-The browser runs with its own profile in var/mc-watch/profile (git-ignored),
-separate from your everyday Chrome, so it has its own MC session. It logs out
-at the end unless --stay-logged-in is given.
+Every run starts from a new, empty browser profile in a temporary directory
+(no cookies, no history), which is deleted at the end. It never touches your
+installed Chrome or its profile.
+
+The browser is Selenium-driven Chromium. By default Selenium Manager fetches
+"Chrome for Testing" (a stock Chromium build) into its own cache the first
+time; pass --chromium to use another Chromium binary instead.
 
 Nothing from MC is written to disk; the IDs go to stdout only.
 
 Setup (once):
     python3 -m venv var/mc-watch/venv
-    var/mc-watch/venv/bin/pip install playwright
-    var/mc-watch/venv/bin/python -m playwright install chromium   # skip if using --channel chrome
+    var/mc-watch/venv/bin/pip install selenium
 """
 
 import argparse
 import getpass
-import os
 import re
+import shutil
 import sys
+import tempfile
+import time
 
-from playwright.sync_api import TimeoutError as PWTimeout
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select, WebDriverWait
 
+START_URL = "https://mc.manuscriptcentral.com/cacm"
 # Same pattern as extension/lib/ids.ts DEFAULT_ID_PATTERN.
 ID_RE = re.compile(
     r"\b([A-Z][A-Z0-9]{1,15}(?:-[A-Z]{1,6})?-\d{2,4}(?:-\d{2})?-\d{3,6})(?:\.R(\d{1,2}))?\b"
 )
-REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-PROFILE = os.path.join(REPO, "var", "mc-watch", "profile")
-STEP_TIMEOUT_MS = 30_000
-HUMAN_TIMEOUT_MS = 5 * 60_000  # time allowed for a code / CAPTCHA typed by hand
+STEP_TIMEOUT = 30  # seconds
+PAUSE = 0.5  # seconds between clicks, roughly a person's pace
 
 
 def log(msg):
     print(f"[mc_queue] {msg}", file=sys.stderr, flush=True)
 
 
-def logged_in(page):
-    return page.get_by_role("link", name="Log Out").count() > 0
+def xp_text(s):
+    """XPath string literal."""
+    return f'"{s}"' if '"' not in s else "concat('" + s.replace("'", "',\"'\",'") + "')"
 
 
-def log_in(page, username, password, headless):
-    user = page.locator("input[name='USERID'], input#USERID").first
-    if not user.count() or not user.is_visible():
-        log("no login form; assuming the saved profile is still logged in")
-        return
+def link(text, exact=True):
+    t = xp_text(text)
+    cond = f"normalize-space(.)={t}" if exact else f"starts-with(normalize-space(.),{t})"
+    return (By.XPATH, f"//a[{cond}]")
+
+
+def body_text(d):
+    return d.find_element(By.TAG_NAME, "body").text
+
+
+def logged_in(d):
+    return bool(d.find_elements(*link("Log Out")))
+
+
+def click(d, locator, what):
+    log(what)
+    el = WebDriverWait(d, STEP_TIMEOUT).until(EC.element_to_be_clickable(locator))
+    el.click()
+    time.sleep(PAUSE)
+
+
+def wait_text(d, text):
+    WebDriverWait(d, STEP_TIMEOUT).until(lambda d: text in body_text(d))
+
+
+def log_in(d, username, password):
+    WebDriverWait(d, STEP_TIMEOUT).until(EC.presence_of_element_located((By.NAME, "USERID")))
     log("logging in")
-    user.fill(username)
-    page.locator("input[name='PASSWORD'], input#PASSWORD, input[type='password']").first.fill(password)
-    button = page.get_by_role("button", name=re.compile(r"^\s*Log In\s*$"))
-    if not button.count():
-        button = page.locator("#logInButton, input[type='submit'][value='Log In']")
-    button.first.click()
-    page.wait_for_load_state("domcontentloaded")
-    if logged_in(page):
+    d.find_element(By.NAME, "USERID").send_keys(username)
+    d.find_element(By.NAME, "PASSWORD").send_keys(password)
+    buttons = d.find_elements(By.ID, "logInButton") or d.find_elements(
+        By.XPATH,
+        "//button[normalize-space(.)='Log In'] | //input[@type='submit' and @value='Log In']"
+        " | //a[normalize-space(.)='Log In' and not(ancestor::*[contains(@class,'nav')])]",
+    )
+    if not buttons:
+        raise SystemExit("couldn't find the Log In button")
+    buttons[0].click()
+    try:
+        WebDriverWait(d, STEP_TIMEOUT).until(logged_in)
         return
-    # A verification code or other extra step. In a visible window, let the
-    # person finish it; headless, give up.
-    if headless:
-        raise SystemExit("login did not complete (extra verification step?); rerun without --headless")
-    log("waiting up to 5 minutes for you to finish logging in in the browser window")
-    page.get_by_role("link", name="Log Out").first.wait_for(timeout=HUMAN_TIMEOUT_MS)
+    except TimeoutException:
+        pass
+    # Probably a verification-code step. Ask for the code here, since the
+    # browser is offscreen, and type it into the page's visible text field.
+    fields = [
+        f for f in d.find_elements(By.XPATH, "//input[@type='text' or @type='tel' or @type='number' or not(@type)]")
+        if f.is_displayed()
+    ]
+    if not fields:
+        raise SystemExit(f"login did not complete; page title is {d.title!r}")
+    log(f"MC wants another step; page title is {d.title!r}")
+    code = input("Verification code (from your email/phone): ").strip()
+    fields[0].clear()
+    fields[0].send_keys(code)
+    submits = [
+        b for b in d.find_elements(By.XPATH, "//button | //input[@type='submit'] | //a[contains(@class,'btn')]")
+        if b.is_displayed()
+    ]
+    if not submits:
+        raise SystemExit("couldn't find a button to submit the code")
+    submits[0].click()
+    WebDriverWait(d, STEP_TIMEOUT).until(logged_in)
 
 
-def open_cochair_center(page):
-    log("Manage -> Co-Chair Center")
-    page.get_by_role("link", name=re.compile(r"^\s*Manage\b")).first.click()
-    center = page.get_by_role("link", name=re.compile(r"^\s*Co-Chair Center\s*$")).first
-    center.wait_for(state="visible", timeout=STEP_TIMEOUT_MS)
-    center.click()
-    page.wait_for_load_state("domcontentloaded")
-    page.get_by_text("Co-Chair Tasks").first.wait_for(timeout=STEP_TIMEOUT_MS)
-
-
-def open_awaiting_ae_assignment(page):
-    log("Co-Chair Tasks -> Awaiting AE Assignment")
-    page.get_by_role("link", name=re.compile(r"^\s*Awaiting AE Assignment\s*$")).first.click()
-    page.wait_for_load_state("domcontentloaded")
-    page.get_by_text("Take Action").first.wait_for(timeout=STEP_TIMEOUT_MS)
-
-
-def ids_on_page(page):
-    """Manuscript IDs in the queue table, in page order."""
-    text = page.locator("body").inner_text()
+def ids_on_page(d):
     seen, out = set(), []
-    for m in ID_RE.finditer(text):
-        mid = m.group(0)
-        if mid not in seen:
-            seen.add(mid)
-            out.append(mid)
+    for m in ID_RE.finditer(body_text(d)):
+        if m.group(0) not in seen:
+            seen.add(m.group(0))
+            out.append(m.group(0))
     return out
 
 
-def page_select(page):
-    """The 'Manuscripts [1-10] of 14' page picker, or None."""
-    for sel in page.locator("select").all():
-        opts = [o.strip() for o in sel.locator("option").all_inner_texts()]
+def page_picker(d):
+    """The 'Manuscripts [1-10] of 14' select, as (Select, option texts), or (None, [])."""
+    for el in d.find_elements(By.TAG_NAME, "select"):
+        sel = Select(el)
+        opts = [o.text.strip() for o in sel.options]
         if opts and all(re.fullmatch(r"\d+\s*-\s*\d+", o) for o in opts):
             return sel, opts
     return None, []
 
 
-def expected_total(page):
-    m = re.search(r"Manuscripts\s+\d+\s*-\s*\d+\s+of\s+(\d+)", page.locator("body").inner_text())
-    if m:
-        return int(m.group(1))
-    m = re.search(r"\bof\s+(\d+)\b", page.locator("body").inner_text())
+def expected_total(d):
+    # The picker's options can show up in the page text ("1-10 11-14"), so allow several ranges.
+    m = re.search(r"Manuscripts\s+(?:\d+\s*-\s*\d+\s*)+of\s+(\d+)", body_text(d))
     return int(m.group(1)) if m else None
 
 
-def all_queue_ids(page):
-    ids = ids_on_page(page)
-    total = expected_total(page)
-    _, opts = page_select(page)
+def all_queue_ids(d):
+    ids = ids_on_page(d)
+    total = expected_total(d)
+    _, opts = page_picker(d)
     for i in range(1, len(opts)):
         log(f"page {opts[i]}")
-        sel, _ = page_select(page)
-        sel.select_option(index=i)
-        page.wait_for_load_state("domcontentloaded")
-        page.get_by_text("Take Action").first.wait_for(timeout=STEP_TIMEOUT_MS)
-        for mid in ids_on_page(page):
+        sel, _ = page_picker(d)
+        old = sel._el
+        sel.select_by_index(i)
+        WebDriverWait(d, STEP_TIMEOUT).until(EC.staleness_of(old))
+        wait_text(d, "Take Action")
+        time.sleep(PAUSE)
+        for mid in ids_on_page(d):
             if mid not in ids:
                 ids.append(mid)
     return ids, total
 
 
-def log_out(page):
-    out = page.get_by_role("link", name="Log Out")
-    if out.count():
-        log("logging out")
-        out.first.click()
-        page.wait_for_load_state("domcontentloaded")
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("username", help="your MC user ID")
-    ap.add_argument("--site", default="cacm", help="MC site path (default: cacm)")
-    ap.add_argument("--headless", action="store_true", help="no visible window")
-    ap.add_argument("--channel", default="chrome",
-                    help="browser to drive: chrome (your installed Google Chrome, own profile) or chromium")
-    ap.add_argument("--slow-mo", type=int, default=300, help="ms pause between actions (default 300)")
-    ap.add_argument("--stay-logged-in", action="store_true", help="don't log out at the end")
+    ap.add_argument("--chromium", help="path to a Chromium binary (default: Chrome for Testing via Selenium Manager)")
+    ap.add_argument("--show", action="store_true", help="show the browser window (for debugging)")
+    ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
     a = ap.parse_args()
 
     password = getpass.getpass(f"MC password for {a.username}: ")
-    os.makedirs(PROFILE, exist_ok=True)
-    url = f"https://mc.manuscriptcentral.com/{a.site}"
+    profile = tempfile.mkdtemp(prefix="mc-watch-")
+    opts = webdriver.ChromeOptions()
+    if not a.show:
+        opts.add_argument("--headless=new")
+    opts.add_argument(f"--user-data-dir={profile}")
+    opts.add_argument("--window-size=1400,1000")
+    opts.add_argument("--no-first-run")
+    opts.add_argument("--no-default-browser-check")
+    if a.chromium:
+        opts.binary_location = a.chromium
+    else:
+        opts.browser_version = "stable"  # Chrome for Testing, never the installed Chrome
 
-    with sync_playwright() as p:
-        kwargs = dict(headless=a.headless, slow_mo=a.slow_mo, accept_downloads=False)
-        if a.channel != "chromium":
-            kwargs["channel"] = a.channel
-        ctx = p.chromium.launch_persistent_context(PROFILE, **kwargs)
-        ctx.set_default_timeout(STEP_TIMEOUT_MS)
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-        try:
-            log(f"opening {url}")
-            page.goto(url, wait_until="domcontentloaded")
-            log_in(page, a.username, password, a.headless)
-            open_cochair_center(page)
-            open_awaiting_ae_assignment(page)
-            ids, total = all_queue_ids(page)
-            for mid in ids:
-                print(mid)
-            log(f"{len(ids)} manuscript IDs" + (f" (MC says {total})" if total is not None else ""))
-            if total is not None and total != len(ids):
-                log("WARNING: count differs from MC's total")
-            if not a.stay_logged_in:
-                log_out(page)
-        except PWTimeout as e:
-            log(f"timed out at {page.url.split('?')[0]} (title: {page.title()!r}): {e.message.splitlines()[0]}")
-            if not a.headless:
-                input("Browser left open so you can see where it stopped. Press Return to close. ")
-            return 1
-        finally:
-            ctx.close()
-    return 0
+    d = webdriver.Chrome(options=opts)
+    try:
+        log(f"opening {START_URL}")
+        d.get(START_URL)
+        log_in(d, a.username, password)
+        click(d, link("Manage", exact=False), "Manage")
+        click(d, link("Co-Chair Center"), "Co-Chair Center")
+        wait_text(d, "Co-Chair Tasks")
+        click(d, link("Awaiting AE Assignment"), "Awaiting AE Assignment")
+        wait_text(d, "Take Action")
+        ids, total = all_queue_ids(d)
+        for mid in ids:
+            print(mid)
+        log(f"{len(ids)} manuscript IDs" + (f" (MC says {total})" if total is not None else ""))
+        if total is not None and total != len(ids):
+            log("WARNING: count differs from MC's total")
+        if not a.stay_logged_in and logged_in(d):
+            click(d, link("Log Out"), "logging out")
+        return 0
+    except TimeoutException:
+        log(f"timed out at {d.current_url.split('?')[0]} (page title {d.title!r})")
+        return 1
+    finally:
+        d.quit()
+        shutil.rmtree(profile, ignore_errors=True)
 
 
 if __name__ == "__main__":
