@@ -2,7 +2,7 @@
 printing/filing. Printing uses a fake `lp` script, so nothing reaches a real
 printer, and every path is under pytest's tmp_path. All IDs are made up.
 
-    uv run --with pytest --with keyring pytest tools/mc-watch
+    make mc-watch-test
 """
 
 import os

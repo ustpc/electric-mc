@@ -390,19 +390,39 @@ def wait_for_file(folder, seconds):
     return None
 
 
+VIEW_SUBMISSION = ".//a[contains(normalize-space(.),'View Submission')]"
+
+
+def view_submission_link(d, msid):
+    """msid's "View Submission" link. The list is built from nested layout
+    tables and the ID is plain text in its cell (only extensions such as
+    Electric MC make it a link), so start at the innermost element whose text
+    is exactly the ID and walk out through its enclosing rows to the nearest
+    one that has a View Submission link and no other manuscript's ID."""
+    holders = d.find_elements(By.XPATH, f"//*[normalize-space(.)={xp_text(msid)}]")
+    if not holders:
+        raise RuntimeError("ID not found on the page")
+    rows = holders[-1].find_elements(By.XPATH, "ancestor::tr")  # outermost first
+    for row in reversed(rows):
+        links = row.find_elements(By.XPATH, VIEW_SUBMISSION)
+        if not links:
+            continue
+        if {m.group(0) for m in ID_RE.finditer(row.text)} != {msid}:
+            break  # this row already spans other manuscripts
+        return links[0]
+    raise RuntimeError("no View Submission link in its row")
+
+
 def download(d, msid, staging, dest):
     """Click msid's "View Submission" and save the PDF as dest. Chrome is set
     to download PDFs (not show them) into staging. If the popup turns out to be
     a page around the PDF instead, follow its embedded PDF."""
-    links = d.find_elements(By.XPATH, f"//a[normalize-space(.)={xp_text(msid)}]/ancestor::tr[1]"
-                                      "//a[contains(normalize-space(.),'View Submission')]")
-    if not links:
-        raise RuntimeError("no View Submission link in its row")
+    link_el = view_submission_link(d, msid)
     for f in os.listdir(staging):
         os.remove(os.path.join(staging, f))
     main, before = d.current_window_handle, set(d.window_handles)
     log(f"{msid}: View Submission")
-    links[0].click()
+    link_el.click()
     try:
         got = wait_for_file(staging, DOWNLOAD_WAIT / 2)
         popups = [h for h in d.window_handles if h not in before]
