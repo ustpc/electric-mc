@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.42). The version shows
+Semantic versioning, set in `package.json` (now 0.0.44). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -87,6 +87,10 @@ build instead.
   presses Take Action on the result. Settings can also press Take Action
   after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
+- **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are
+  shown twice as big.
+- **Radio-button rows.** In MC's choice tables (Co-Chair Recommends and
+  the like), click anywhere in a row to pick it.
 - **Clickable IDs.** On MC's grids, the manuscript ID is a link that does
   what the Take Action checkbox does.
 - **To EIC tab** (co-chairs only). When you recommend a decision under

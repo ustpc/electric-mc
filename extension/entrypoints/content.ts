@@ -5,7 +5,7 @@
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle, hidePageHeader } from '../lib/restyle';
+import { applyRestyle, clearRestyle, enlargeNavArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
@@ -16,6 +16,7 @@ import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
+import { watchRadioRows } from '../lib/radiorow';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -97,6 +98,7 @@ async function start() {
     }
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
+    enlargeNavArrows(document, true);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -283,6 +285,7 @@ async function start() {
     clearHighlights(document);
     clearRestyle(document);
     hidePageHeader(document, false);
+    enlargeNavArrows(document, false);
     unlinkIds(document);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();
@@ -301,6 +304,9 @@ async function start() {
     () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
     (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
   );
+
+  // Clicking anywhere in a radio-button row picks its radio button.
+  watchRadioRows(document, () => !!chrome.runtime?.id && enabled());
 
   // Back/forward cache restores don't re-run content scripts.
   window.addEventListener('pageshow', (e) => {

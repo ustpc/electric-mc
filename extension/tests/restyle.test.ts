@@ -81,3 +81,21 @@ describe('hide the page title column', () => {
     expect(document.documentElement.hasAttribute('data-emc-hide-headers')).toBe(false);
   });
 });
+
+describe('enlargeNavArrows', () => {
+  it('doubles the previous/next document arrows, and takes it back when off', async () => {
+    const { enlargeNavArrows } = await import('../lib/restyle');
+    document.body.innerHTML = '<a href="#"><img src="/images/en_US/icons/prev_mss.gif" alt="Previous Document"></a> 7 / 8 <a href="#"><img src="/images/en_US/icons/next_mss.gif" alt="Next Document"></a><img src="/images/other.gif" id="other">';
+    enlargeNavArrows(document, true);
+    enlargeNavArrows(document, true);
+    const styles = document.querySelectorAll('#emc-nav-style');
+    expect(styles).toHaveLength(1);
+    const css = styles[0]!.textContent!;
+    expect(css).toContain('zoom: 2');
+    for (const img of Array.from(document.querySelectorAll('img'))) {
+      expect(img.matches(css.slice(css.indexOf('(') + 1, css.lastIndexOf(')')))).toBe(img.id !== 'other');
+    }
+    enlargeNavArrows(document, false);
+    expect(document.getElementById('emc-nav-style')).toBeNull();
+  });
+});
