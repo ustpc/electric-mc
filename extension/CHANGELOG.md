@@ -5,6 +5,7 @@ Newest first. Every version bump gets an entry here.
 ## 0.0.44 (2026-10-31)
 
 - In MC's radio-button tables (Co-Chair Recommends and the like), clicking anywhere in a row picks that row's choice, not just the little button.
+- MC's previous/next manuscript arrows ("7 / 8") are twice as big.
 
 ## 0.0.43 (2026-10-30)
 

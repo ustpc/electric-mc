@@ -5,7 +5,7 @@
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle, hidePageHeader } from '../lib/restyle';
+import { applyRestyle, clearRestyle, enlargeNavArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
@@ -98,6 +98,7 @@ async function start() {
     }
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
+    enlargeNavArrows(document, true);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -284,6 +285,7 @@ async function start() {
     clearHighlights(document);
     clearRestyle(document);
     hidePageHeader(document, false);
+    enlargeNavArrows(document, false);
     unlinkIds(document);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();

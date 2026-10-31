@@ -183,3 +183,19 @@ export function hidePageHeader(doc: Document, on: boolean): void {
   if (on) doc.documentElement.setAttribute(HIDE_ON, '');
   else doc.documentElement.removeAttribute(HIDE_ON);
 }
+
+const NAV_STYLE_ID = 'emc-nav-style';
+/** MC's previous/next document arrows ("7 / 8"), e.g. /images/en_US/icons/next_mss.gif. */
+const NAV_ARROWS = ['img[src*="next_mss"]', 'img[src*="prev_mss"]', 'img[src*="previous_mss"]', 'img[alt="Next Document"]', 'img[alt="Previous Document"]'].join(', ');
+
+/** Show MC's previous/next document arrows at twice their size; off removes it. */
+export function enlargeNavArrows(doc: Document, on: boolean): void {
+  const existing = doc.getElementById(NAV_STYLE_ID);
+  if (!on) return existing?.remove();
+  if (existing) return;
+  const style = doc.createElement('style');
+  style.id = NAV_STYLE_ID;
+  style.setAttribute('data-electric-mc', 'nav');
+  style.textContent = `:is(${NAV_ARROWS}) { zoom: 2; }`;
+  (doc.head ?? doc.documentElement).appendChild(style);
+}
