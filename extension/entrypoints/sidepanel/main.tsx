@@ -15,6 +15,7 @@ import { banKey, deleteNote, listNotes, myKeyId, putNote, type Me } from '../../
 import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
+import { SuggestedAes } from './SuggestedAes';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -334,6 +335,7 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
           </table>
         </section>
       )}
+      {r.manuscript && <SuggestedAes manuscript={r.manuscript} tabId={tabId} pageUrl={r.url} />}
       {r.queues && (
         <section>
           <h2>Queues</h2>
@@ -740,8 +742,8 @@ function summary(d: unknown): string {
  * tabs whose side panel is switched off, which Chrome needs to put it back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts and the Opinions roster? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.eic, KEY.roles, KEY.identity]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster and the AE profiles? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }

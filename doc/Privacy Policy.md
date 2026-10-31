@@ -90,6 +90,18 @@ contact links and headshots of the section's editors) is not part of the
 extension. You load it from a file, and it is kept in `chrome.storage.local`
 in that browser only, like the AE counts. Clear all data removes both.
 
+**Suggested AEs** (extension 0.0.43). On a manuscript page, the side panel
+reads the title, abstract and keywords, turns them into an embedding vector
+with the model bundled in the extension, compares it with the AE profiles
+you loaded, and shows the ranking. The abstract and the vector are kept only
+in memory while the panel shows that manuscript: they are not stored, logged
+or sent anywhere. The AE profiles file (each AE's name, expertise keywords,
+titles and years of up to 20 recent papers, and vectors made from their
+public papers) is built on your own computer by `make ae-profiles`, which
+fetches public records from OpenAlex and DBLP by AE name, ORCID or DBLP id;
+no manuscript data is part of that. The file is kept in
+`chrome.storage.local` in that browser only. Clear all data removes it.
+
 **The To EIC list and your roles.** The extension keeps, in
 `chrome.storage.local` only, each recommendation you sent to the EIC
 (manuscript ID, title, the recommendation, and when it was first seen) and
@@ -212,7 +224,9 @@ systems, including LLMs, that do not promise confidentiality.
   them is **bundled inside the extension and runs on your computer**. The
   manuscript's text never leaves your computer for this purpose. The
   resulting vector is stored in our backend under the same access rules as
-  the manuscript's title. The abstract itself is not stored.
+  the manuscript's title. The abstract itself is not stored. (In extension
+  0.0.43 there is no backend yet: the vector isn't stored at all, and AE
+  profiles are a file you load; see section 3.)
 - **Optional writing help** (for example, drafting an invitation) uses only
   the **on-device** model built into Chrome, where your computer supports it.
 - **We never send manuscript titles, abstracts, author names, reviewer
@@ -260,3 +274,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-24 | The To EIC list (your recommendations, without comments) and the MC roles you have, kept in local storage only; Clear all data removes them (extension 0.0.33). |
 | 2026-10-27 | Test builds in developer mode can append the log to a local file through a helper the user installs (native messaging; not in the Web Store build) (extension 0.0.34). |
 | 2026-10-28 | Authored notes (section 5.1): the extension reads the logged-in person from MC's page metadata; with a notes server set, notes, a public key per browser and the person's MC details go to the server; titles never leave the browser, only a hash, which the server stores as an HMAC (extension 0.0.40). |
+| 2026-10-28 | Suggested AEs: the manuscript is embedded on-device and not stored; AE profiles are built locally from public OpenAlex and DBLP data and kept in local storage only; Clear all data removes them (extension 0.0.43). |

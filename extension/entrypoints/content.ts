@@ -21,6 +21,7 @@ import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
 import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
 import { rolesIn as editorBlock } from '../parsers/dom';
+import { abstractAndKeywords } from '../parsers/extract';
 import { readIdentity } from '../lib/identity';
 
 export default defineContentScript({
@@ -318,6 +319,8 @@ async function start() {
       const r = parsePage(document, location.href, { idPattern: settings.idPattern });
       const out: CaptureReply = { url: location.href, title: document.title, html: snapshot(), result: r };
       reply(out);
+    } else if (msg.type === 'abstract') {
+      reply(abstractAndKeywords(document));
     }
     return false;
   });

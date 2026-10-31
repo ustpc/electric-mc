@@ -1,7 +1,7 @@
 # Everyday commands for the Electric MC extension. Run "make" for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help update install build test coverage typecheck check dev zip store clean install-log-host uninstall-log-host
+.PHONY: help update install build test coverage typecheck check dev zip store clean ae-profiles install-log-host uninstall-log-host
 
 help: ## List the commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-20s %s\n", $$1, $$2}'
@@ -40,6 +40,10 @@ zip: install ## Zip a test build into build/
 
 store: install ## Zip the Chrome Web Store package into build/
 	npm run zip:store
+
+ae-profiles: install ## Build AE expertise profiles: make ae-profiles ROSTER=roster.json [IDS=ids.json] [ARGS=--all]
+	node scripts/fetch-model.mjs
+	npx tsx tools/ae-profiles/build.ts $(ROSTER) $(if $(IDS),--ids $(IDS)) $(ARGS)
 
 install-log-host: ## Let test builds write the live log to ../var/electric-mc.log (macOS Chrome)
 	python3 tools/log-host/install.py $(if $(EXT_ID),--ext-id $(EXT_ID))
