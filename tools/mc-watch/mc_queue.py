@@ -17,8 +17,10 @@ Every run starts from a new, empty browser profile in a temporary directory
 installed Chrome or its profile.
 
 The browser is Selenium-driven Chromium. By default Selenium Manager fetches
-"Chrome for Testing" (a stock Chromium build) into its own cache the first
-time; pass --chromium to use another Chromium binary instead.
+"Chrome for Testing" (a stock Chromium build) into ~/.cache/selenium the first
+time and the script refuses to start any browser under /Applications. (Asked
+only for "stable", Selenium Manager would pick the installed Google Chrome.)
+Pass --chromium (and --chromedriver) to use another Chromium instead.
 
 Nothing from MC is written to disk; the IDs go to stdout only.
 
@@ -37,7 +39,9 @@ import time
 
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.selenium_manager import SeleniumManager
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select, WebDriverWait
 
@@ -171,6 +175,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("username", help="your MC user ID")
     ap.add_argument("--chromium", help="path to a Chromium binary (default: Chrome for Testing via Selenium Manager)")
+    ap.add_argument("--chromedriver", help="path to the chromedriver that matches --chromium")
     ap.add_argument("--show", action="store_true", help="show the browser window (for debugging)")
     ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
     a = ap.parse_args()
@@ -185,11 +190,19 @@ def main():
     opts.add_argument("--no-first-run")
     opts.add_argument("--no-default-browser-check")
     if a.chromium:
-        opts.binary_location = a.chromium
+        browser, driver = a.chromium, a.chromedriver
     else:
-        opts.browser_version = "stable"  # Chrome for Testing, never the installed Chrome
+        # Chrome for Testing, never the installed Chrome.
+        paths = SeleniumManager().binary_paths(
+            ["--browser", "chrome", "--browser-version", "stable", "--force-browser-download"]
+        )
+        browser, driver = paths["browser_path"], paths["driver_path"]
+    if browser.startswith("/Applications/"):
+        raise SystemExit(f"refusing to drive an installed browser: {browser}")
+    log(f"browser: {browser}")
+    opts.binary_location = browser
 
-    d = webdriver.Chrome(options=opts)
+    d = webdriver.Chrome(options=opts, service=Service(driver) if driver else None)
     try:
         log(f"opening {START_URL}")
         d.get(START_URL)
