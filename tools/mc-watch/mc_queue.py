@@ -12,9 +12,11 @@ Usage:
     python3 tools/mc-watch/mc_queue.py USERNAME [--show] [--chromium PATH]
 
 The password is read from a prompt (never from the command line or a file).
-Every run starts from a new, empty browser profile in a temporary directory
-(no cookies, no history), which is deleted at the end. It never touches your
-installed Chrome or its profile.
+The browser keeps its own persistent profile (cookie jar) in
+var/mc-watch/profile (git-ignored), so MC's "Remember this device" cookie
+survives between runs and the emailed verification code is needed only once.
+--fresh deletes that profile first. It never touches your installed Chrome or
+its profile. If MC asks for a verification code, type it at the terminal.
 
 The browser is Selenium-driven Chromium. By default Selenium Manager fetches
 "Chrome for Testing" (a stock Chromium build) into ~/.cache/selenium the first
@@ -34,7 +36,7 @@ import getpass
 import re
 import shutil
 import sys
-import tempfile
+import os
 import time
 
 from selenium import webdriver
@@ -50,6 +52,8 @@ START_URL = "https://mc.manuscriptcentral.com/cacm"
 ID_RE = re.compile(
     r"\b([A-Z][A-Z0-9]{1,15}(?:-[A-Z]{1,6})?-\d{2,4}(?:-\d{2})?-\d{3,6})(?:\.R(\d{1,2}))?\b"
 )
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROFILE = os.path.join(REPO, "var", "mc-watch", "profile")  # git-ignored
 STEP_TIMEOUT = 30  # seconds
 PAUSE = 0.5  # seconds between clicks, roughly a person's pace
 
@@ -88,44 +92,56 @@ def wait_text(d, text):
     WebDriverWait(d, STEP_TIMEOUT).until(lambda d: text in body_text(d))
 
 
+def needs_code(d):
+    return "Verification Code" in body_text(d)
+
+
+def visible(d, xpath):
+    return [e for e in d.find_elements(By.XPATH, xpath) if e.is_displayed()]
+
+
+def enter_code(d):
+    """MC's "Unrecognized Device" dialog: ask for the emailed code on the
+    terminal (the browser is offscreen), tick "Remember this device" so the
+    persistent profile skips this next time, and press Verify."""
+    log("MC says this is an unrecognized device and emailed a verification code")
+    code = input("Verification code from the 'Communications of the ACM Verification Code' email: ").strip()
+    dialog = "//*[contains(normalize-space(.),'Unrecognized Device') and .//input]"
+    fields = visible(d, f"({dialog})[last()]//input[@type='text' or @type='tel' or @type='number' or not(@type)]")
+    if not fields:
+        raise SystemExit("couldn't find the verification code field")
+    fields[0].clear()
+    fields[0].send_keys(code)
+    for box in visible(d, f"({dialog})[last()]//input[@type='checkbox']"):
+        if not box.is_selected():
+            box.click()  # "Remember this device"
+    buttons = visible(d, "//button[contains(normalize-space(.),'Verify')] | //a[contains(normalize-space(.),'Verify')]"
+                         " | //input[@type='submit' and contains(@value,'Verify')]")
+    if not buttons:
+        raise SystemExit("couldn't find the Verify button")
+    buttons[0].click()
+
+
 def log_in(d, username, password):
-    WebDriverWait(d, STEP_TIMEOUT).until(EC.presence_of_element_located((By.NAME, "USERID")))
+    WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or d.find_elements(By.NAME, "USERID"))
+    if logged_in(d):
+        log("still logged in from the saved profile")
+        return
     log("logging in")
     d.find_element(By.NAME, "USERID").send_keys(username)
     d.find_element(By.NAME, "PASSWORD").send_keys(password)
-    buttons = d.find_elements(By.ID, "logInButton") or d.find_elements(
-        By.XPATH,
+    buttons = d.find_elements(By.ID, "logInButton") or visible(
+        d,
         "//button[normalize-space(.)='Log In'] | //input[@type='submit' and @value='Log In']"
         " | //a[normalize-space(.)='Log In' and not(ancestor::*[contains(@class,'nav')])]",
     )
     if not buttons:
         raise SystemExit("couldn't find the Log In button")
     buttons[0].click()
-    try:
+    WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or needs_code(d))
+    if needs_code(d):
+        enter_code(d)
         WebDriverWait(d, STEP_TIMEOUT).until(logged_in)
-        return
-    except TimeoutException:
-        pass
-    # Probably a verification-code step. Ask for the code here, since the
-    # browser is offscreen, and type it into the page's visible text field.
-    fields = [
-        f for f in d.find_elements(By.XPATH, "//input[@type='text' or @type='tel' or @type='number' or not(@type)]")
-        if f.is_displayed()
-    ]
-    if not fields:
-        raise SystemExit(f"login did not complete; page title is {d.title!r}")
-    log(f"MC wants another step; page title is {d.title!r}")
-    code = input("Verification code (from your email/phone): ").strip()
-    fields[0].clear()
-    fields[0].send_keys(code)
-    submits = [
-        b for b in d.find_elements(By.XPATH, "//button | //input[@type='submit'] | //a[contains(@class,'btn')]")
-        if b.is_displayed()
-    ]
-    if not submits:
-        raise SystemExit("couldn't find a button to submit the code")
-    submits[0].click()
-    WebDriverWait(d, STEP_TIMEOUT).until(logged_in)
 
 
 def ids_on_page(d):
@@ -177,15 +193,18 @@ def main():
     ap.add_argument("--chromium", help="path to a Chromium binary (default: Chrome for Testing via Selenium Manager)")
     ap.add_argument("--chromedriver", help="path to the chromedriver that matches --chromium")
     ap.add_argument("--show", action="store_true", help="show the browser window (for debugging)")
+    ap.add_argument("--fresh", action="store_true", help="delete the saved profile (cookies) first")
     ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
     a = ap.parse_args()
 
     password = getpass.getpass(f"MC password for {a.username}: ")
-    profile = tempfile.mkdtemp(prefix="mc-watch-")
+    if a.fresh:
+        shutil.rmtree(PROFILE, ignore_errors=True)
+    os.makedirs(PROFILE, exist_ok=True)
     opts = webdriver.ChromeOptions()
     if not a.show:
         opts.add_argument("--headless=new")
-    opts.add_argument(f"--user-data-dir={profile}")
+    opts.add_argument(f"--user-data-dir={PROFILE}")
     opts.add_argument("--window-size=1400,1000")
     opts.add_argument("--no-first-run")
     opts.add_argument("--no-default-browser-check")
@@ -226,7 +245,6 @@ def main():
         return 1
     finally:
         d.quit()
-        shutil.rmtree(profile, ignore_errors=True)
 
 
 if __name__ == "__main__":
