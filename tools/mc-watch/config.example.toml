@@ -1,0 +1,26 @@
+# mc_queue.py configuration (tools/mc-watch in electric-mc).
+# This is the template. The live copy is var/mc-watch/config.toml (git-ignored),
+# or $MC_WATCH_CONFIG, or --config PATH; mc_queue.py writes it from this file on
+# the first run. Never commit a filled-in copy: it names a real MC account.
+# Paths may start with ~. The data directories hold real MC documents, so they
+# stay outside the repository.
+
+# MC account used when no user ID is given on the command line,
+# for example username = "co-chair@example.org".
+username = ""
+
+site_url = "https://mc.manuscriptcentral.com/cacm"
+
+# New "View Submission" PDFs land here as {msid}.pdf until printed.
+downloads_dir = "~/cacm-opn/downloads"
+
+# Printed PDFs move to printed_dir/{year}/{msid}/{msid}.pdf.
+printed_dir = "~/cacm-opn/printed"
+
+# SQLite database of every manuscript seen, downloaded, and printed.
+database = "~/cacm-opn/mc-watch.sqlite"
+
+# CUPS queue (see `lpstat -p`) and lp -o options (see `lpoptions -p QUEUE -l`).
+# High Priestess: two-sided (long edge) and color.
+printer = "High_Priestess"
+lp_options = ["sides=two-sided-long-edge", "print-color-mode=color", "ColorModel=RGB"]

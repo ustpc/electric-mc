@@ -1,10 +1,11 @@
 """Local state for mc_queue.py: config file, document database, Keychain
 passwords, and printing.
 
-Theory of operation: everything here is on this Mac, outside the repository,
-because it holds real MC data. The config is a TOML file (default
-~/cacm-opn/config.toml, written with commented defaults on first use). The
-database is SQLite with one row per manuscript ID, moving through the states
+Theory of operation: the config is a TOML file found by config_path():
+--config, then $MC_WATCH_CONFIG, then var/mc-watch/config.toml in this
+repository (git-ignored), copied from config.example.toml on first use. The
+data it points to (downloads, printed PDFs, database; default ~/cacm-opn) is
+real MC data, so it stays outside the repository. The database is SQLite with one row per manuscript ID, moving through the states
 seen -> downloaded -> printed (or error). Passwords live in the macOS
 Keychain through the keyring package. Printing runs CUPS `lp` and, on
 success, moves the PDF to printed_dir/{year}/{msid}/{msid}.pdf, where year is
@@ -20,46 +21,43 @@ import sqlite3
 import subprocess
 import tomllib
 
-DEFAULT_CONFIG = os.path.expanduser("~/cacm-opn/config.toml")
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+TEMPLATE = os.path.join(HERE, "config.example.toml")
+REPO_CONFIG = os.path.join(REPO, "var", "mc-watch", "config.toml")  # git-ignored
+OLD_CONFIG = os.path.expanduser("~/cacm-opn/config.toml")  # where 64f26ff put it
+ENV_VAR = "MC_WATCH_CONFIG"
 KEYRING_SERVICE = "electric-mc mc-watch"
 
-CONFIG_TEMPLATE = """\
-# mc_queue.py configuration (tools/mc-watch in electric-mc).
-# Paths may start with ~. Everything named here stays on this Mac.
 
-# MC account used when no user ID is given on the command line,
-# for example username = "co-chair@example.org".
-username = ""
-
-site_url = "https://mc.manuscriptcentral.com/cacm"
-
-# New "View Submission" PDFs land here as {msid}.pdf until printed.
-downloads_dir = "~/cacm-opn/downloads"
-
-# Printed PDFs move to printed_dir/{year}/{msid}/{msid}.pdf.
-printed_dir = "~/cacm-opn/printed"
-
-# SQLite database of every manuscript seen, downloaded, and printed.
-database = "~/cacm-opn/mc-watch.sqlite"
-
-# CUPS queue (see `lpstat -p`) and lp -o options (see `lpoptions -p QUEUE -l`).
-# High Priestess: two-sided (long edge) and color.
-printer = "High_Priestess"
-lp_options = ["sides=two-sided-long-edge", "print-color-mode=color", "ColorModel=RGB"]
-"""
-
-DEFAULTS = tomllib.loads(CONFIG_TEMPLATE)
+with open(TEMPLATE, "rb") as _f:
+    DEFAULTS = tomllib.load(_f)
 PATH_KEYS = ("downloads_dir", "printed_dir", "database")
 
 
-def load_config(path=DEFAULT_CONFIG):
+def config_path(cli=None, env=None, repo_config=REPO_CONFIG, old_config=OLD_CONFIG, log=print):
+    """Which config file to use: --config, then $MC_WATCH_CONFIG, then
+    var/mc-watch/config.toml in the repository. A config left at the old
+    ~/cacm-opn/config.toml is moved into the repository's var/ once."""
+    env = os.environ.get(ENV_VAR) if env is None else env
+    if cli:
+        return os.path.expanduser(cli)
+    if env:
+        return os.path.expanduser(env)
+    if not os.path.exists(repo_config) and os.path.exists(old_config):
+        os.makedirs(os.path.dirname(repo_config), exist_ok=True)
+        shutil.move(old_config, repo_config)
+        log(f"moved the config from {old_config} to {repo_config}")
+    return repo_config
+
+
+def load_config(path):
     """The config as a dict, with defaults filled in and ~ expanded.
-    Writes the commented template first if the file doesn't exist."""
+    Copies the commented template there first if the file doesn't exist."""
     path = os.path.expanduser(path)
     if not os.path.exists(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(CONFIG_TEMPLATE)
+        shutil.copyfile(TEMPLATE, path)
     with open(path, "rb") as f:
         cfg = {**DEFAULTS, **tomllib.load(f)}
     for k in PATH_KEYS:

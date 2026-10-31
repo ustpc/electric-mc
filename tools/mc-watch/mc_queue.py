@@ -14,11 +14,15 @@ makes:
     each page: record each Manuscript ID, download new PDFs -> log out
 
 then prints every downloaded-but-unprinted PDF with CUPS `lp` and files it
-under printed_dir/{year}/{msid}/. State lives outside the repository (it is
-real MC data), as set in ~/cacm-opn/config.toml, written with commented
-defaults on first run: downloads_dir, printed_dir, the SQLite database of
-every document seen / downloaded / printed (mc_store.py), the printer and its
-options, and the default MC account.
+under printed_dir/{year}/{msid}/.
+
+The config file is the first of: --config PATH, $MC_WATCH_CONFIG, or
+var/mc-watch/config.toml in this repository (git-ignored; copied from
+tools/mc-watch/config.example.toml on the first run). It names the default
+MC account, the printer and its options, and where the data goes:
+downloads_dir, printed_dir, and the SQLite database of every document seen /
+downloaded / printed (mc_store.py), by default under ~/cacm-opn, outside the
+repository, because they are real MC data.
 
 Usage:
     uv run tools/mc-watch/mc_queue.py [USERNAME] [--list | --no-print | --mark-seen]
@@ -409,7 +413,7 @@ def get_password(username, ask):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("username", nargs="?", help="MC user ID (default: username in the config)")
-    ap.add_argument("--config", default=mc_store.DEFAULT_CONFIG, help="config file (default %(default)s)")
+    ap.add_argument("--config", help=f"config file (default: ${mc_store.ENV_VAR}, else {mc_store.REPO_CONFIG})")
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--list", action="store_true", help="only list and record the queue")
     mode.add_argument("--no-print", action="store_true", help="download new PDFs but don't print")
@@ -424,7 +428,7 @@ def main():
     ap.add_argument("--stay-logged-in", action="store_true", help="don't click Log Out at the end")
     a = ap.parse_args()
 
-    cfg = mc_store.load_config(a.config)
+    cfg = mc_store.load_config(mc_store.config_path(a.config, log=log))
     username = a.username or cfg["username"]
     if not username:
         raise SystemExit(f"no MC user ID: give one, or set username in {cfg['path']}")

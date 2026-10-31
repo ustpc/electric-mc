@@ -53,6 +53,27 @@ def test_config_overrides(tmp_path):
     assert c["username"] == ""  # default kept
 
 
+def test_config_path_order(tmp_path):
+    repo, old = str(tmp_path / "var" / "config.toml"), str(tmp_path / "old.toml")
+    kw = dict(repo_config=repo, old_config=old, log=lambda m: None)
+    assert mc_store.config_path("/x/cli.toml", "/x/env.toml", **kw) == "/x/cli.toml"
+    assert mc_store.config_path(None, "/x/env.toml", **kw) == "/x/env.toml"
+    assert mc_store.config_path(None, "", **kw) == repo
+    assert not os.path.exists(repo)  # nothing to move, nothing written yet
+
+
+def test_old_config_moved_once(tmp_path):
+    repo, old = tmp_path / "var" / "config.toml", tmp_path / "old.toml"
+    old.write_text('printer = "Moved"\n')
+    msgs = []
+    path = mc_store.config_path(None, "", repo_config=str(repo), old_config=str(old), log=msgs.append)
+    assert path == str(repo) and repo.read_text() == 'printer = "Moved"\n' and not old.exists()
+    assert len(msgs) == 1 and "moved" in msgs[0]
+    old.write_text("stale\n")  # the repo config now wins; the old one is left alone
+    mc_store.config_path(None, "", repo_config=str(repo), old_config=str(old), log=msgs.append)
+    assert old.exists() and len(msgs) == 1
+
+
 @pytest.mark.parametrize("msid,expect", [
     ("TEST-26-10-9001", ("TEST-26-10-9001", 0, 2026)),
     ("TEST-25-08-9002.R1", ("TEST-25-08-9002", 1, 2025)),
