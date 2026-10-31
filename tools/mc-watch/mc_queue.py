@@ -46,6 +46,7 @@ import argparse
 import base64
 import getpass
 import re
+import select
 import shutil
 import sys
 import os
@@ -184,9 +185,26 @@ def enter_code(d):
     persistent profile skips this next time, and press Verify."""
     log("MC says this is an unrecognized device and emailed a verification code")
     snap(d, "code dialog")
-    code = input("Verification code from the 'Communications of the ACM Verification Code' email: ").strip()
     dialog = "//*[contains(normalize-space(.),'Unrecognized Device') and .//input]"
-    fields = visible(d, f"({dialog})[last()]//input[@type='text' or @type='tel' or @type='number' or not(@type)]")
+    field_xp = f"({dialog})[last()]//input[@type='text' or @type='tel' or @type='number' or not(@type)]"
+    # Poll the terminal and the page together, so a code typed in the browser
+    # window instead also lets the run go on.
+    prompt = "Verification code from the 'Communications of the ACM Verification Code' email: "
+    print(prompt, end="", file=sys.stderr, flush=True)
+    code = ""
+    while not code:
+        if logged_in(d) or not visible(d, field_xp):
+            print(file=sys.stderr)
+            log("the code dialog is gone (entered in the browser?); going on")
+            return
+        if select.select([sys.stdin], [], [], 1)[0]:
+            line = sys.stdin.readline()
+            if not line:
+                raise SystemExit("no verification code (end of input)")
+            code = line.strip()
+            if not code:
+                print(prompt, end="", file=sys.stderr, flush=True)
+    fields = visible(d, field_xp)
     if not fields:
         raise SystemExit("couldn't find the verification code field")
     fields[0].clear()
@@ -204,9 +222,13 @@ def enter_code(d):
 def log_in(d, username, password):
     WebDriverWait(d, STEP_TIMEOUT).until(lambda d: logged_in(d) or d.find_elements(By.NAME, "USERID"))
     if logged_in(d):
-        log("still logged in from the saved profile")
+        # The saved session may be another account; start over as this one.
         snap(d, "already logged in")
-        return
+        click(d, link("Log Out"), "saved session found; logging out to log in as the requested user")
+        if not d.find_elements(By.NAME, "USERID"):
+            d.get(START_URL)
+            cloudflare(d)
+        WebDriverWait(d, STEP_TIMEOUT).until(EC.presence_of_element_located((By.NAME, "USERID")))
     snap(d, "login form")
     log("logging in")
     d.find_element(By.NAME, "USERID").send_keys(username)
@@ -327,6 +349,13 @@ def main():
         click(d, link("Co-Chair Center"), "Co-Chair Center")
         wait_text(d, "Co-Chair Tasks")
         snap(d, "co-chair center")
+        # The dashboard shows "N Awaiting AE Assignment"; at 0 it's plain text, not a link.
+        m = re.search(r"(\d+)\s+Awaiting AE Assignment", body_text(d))
+        if (m and m.group(1) == "0") or not d.find_elements(*link("Awaiting AE Assignment")):
+            log("0 manuscripts awaiting AE assignment")
+            if not a.stay_logged_in and logged_in(d):
+                click(d, link("Log Out"), "logging out")
+            return 0
         click(d, link("Awaiting AE Assignment"), "Awaiting AE Assignment")
         wait_text(d, "Take Action")
         snap(d, "queue")
