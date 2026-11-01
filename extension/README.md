@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.46). The version shows
+Semantic versioning, set in `package.json` (now 0.0.47). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -91,7 +91,7 @@ build instead.
   period of inactivity. With "Send keepalives to prevent auto logout" on,
   after 10 minutes with no keyboard or mouse activity in any MC tab, the
   extension presses MC's "+ Search" toggle twice (open, close), which sends
-  MC a small request. It stops after 8 idle hours, so an unattended computer
+  MC a small request. It stops after 48 idle hours, so an unattended computer
   is still logged out. **Ctrl+Shift+K** sends one at once and shows how many
   requests went to MC.
 - **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are

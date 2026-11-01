@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.47 (2026-11-01)
+
+- Keepalives now continue for up to 48 hours without activity (was 8).
+
 ## 0.0.46 (2026-11-01)
 
 - The page-title setting now also hides titles MC draws as text, such as "View Manuscripts", not just its title images. It's renamed "Hide the left-column page title and the space it wastes".

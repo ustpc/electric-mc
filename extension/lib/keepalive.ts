@@ -3,7 +3,7 @@
 // (scholaroneAJAXServlet) and changes nothing else, so after 10 minutes with
 // no keyboard or mouse activity in any MC tab we press it twice: open, then
 // close again. Every tab shares the times of the last activity and the last
-// keepalive (chrome.storage.local), so only one tab sends. After 8 hours
+// keepalive (chrome.storage.local), so only one tab sends. After 48 hours
 // without activity we stop, so an unattended computer is still logged out
 // eventually. Off unless the person turns it on; Ctrl+Shift+K sends one now.
 
@@ -11,7 +11,7 @@ import { pageClick } from './click';
 import { textOf } from './text';
 
 export const IDLE_MS = 10 * 60_000;
-export const GIVE_UP_MS = 8 * 60 * 60_000;
+export const GIVE_UP_MS = 48 * 60 * 60_000;
 
 /** Whether to send a keepalive now, given the shared times. */
 export function keepaliveDue(now: number, lastActivity: number, lastSent: number, idleMs = IDLE_MS, giveUpMs = GIVE_UP_MS): boolean {

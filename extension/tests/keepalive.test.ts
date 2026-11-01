@@ -16,7 +16,7 @@ describe('keepaliveDue', () => {
     expect(keepaliveDue(now, now - 30 * MIN, now - 5 * MIN)).toBe(false);
     expect(keepaliveDue(now, now - 30 * MIN, now - 10 * MIN)).toBe(true);
   });
-  it('gives up after 8 hours without activity', () => {
+  it('gives up after 48 hours without activity', () => {
     expect(keepaliveDue(now, now - GIVE_UP_MS + MIN, 0)).toBe(true);
     expect(keepaliveDue(now, now - GIVE_UP_MS, 0)).toBe(false);
   });
