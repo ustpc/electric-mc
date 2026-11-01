@@ -28,6 +28,14 @@ downloads_dir = "~/cacm-opn/downloads"
 # Printed PDFs move to printed_dir/{year}/{msid}/{msid}.pdf.
 printed_dir = "~/cacm-opn/printed"
 
+# --watch: minutes between polls when --watch is given without a number, and
+# when to restart the one long-lived browser: every restart_every polls, or
+# when its processes use more than max_rss_mb of memory (on macOS, the sum of
+# their RSS, which counts shared memory repeatedly: an idle browser is ~1100).
+watch_minutes = 15
+restart_every = 12
+max_rss_mb = 3000
+
 # SQLite database of every manuscript seen, downloaded, and printed.
 database = "~/cacm-opn/mc-watch.sqlite"
 

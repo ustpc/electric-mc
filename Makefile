@@ -10,7 +10,7 @@ mc-queue:
 	@uv run tools/mc-watch/mc_queue.py $(USERID) $(ARGS)
 
 mc-watch-test:
-	@uv run --with pytest --with keyring --with selenium pytest -q tools/mc-watch
+	@uv run --with pytest --with keyring --with playwright --with psutil pytest -q tools/mc-watch
 
 notes-%:
 	@$(MAKE) --no-print-directory -C backend/notes $*

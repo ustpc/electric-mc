@@ -30,17 +30,24 @@ Submission*, the verification-code dialog and *Log Out*.
 - A Mac running macOS, with an account that can reach your journal's
   ScholarOne site.
 - [uv](https://docs.astral.sh/uv/) (`brew install uv`). uv installs the
-  program's two Python packages (Selenium and keyring) the first time you run
-  it.
+  program's Python packages (Playwright, psutil and keyring) the first time
+  you run it.
 - A printer set up in macOS. To list your printers' system names, run:
   ```bash
   lpstat -p
   ```
 - This repository checked out, for example in `~/gits/electric-mc`.
 
-The program downloads its own browser, "Chrome for Testing", into
-`~/.cache/selenium` the first time. It never uses or touches your everyday
-Chrome, its profile or its passwords.
+The program drives the Chromium build that Playwright manages, which it
+downloads into `~/Library/Caches/ms-playwright` the first time. To install it
+ahead of time, run:
+
+```bash
+uv run --with playwright playwright install chromium
+```
+
+It never uses or touches your everyday Chrome, its profile or its passwords,
+so you can keep using ScholarOne in your own browser while it runs.
 
 ## First run
 
@@ -65,8 +72,8 @@ you.
 - **Cloudflare "Just a moment..." check.** If this doesn't clear by itself
   within 15 seconds, the window comes onto your screen and the terminal asks
   you to complete the check. The program waits up to 5 minutes.
-- **Cookie banner.** Choose whichever button you like. The browser keeps your
-  choice.
+- **Cookie banner.** The program clicks *Accept All Cookies* whenever
+  ScholarOne's cookie banner appears.
 
 The browser keeps its own cookies in `var/mc-watch/profile` inside the
 repository. That folder is git-ignored, so the device approval and Cloudflare
@@ -93,6 +100,8 @@ and exits with status 130.
 | `mc_queue.py --no-print` | Lists and downloads, but doesn't print. Already-downloaded PDFs wait for a later printing run. |
 | `mc_queue.py --mark-seen` | Records everything now in the queue as already printed, without downloading or printing. Use it once to skip a backlog. |
 | `mc_queue.py --force` | Downloads every manuscript in the queue again, replacing the local copy. Already-printed manuscripts aren't printed again: their filed copy in `printed_dir` is replaced. Combine it with `--no-print` to refresh files without printing anything. |
+
+| `mc_queue.py --watch [MINUTES]` | Keeps running: does the above every MINUTES minutes (default `watch_minutes`, 15) with one browser, until you press ^C. Combine it with any mode above. |
 
 Manuscript IDs go to the terminal. Every run ends with a summary like
 `summary: 9 in queue, 2 new, 2 downloaded, 2 printed, 0 errors`.
@@ -128,6 +137,9 @@ filled-in config: it names a real account.
 | `downloads_dir` | `~/cacm-opn/downloads` | Where new PDFs wait until they're printed. |
 | `printed_dir` | `~/cacm-opn/printed` | Where printed PDFs are filed. |
 | `database` | `~/cacm-opn/mc-watch.sqlite` | The record of every manuscript seen, downloaded and printed. |
+| `watch_minutes` | `15` | Minutes between polls for `--watch` without a number. |
+| `restart_every` | `12` | With `--watch`, restart the browser after this many polls. |
+| `max_rss_mb` | `3000` | With `--watch`, also restart it when its processes use more memory than this. On macOS this is the sum of their resident memory, which counts shared memory more than once; an idle browser shows about 1100. |
 | `printer` | `"High_Priestess"` | The printer's system name, from `lpstat -p`. Change this to your own printer. |
 | `lp_options` | two-sided, color | Print options passed to `lp -o`. To see what your printer accepts, run `lpoptions -p PRINTER -l`. |
 
@@ -185,19 +197,33 @@ so delete them when you no longer need them:
 rm -rf "$TMPDIR"/mc-watch-*
 ```
 
-To turn snapshots off, run with `--no-debug`.
+To turn snapshots off, run with `--no-debug`. With `--watch`, only failures
+and Cloudflare checks are captured, so the folder doesn't grow with every
+poll.
+
+## The browser never outlives the program
+
+The browser has its own profile, `var/mc-watch/profile`, so every process
+whose command line names that folder belongs to this program. At startup the
+program stops any such process left over from a crash. When it ends, however
+it ends (normally, on an error, on ^C, or when it is sent SIGTERM), it closes
+the browser and then stops every process the browser started. With
+`--watch`, the browser is also restarted regularly (see `restart_every` and
+`max_rss_mb`), so a long session doesn't pile up memory. The terminal says
+whenever it had to stop a leftover process.
 
 ## Troubleshooting
 
 | Symptom | What to do |
 |---|---|
-| `timed out at ...` | Look at the last files in that run's snapshot folder to see where it stopped. Run again with `--show` to watch the window. |
+| `timed out waiting for ...` | Look at the last files in that run's snapshot folder to see where it stopped. Run again with `--show` to watch the window. |
 | Every list shows 0 | You may be logged in to an account that doesn't hold that role. Some roles use a separate shared login. |
 | `no '...' under Manage` | Copy the exact center name from the list in the message into `center`. |
 | Asked for the verification code every time | Run with `--fresh` once, enter the code, and make sure *Remember this device* is ticked. |
 | `MC rejected the user ID or password` | Check the user ID, then run with `--forget-password`. |
 | `download failed` | ScholarOne may show the PDF differently on your site. Send the developer the step names in the snapshot folder, but not the files themselves. |
 | Nothing prints | Check `printer` against `lpstat -p`, and check `lp_options`. Failed jobs stay in `downloads_dir` with state `error`. |
+| `Executable doesn't exist` or a browser download error | Install Playwright's Chromium: `uv run --with playwright playwright install chromium` |
 | The window is in the way | It is minimized after launch, and the app you were using is brought back to the front. It reappears only for a Cloudflare check, or when you use `--show`. |
 | Nothing happens while the Mac sleeps | A sleeping Mac runs nothing. A screensaver or locked screen is fine. To keep the Mac awake for a run: `caffeinate -i uv run tools/mc-watch/mc_queue.py` |
 
