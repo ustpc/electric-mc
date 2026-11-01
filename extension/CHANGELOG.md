@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.46 (2026-11-01)
+
+- The page-title setting now also hides titles MC draws as text, such as "View Manuscripts", not just its title images. It's renamed "Hide the left-column page title and the space it wastes".
+
 ## 0.0.45 (2026-10-31)
 
 - New setting (off by default): "Send keepalives to prevent auto logout". After 10 idle minutes the extension opens and closes MC's "+ Search" bar, which pings MC's server; it stops after 8 idle hours. Ctrl+Shift+K sends one at once, for testing.

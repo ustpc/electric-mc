@@ -151,8 +151,9 @@ const HIDE_ON = 'data-emc-hide-headers';
 const HIDE_STYLE_ID = 'emc-hide-style';
 
 /**
- * MC's page-title image on the left ("Search Results", "View Manuscripts")
- * and the empty column under it that pushes the table right. Marked always;
+ * MC's page title on the left ("Search Results", "View Manuscripts"), an
+ * image on some pages and plain text on others, and the empty column under
+ * it that pushes the table right. Marked always;
  * the html attribute switches the hiding, so the setting applies at once.
  */
 export function hidePageHeader(doc: Document, on: boolean): void {
@@ -175,10 +176,13 @@ export function hidePageHeader(doc: Document, on: boolean): void {
   for (const td of Array.from(doc.querySelectorAll<HTMLTableCellElement>('td[width$="%"]'))) {
     const next = td.nextElementSibling as HTMLTableCellElement | null;
     if (!next || next.tagName !== 'TD' || td.hasAttribute(HIDE)) continue;
-    if (textOf(td) || td.querySelector('img, input, select, a, table')) continue;
+    if (td.querySelector('img, input, select, a, table')) continue;
+    // Empty, or holding only a short title such as "View Manuscripts".
+    const title = textOf(td);
+    if (title.length > 40) continue;
     if (parseFloat(td.getAttribute('width')!) > 30 || !/%$/.test(next.getAttribute('width') ?? '')) continue;
     if (textOf(next).length < 200) continue;
-    td.setAttribute(HIDE, 'spacer');
+    td.setAttribute(HIDE, title ? 'header' : 'spacer');
   }
   if (on) doc.documentElement.setAttribute(HIDE_ON, '');
   else doc.documentElement.removeAttribute(HIDE_ON);

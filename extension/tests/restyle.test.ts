@@ -82,6 +82,25 @@ describe('hide the page title column', () => {
   });
 });
 
+describe('hide a text page title', () => {
+  it('hides a short title cell such as "View Manuscripts" beside the content', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    document.body.innerHTML = `<table width="760"><tr><td width="15%">View Manuscripts</td>
+      <td width="85%"><p>${'Queue table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    expect(document.querySelector('td[width="15%"]')!.getAttribute('data-emc-hide')).toBe('header');
+    // Content cells are never hidden.
+    expect(document.querySelector('td[width="85%"]')!.hasAttribute('data-emc-hide')).toBe(false);
+  });
+  it('leaves a long or linked left cell alone', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    document.body.innerHTML = `<table width="760"><tr><td width="15%"><a href="#">Home</a></td>
+      <td width="85%"><p>${'Queue table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    expect(document.querySelector('td[width="15%"]')!.hasAttribute('data-emc-hide')).toBe(false);
+  });
+});
+
 describe('enlargeNavArrows', () => {
   it('doubles the previous/next document arrows, and takes it back when off', async () => {
     const { enlargeNavArrows } = await import('../lib/restyle');
