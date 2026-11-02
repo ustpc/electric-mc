@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.47). The version shows
+Semantic versioning, set in `package.json` (now 0.0.48). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -95,7 +95,7 @@ build instead.
   is still logged out. **Ctrl+Shift+K** sends one at once and shows how many
   requests went to MC.
 - **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are
-  shown twice as big.
+  redrawn twice as big, as sharp round brown buttons.
 - **Radio-button rows.** In MC's choice tables (Co-Chair Recommends and
   the like), click anywhere in a row to pick it.
 - **Clickable IDs.** On MC's grids, the manuscript ID is a link that does

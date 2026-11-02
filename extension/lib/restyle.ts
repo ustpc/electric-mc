@@ -8,6 +8,7 @@
 // width in its markup, and holds the most text.
 
 import { textOf } from './text';
+import { EMC_COLOR } from './milestones';
 
 const WIDE = 'data-emc-wide';
 const FONT = 'data-emc-fs';
@@ -188,18 +189,38 @@ export function hidePageHeader(doc: Document, on: boolean): void {
   else doc.documentElement.removeAttribute(HIDE_ON);
 }
 
-const NAV_STYLE_ID = 'emc-nav-style';
 /** MC's previous/next document arrows ("7 / 8"), e.g. /images/en_US/icons/next_mss.gif. */
-const NAV_ARROWS = ['img[src*="next_mss"]', 'img[src*="prev_mss"]', 'img[src*="previous_mss"]', 'img[alt="Next Document"]', 'img[alt="Previous Document"]'].join(', ');
+const NAV_ARROWS = ['img[src*="next_mss"]', 'img[src*="prev_mss"]', 'img[src*="previous_mss"]', 'img[alt="Next Document"]', 'img[alt="Previous Document"]', 'img[data-emc-src]'].join(', ');
+const ORIGINAL = 'data-emc-src';
 
-/** Show MC's previous/next document arrows at twice their size; off removes it. */
+/** A crisp arrow in a round E-MC brown button, drawn as SVG. */
+export function arrowImage(dir: 'next' | 'prev'): string {
+  const tip = dir === 'next' ? 'M12 8.5 L23.5 16 L12 23.5 Z' : 'M20 8.5 L8.5 16 L20 23.5 Z';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="${EMC_COLOR}"/><path d="${tip}" fill="#fff"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Redraw MC's previous/next document arrows twice as big, as sharp vector
+ * arrows (scaling MC's small GIFs made them blurry); off puts MC's back.
+ */
 export function enlargeNavArrows(doc: Document, on: boolean): void {
-  const existing = doc.getElementById(NAV_STYLE_ID);
-  if (!on) return existing?.remove();
-  if (existing) return;
-  const style = doc.createElement('style');
-  style.id = NAV_STYLE_ID;
-  style.setAttribute('data-electric-mc', 'nav');
-  style.textContent = `:is(${NAV_ARROWS}) { zoom: 2; }`;
-  (doc.head ?? doc.documentElement).appendChild(style);
+  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>(NAV_ARROWS))) {
+    const original = img.getAttribute(ORIGINAL);
+    if (!on) {
+      if (original === null) continue;
+      img.setAttribute('src', original);
+      img.removeAttribute(ORIGINAL);
+      img.style.removeProperty('width');
+      img.style.removeProperty('height');
+      continue;
+    }
+    if (original !== null) continue;
+    const src = img.getAttribute('src') ?? '';
+    const size = 2 * (img.naturalWidth || img.width || 16);
+    img.setAttribute(ORIGINAL, src);
+    img.setAttribute('src', arrowImage(/prev/i.test(`${src} ${img.alt}`) ? 'prev' : 'next'));
+    img.style.setProperty('width', `${size}px`);
+    img.style.setProperty('height', `${size}px`);
+  }
 }

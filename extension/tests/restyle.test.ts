@@ -102,19 +102,20 @@ describe('hide a text page title', () => {
 });
 
 describe('enlargeNavArrows', () => {
-  it('doubles the previous/next document arrows, and takes it back when off', async () => {
-    const { enlargeNavArrows } = await import('../lib/restyle');
+  it('redraws the previous/next document arrows twice as big, and puts MC\'s back when off', async () => {
+    const { enlargeNavArrows, arrowImage } = await import('../lib/restyle');
     document.body.innerHTML = '<a href="#"><img src="/images/en_US/icons/prev_mss.gif" alt="Previous Document"></a> 7 / 8 <a href="#"><img src="/images/en_US/icons/next_mss.gif" alt="Next Document"></a><img src="/images/other.gif" id="other">';
+    const [prev, next, other] = Array.from(document.querySelectorAll('img'));
     enlargeNavArrows(document, true);
     enlargeNavArrows(document, true);
-    const styles = document.querySelectorAll('#emc-nav-style');
-    expect(styles).toHaveLength(1);
-    const css = styles[0]!.textContent!;
-    expect(css).toContain('zoom: 2');
-    for (const img of Array.from(document.querySelectorAll('img'))) {
-      expect(img.matches(css.slice(css.indexOf('(') + 1, css.lastIndexOf(')')))).toBe(img.id !== 'other');
-    }
+    expect(prev!.getAttribute('src')).toBe(arrowImage('prev'));
+    expect(next!.getAttribute('src')).toBe(arrowImage('next'));
+    expect(next!.style.width).toBe('32px');
+    expect(other!.getAttribute('src')).toBe('/images/other.gif');
+    expect(decodeURIComponent(arrowImage('next'))).toContain('<svg');
     enlargeNavArrows(document, false);
-    expect(document.getElementById('emc-nav-style')).toBeNull();
+    expect(next!.getAttribute('src')).toBe('/images/en_US/icons/next_mss.gif');
+    expect(prev!.getAttribute('src')).toBe('/images/en_US/icons/prev_mss.gif');
+    expect(next!.style.width).toBe('');
   });
 });

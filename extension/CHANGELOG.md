@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.48 (2026-11-02)
+
+- The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).
+
 ## 0.0.47 (2026-11-01)
 
 - Keepalives now continue for up to 48 hours without activity (was 8).
