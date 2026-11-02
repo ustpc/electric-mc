@@ -21,8 +21,7 @@ Notes are therefore encrypted and signed in the browser. The server stores only 
   - The server forging, altering or re-attributing a note. Every note is signed by its author.
 - **Out of scope:**
   - Malware on a user's computer.
-  - A malicious extension release. The operator also publishes the extension, so a release could copy plaintext out of the browser. Encryption turns "read the database" into "publish a visibly malicious
-    release", which goes through Chrome Web Store review and a public repository. A publication that wants more can build the extension from source.
+  - A malicious extension release. The operator also publishes the extension, so a release could copy plaintext out of the browser. Encryption turns "read the database" into "publish a visibly malicious release", which goes through Chrome Web Store review and a public repository. A publication that wants more can build the extension from source.
   - Someone entitled to read a note copying it elsewhere. Deletion is best effort.
   - Metadata (section 11).
 
@@ -48,7 +47,7 @@ Notes to carry into the build:
 
 ## 4. Configuration: Publications, roles and departments
 
-One Electric MC system serves several publications. Each  publication
+One Electric MC system serves several publications. Each publication
 (for example CACM, or another ACM journal with its own EIC) has its own
 **tree**.
 
@@ -58,14 +57,14 @@ Each person in a tree has:
 |---|---|
 | Email | The address MC uses for them. A person with several MC accounts (personal and shared) appears once per email. We verify Emails by sending a magic link, which is then validated by the server running on AWS Lambda. |
 | Name | Display name |
-| Role | The tree defines roles in a hiearchial order. CACM uses the roles **Admin**, **EIC**, **CoChair** and **AE**  The tree records each user's highest role; users can also assume roles beneath their current role (e.g. a CoChair can also be an AE or a Reviewer) |
-| Department, | The tree defines departments. Each user can be in one  departments. CACM uses the departments **Opinion**, **Practice**, **Research and Advances**, **News** and **all**, the special department that includes all departments. |
+| Role | The tree defines roles in a hierarchical order. CACM uses the roles **Admin**, **EIC**, **CoChair** and **AE**. The tree records each user's highest role; users can also assume roles beneath their current role (e.g. a CoChair can also be an AE or a Reviewer) |
+| Department | The tree defines departments. Each user can be in one department. CACM uses the departments **Opinion**, **Practice**, **Research and Advances**, **News** and **all**, the special department that includes all departments. |
 
 **Reviewers** are not in the tree. The handling AE adds them to a single
 manuscript, usually by typing their email address rather than picking them
 from MC's reviewer list. 
 
-It is a configuration option whether or not reviewers can see ach other's names and notes.
+It is a configuration option whether or not reviewers can see each other's names and notes.
 
 Each publication also lists its **admin** email(s), who receive a copy of
 key approval emails (section 6).
@@ -121,7 +120,7 @@ all of a person's browsers.
 
 A new key is **not used by anyone** until it is approved.
 
-- The server emails the key's own address through Amazon's  **Simple Email Service (SES)**, with the
+- The server emails the key's own address through Amazon's **Simple Email Service (SES)**, with the
   publication's admin on Cc. Receiving the email at that address is the
   proof of ownership. 
   - The From address is currently **robot@sabinok.com**.
@@ -139,7 +138,7 @@ since SES must send to addresses other than Simson's.
 ### 6.3 Using keys
 
 - A note is encrypted to **every approved, non-retired key** of every
-  potential viewer of the the note. (See below for the potential viewers.)
+  potential viewer of the note (see section 7.1).
 - A **lost** key (forgotten passphrase) is retired: no new notes are
   encrypted to it. The user makes a new key version, and older notes are
   re-encrypted to it by someone who can already read them (section 8).
@@ -171,7 +170,7 @@ in section 7.2.
 
 | Recipient | When |
 |---|---|
-| The author (of the note, note the manuscript) | Always |
+| The author (of the note, not the manuscript) | Always |
 | The publication's EIC(s) | Always |
 | The CoChair(s) for the manuscript's department, and CoChairs with department "all" | Always |
 | The handling AE | While they are assigned |
@@ -181,7 +180,7 @@ Each email on the list contributes all of its approved, non-retired keys.
 
 ### 7.2 Assignment changes
 
-The extension monitors assignment changes and reports them to the server. As part of this process, the extension fetches notes (if they are not resident) and encrypts or re-encrypts the notes and sends them to the server. This monitoring is typically done by the extension running on the **Admin**, **EIC** or **Co-Chair** 
+The extension monitors assignment changes and reports them to the server. As part of this process, the extension fetches notes (if they are not resident) and encrypts or re-encrypts the notes and sends them to the server. This monitoring is typically done by the extension running on the **Admin**, **EIC** or **CoChair**.
 
 - **New AE or reviewer:** older notes are re-encrypted to them (section 8),
   so they see the manuscript's history. 
@@ -287,7 +286,7 @@ accepted.
 
 ## 13. Edge Cases
 
-1. The **Admin** and **EIC** both have access to all notes, so either either loses their passphrase, then each they can re-encrypt all of the notes for the other.
-2. Manuscript IDs are are not stored hashed, since they can be readily brute-forced. 
+1. The **Admin** and **EIC** both have access to all notes, so if either loses their passphrase, the other can re-encrypt all of the notes for them.
+2. Manuscript IDs are not stored hashed, since they can be readily brute-forced. 
 3. Notes are retained until final decision, or until there is no activity for 18 months. 
 4. Initially Simson is the admin for every publication. This may change. 
