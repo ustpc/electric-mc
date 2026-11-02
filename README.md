@@ -57,13 +57,13 @@ Everything above, plus:
 
 ## For publication editors (EIC)
 
-Everything above, plus:
+Everything section editors get. Coming:
 
-- You can delete any note on a manuscript.
-- Coming: dashboards of every manuscript each AE is handling, across
-  sections and journals; alerts for overdue reviews, plagiarism checks and
-  decisions from MC's emails; chat per manuscript with role-based
-  visibility.
+- Dashboards of every manuscript each AE is handling, across sections and
+  journals.
+- Alerts for overdue reviews, plagiarism checks and decisions, from MC's
+  emails.
+- Chat per manuscript, with role-based visibility.
 
 ## For developers
 
