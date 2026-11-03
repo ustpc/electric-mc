@@ -10,6 +10,7 @@ Design notes are in
 
 ## Version
 
+
 Semantic versioning, set in `package.json` (now 0.0.48). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
