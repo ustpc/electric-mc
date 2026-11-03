@@ -146,17 +146,35 @@ visibility, publish once by hand before the workflow can publish again.
 **One-time setup** (Simson, signed in as simsong@gmail.com):
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a
-   project (e.g. `electric-mc-publishing`) and enable the **Chrome Web Store API**.
+   project (e.g. `electric-mc-publishing`) and enable the **Chrome Web Store API**
+   and the **IAM Service Account Credentials API** (the workflow's sign-in
+   step needs the second one to turn the key into an access token).
 2. Under IAM & Admin → Service accounts, create a service account
    (e.g. `cws-publisher`), open it, and under Keys → Add key → JSON download a key.
+   Then, on the same account's **Permissions** tab, click **Grant access**, enter
+   the service account's own email as the principal, and give it the role
+   **Service Account Token Creator** (`roles/iam.serviceAccountTokenCreator`).
+   The sign-in step turns the key into an access token by asking for a token
+   for this same account, and an account can't do that for itself without
+   this grant. In Cloud Shell the same grant is:
+
+   ```sh
+   SA=cws-publisher@<project-id>.iam.gserviceaccount.com
+   gcloud iam service-accounts add-iam-policy-binding "$SA" \
+     --member="serviceAccount:$SA" --role=roles/iam.serviceAccountTokenCreator
+   ```
 3. In the [developer dashboard](https://chrome.google.com/webstore/devconsole),
-   open the publisher's **Account** page and add the service account's email
-   in the service-account section.
+   click **Settings** under PUBLISHER in the left column (not the account's
+   Profile page) and add the service account's email in the Service account
+   section.
 4. In GitHub, ustpc/electric-mc → Settings → Environments, create an environment
    named `chrome-web-store`, add the secret `CWS_SERVICE_ACCOUNT_KEY` (the whole
-   JSON key), then add repository variables `CWS_PUBLISHER_ID` (from the
-   dashboard's Account page) and `CWS_ITEM_ID` (the extension's 32-letter ID).
-   Delete the downloaded key file afterwards.
+   JSON key), then add the variables `CWS_PUBLISHER_ID` (the ID in the
+   dashboard's address, `devconsole/<publisher ID>/…`) and `CWS_ITEM_ID` (the
+   extension's 32-letter ID), on the environment or the repository.
+5. Check it: run the workflow by hand from the Actions tab with **submit**
+   unticked. It signs in and uploads a draft without sending anything for
+   review. Then delete the downloaded key file.
 
 Requiring a reviewer on the `chrome-web-store` environment makes every
 release wait for your approval in GitHub before it is uploaded.
