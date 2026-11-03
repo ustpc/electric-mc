@@ -103,3 +103,31 @@ describe('ID links look like E-MC additions', () => {
     expect(a.style.fontWeight).toBe('700');
   });
 });
+
+describe('pages with ID links still parse and highlight', () => {
+  it('reads the same queue and marks the same revision rows once the IDs are linked', async () => {
+    const { parsePage } = await import('../parsers');
+    const { highlightRevisions } = await import('../lib/highlight');
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'queue-status-tables.html'), 'utf8').replace(/^<!doctype html>/i, '');
+    const url = 'https://mc.manuscriptcentral.com/xyzj';
+    const before = parsePage(document, url);
+    expect(before.pageType).toBe('queue-list');
+    expect(linkIds(document)).toBeGreaterThan(0);
+    expect(document.querySelector('a[data-electric-mc="id-link"]')).not.toBeNull();
+
+    const after = parsePage(document, url);
+    expect(after.pageType).toBe('queue-list');
+    expect(after.rows?.map((r) => r.id)).toEqual(before.rows?.map((r) => r.id));
+    expect(after.fingerprint).toBe(before.fingerprint);
+
+    // The fixture has one revision, TEST-26-03-1111.R2, spread over its ID
+    // row and one continuation row (rowspan 2).
+    expect(highlightRevisions(document)).toBe(1);
+    const marked = Array.from(document.querySelectorAll<HTMLTableRowElement>('tr[data-emc-revision]'));
+    expect(marked.map((tr) => tr.getAttribute('data-emc-revision'))).toEqual(['TEST-26-03-1111.R2', '']);
+    expect(marked[0]!.cells[0]!.querySelector('a[data-electric-mc="id-link"]')?.textContent).toBe('TEST-26-03-1111.R2');
+    expect(marked[1]!.previousElementSibling).toBe(marked[0]);
+  });
+});
