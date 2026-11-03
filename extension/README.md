@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.42). The version shows
+Semantic versioning, set in `package.json` (now 0.0.48). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -87,6 +87,17 @@ build instead.
   presses Take Action on the result. Settings can also press Take Action
   after any search that finds a single manuscript (off by default). The
   real build will load this from the backend in one query.
+- **Keepalives** (Settings, off by default). MC logs you out after a
+  period of inactivity. With "Send keepalives to prevent auto logout" on,
+  after 10 minutes with no keyboard or mouse activity in any MC tab, the
+  extension presses MC's "+ Search" toggle twice (open, close), which sends
+  MC a small request. It stops after 48 idle hours, so an unattended computer
+  is still logged out. **Ctrl+Shift+K** sends one at once and shows how many
+  requests went to MC.
+- **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are
+  redrawn twice as big, as sharp round brown buttons.
+- **Radio-button rows.** In MC's choice tables (Co-Chair Recommends and
+  the like), click anywhere in a row to pick it.
 - **Clickable IDs.** On MC's grids, the manuscript ID is a link that does
   what the Take Action checkbox does.
 - **To EIC tab** (co-chairs only). When you recommend a decision under

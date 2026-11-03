@@ -8,6 +8,7 @@
 // width in its markup, and holds the most text.
 
 import { textOf } from './text';
+import { EMC_COLOR } from './milestones';
 
 const WIDE = 'data-emc-wide';
 const FONT = 'data-emc-fs';
@@ -151,8 +152,9 @@ const HIDE_ON = 'data-emc-hide-headers';
 const HIDE_STYLE_ID = 'emc-hide-style';
 
 /**
- * MC's page-title image on the left ("Search Results", "View Manuscripts")
- * and the empty column under it that pushes the table right. Marked always;
+ * MC's page title on the left ("Search Results", "View Manuscripts"), an
+ * image on some pages and plain text on others, and the empty column under
+ * it that pushes the table right. Marked always;
  * the html attribute switches the hiding, so the setting applies at once.
  */
 export function hidePageHeader(doc: Document, on: boolean): void {
@@ -175,11 +177,50 @@ export function hidePageHeader(doc: Document, on: boolean): void {
   for (const td of Array.from(doc.querySelectorAll<HTMLTableCellElement>('td[width$="%"]'))) {
     const next = td.nextElementSibling as HTMLTableCellElement | null;
     if (!next || next.tagName !== 'TD' || td.hasAttribute(HIDE)) continue;
-    if (textOf(td) || td.querySelector('img, input, select, a, table')) continue;
+    if (td.querySelector('img, input, select, a, table')) continue;
+    // Empty, or holding only a short title such as "View Manuscripts".
+    const title = textOf(td);
+    if (title.length > 40) continue;
     if (parseFloat(td.getAttribute('width')!) > 30 || !/%$/.test(next.getAttribute('width') ?? '')) continue;
     if (textOf(next).length < 200) continue;
-    td.setAttribute(HIDE, 'spacer');
+    td.setAttribute(HIDE, title ? 'header' : 'spacer');
   }
   if (on) doc.documentElement.setAttribute(HIDE_ON, '');
   else doc.documentElement.removeAttribute(HIDE_ON);
+}
+
+/** MC's previous/next document arrows ("7 / 8"), e.g. /images/en_US/icons/next_mss.gif. */
+const NAV_ARROWS = ['img[src*="next_mss"]', 'img[src*="prev_mss"]', 'img[src*="previous_mss"]', 'img[alt="Next Document"]', 'img[alt="Previous Document"]', 'img[data-emc-src]'].join(', ');
+const ORIGINAL = 'data-emc-src';
+
+/** A crisp arrow in a round E-MC brown button, drawn as SVG. */
+export function arrowImage(dir: 'next' | 'prev'): string {
+  const tip = dir === 'next' ? 'M12 8.5 L23.5 16 L12 23.5 Z' : 'M20 8.5 L8.5 16 L20 23.5 Z';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="${EMC_COLOR}"/><path d="${tip}" fill="#fff"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * Redraw MC's previous/next document arrows twice as big, as sharp vector
+ * arrows (scaling MC's small GIFs made them blurry); off puts MC's back.
+ */
+export function enlargeNavArrows(doc: Document, on: boolean): void {
+  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>(NAV_ARROWS))) {
+    const original = img.getAttribute(ORIGINAL);
+    if (!on) {
+      if (original === null) continue;
+      img.setAttribute('src', original);
+      img.removeAttribute(ORIGINAL);
+      img.style.removeProperty('width');
+      img.style.removeProperty('height');
+      continue;
+    }
+    if (original !== null) continue;
+    const src = img.getAttribute('src') ?? '';
+    const size = 2 * (img.naturalWidth || img.width || 16);
+    img.setAttribute(ORIGINAL, src);
+    img.setAttribute('src', arrowImage(/prev/i.test(`${src} ${img.alt}`) ? 'prev' : 'next'));
+    img.style.setProperty('width', `${size}px`);
+    img.style.setProperty('height', `${size}px`);
+  }
 }

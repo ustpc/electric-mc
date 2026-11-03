@@ -2,6 +2,27 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.48 (2026-11-02)
+
+- The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).
+
+## 0.0.47 (2026-11-01)
+
+- Keepalives now continue for up to 48 hours without activity (was 8).
+
+## 0.0.46 (2026-11-01)
+
+- The page-title setting now also hides titles MC draws as text, such as "View Manuscripts", not just its title images. It's renamed "Hide the left-column page title and the space it wastes".
+
+## 0.0.45 (2026-10-31)
+
+- New setting (off by default): "Send keepalives to prevent auto logout". After 10 idle minutes the extension opens and closes MC's "+ Search" bar, which pings MC's server; it stops after 8 idle hours. Ctrl+Shift+K sends one at once, for testing.
+
+## 0.0.44 (2026-10-31)
+
+- In MC's radio-button tables (Co-Chair Recommends and the like), clicking anywhere in a row picks that row's choice, not just the little button.
+- MC's previous/next manuscript arrows ("7 / 8") are twice as big.
+
 ## 0.0.43 (2026-10-30)
 
 - **Suggested AEs.** On a manuscript's page, the side panel's Page tab ranks the AEs whose published work is closest to the manuscript's title, abstract and keywords, with each AE's current load from MC's Assign Associate Editor pull-down and the AE paper that matched best. The comparison runs on your computer with a bundled embedding model (bge-small-en-v1.5); the manuscript is never stored or sent.

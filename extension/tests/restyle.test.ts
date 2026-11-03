@@ -81,3 +81,41 @@ describe('hide the page title column', () => {
     expect(document.documentElement.hasAttribute('data-emc-hide-headers')).toBe(false);
   });
 });
+
+describe('hide a text page title', () => {
+  it('hides a short title cell such as "View Manuscripts" beside the content', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    document.body.innerHTML = `<table width="760"><tr><td width="15%">View Manuscripts</td>
+      <td width="85%"><p>${'Queue table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    expect(document.querySelector('td[width="15%"]')!.getAttribute('data-emc-hide')).toBe('header');
+    // Content cells are never hidden.
+    expect(document.querySelector('td[width="85%"]')!.hasAttribute('data-emc-hide')).toBe(false);
+  });
+  it('leaves a long or linked left cell alone', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    document.body.innerHTML = `<table width="760"><tr><td width="15%"><a href="#">Home</a></td>
+      <td width="85%"><p>${'Queue table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    expect(document.querySelector('td[width="15%"]')!.hasAttribute('data-emc-hide')).toBe(false);
+  });
+});
+
+describe('enlargeNavArrows', () => {
+  it('redraws the previous/next document arrows twice as big, and puts MC\'s back when off', async () => {
+    const { enlargeNavArrows, arrowImage } = await import('../lib/restyle');
+    document.body.innerHTML = '<a href="#"><img src="/images/en_US/icons/prev_mss.gif" alt="Previous Document"></a> 7 / 8 <a href="#"><img src="/images/en_US/icons/next_mss.gif" alt="Next Document"></a><img src="/images/other.gif" id="other">';
+    const [prev, next, other] = Array.from(document.querySelectorAll('img'));
+    enlargeNavArrows(document, true);
+    enlargeNavArrows(document, true);
+    expect(prev!.getAttribute('src')).toBe(arrowImage('prev'));
+    expect(next!.getAttribute('src')).toBe(arrowImage('next'));
+    expect(next!.style.width).toBe('32px');
+    expect(other!.getAttribute('src')).toBe('/images/other.gif');
+    expect(decodeURIComponent(arrowImage('next'))).toContain('<svg');
+    enlargeNavArrows(document, false);
+    expect(next!.getAttribute('src')).toBe('/images/en_US/icons/next_mss.gif');
+    expect(prev!.getAttribute('src')).toBe('/images/en_US/icons/prev_mss.gif');
+    expect(next!.style.width).toBe('');
+  });
+});
