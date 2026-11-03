@@ -1,0 +1,45 @@
+# mc_queue.py configuration (tools/mc-watch in electric-mc).
+# This is the template. The live copy is var/mc-watch/config.toml (git-ignored),
+# or $MC_WATCH_CONFIG, or --config PATH; mc_queue.py writes it from this file on
+# the first run. Never commit a filled-in copy: it names a real MC account.
+# Paths may start with ~. The data directories hold real MC documents, so they
+# stay outside the repository.
+
+# MC account used when no user ID is given on the command line,
+# for example username = "co-chair@example.org".
+username = ""
+
+site_url = "https://mc.manuscriptcentral.com/cacm"
+
+# Which queue(s) to watch. role picks a preset:
+#   "cochair"  Co-Chair Center / "Awaiting AE Assignment"   (checked on CACM)
+#   "ae"       Associate Editor Center / "Awaiting Reviewer Selection"  (list unverified)
+#   "eic"      Editor-in-Chief Center / "Awaiting EIC Assignment"       (both unverified)
+# center and queues override the preset. Copy them exactly as MC shows them:
+# center is the item under the Manage menu, and each queue is a list name on
+# that center's dashboard (the link next to the count).
+role = "cochair"
+# center = "Associate Editor Center"
+# queues = ["Awaiting Reviewer Selection", "Awaiting AE Recommendation"]
+
+# New "View Submission" PDFs land here as {msid}.pdf until printed.
+downloads_dir = "~/cacm-opn/downloads"
+
+# Printed PDFs move to printed_dir/{year}/{msid}/{msid}.pdf.
+printed_dir = "~/cacm-opn/printed"
+
+# --watch: minutes between polls when --watch is given without a number, and
+# when to restart the one long-lived browser: every restart_every polls, or
+# when its processes use more than max_rss_mb of memory (on macOS, the sum of
+# their RSS, which counts shared memory repeatedly: an idle browser is ~1100).
+watch_minutes = 15
+restart_every = 12
+max_rss_mb = 3000
+
+# SQLite database of every manuscript seen, downloaded, and printed.
+database = "~/cacm-opn/mc-watch.sqlite"
+
+# CUPS queue (see `lpstat -p`) and lp -o options (see `lpoptions -p QUEUE -l`).
+# High Priestess: two-sided (long edge) and color.
+printer = "High_Priestess"
+lp_options = ["sides=two-sided-long-edge", "print-color-mode=color", "ColorModel=RGB"]

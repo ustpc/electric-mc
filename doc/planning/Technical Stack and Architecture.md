@@ -7,6 +7,13 @@ WCU. The requirements this design serves are in
 [Design Goals.md](Design%20Goals.md); section references such as "Goals 6.4"
 point there.
 
+**Superseded in part (2026-10-31):** Cognito is dropped. Sign-in, the JWTs
+and the `<sub>` keys below are replaced by signed requests and email-approved
+keys, and notes are end-to-end encrypted, as described in
+[End-to-end note encryption.md](End-to-end%20note%20encryption.md). The
+backend URL becomes `https://emc-api.sabinok.com` (CloudFront in front of the
+function URL). The rest of this document still applies.
+
 ## 1. Overview
 
 ```
@@ -21,8 +28,8 @@ point there.
  │  - chrome.idle, chrome.windows focus     │         │  (Rust, cargo-lambda)    │
  │ side panel (chrome.sidePanel)  ◄──┐      │         └───────────┬──────────────┘
  │ pop-out window (chrome.windows)  ─┘ chat │                     │
- └──────────────────────────────────────────┘         ┌───────────▼──────────────┐
-                                                      │ DynamoDB, single table,  │
+ └──────────────────────────────────────────┘          ┌──────────▼───────────────┐
+                                                       │ DynamoDB, single table,  │
  Browser ── HTTPS ──► Lambda function URL: dashboard ─►│ on-demand capacity       │
                        (Rust + minijinja templates)    └──────────────────────────┘
 ```
