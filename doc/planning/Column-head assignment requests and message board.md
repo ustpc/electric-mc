@@ -1,7 +1,7 @@
 # Column-head assignment requests, message board, and AE last-seen
 
 Status: requirements, 2026-11-03 (Simson, after a discussion with the other
-Opinions co-chair). Issues: see section 7. Related: issue #29 (the
+Opinions co-chair). Issues: #49 to #52 (section 7). Related: issue #29 (the
 "Reassign to AE" picker), #30 (sections and section assignments), the notes
 server in `backend/notes` (identities and keys), [Email
 ingestion.md](Email%20ingestion.md), and [Technical Stack and
@@ -261,8 +261,8 @@ AE themselves. Only the latest date is kept; there is no history.
 
 ## 7. Issues
 
-- Column-head AE assignment requests: task queue for assigners.
-- Assigner queue in the side panel, and completion detection.
-- Message board with unseen tracking, weekly history, and purge.
-- AE last-seen and last-action dates.
+- [#49](https://github.com/ustpc/electric-mc/issues/49) Column-head AE assignment requests: task queue for assigners.
+- [#50](https://github.com/ustpc/electric-mc/issues/50) Assigner queue in the side panel, and completion detection.
+- [#51](https://github.com/ustpc/electric-mc/issues/51) Message board with unseen tracking, weekly history, and purge.
+- [#52](https://github.com/ustpc/electric-mc/issues/52) AE last-seen and last-action dates.
 - Issue #29 (the picker) and #30 (sections) are prerequisites.
