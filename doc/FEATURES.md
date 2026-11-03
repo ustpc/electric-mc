@@ -77,4 +77,10 @@ pitch to associate editors.
 - **Alerts** for overdue reviews, plagiarism-check results and decisions,
   from MC's own emails.
 - **Dashboards** of every manuscript each AE is handling, across journals.
+- **Assignment requests for column heads.** A column head picks the AE a
+  paper should go to, and the co-chairs and staff work through a queue of
+  those requests; the column head is told when it's done.
+- **A message board** in the side panel, with unseen counts and history
+  by week for 2 months.
+- **When each AE was last active**, next to their workload, when assigning.
 - **Optional time tracking** so editors can see where their hours go.

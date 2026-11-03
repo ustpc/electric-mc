@@ -197,12 +197,37 @@ section 5.5.
   after that. They can no longer post.
 - The co-chair can see all notes, and can grant or revoke anyone's access.
 
+## 5.3 Assignment requests and the message board (planned)
+
+Not in the current release. Design: [Column-head assignment requests and
+message board.md](planning/Column-head%20assignment%20requests%20and%20message%20board.md).
+
+- When a column head asks for a manuscript to be assigned to another AE, the
+  server keeps the manuscript ID, who asked, the AE asked for, an optional
+  note of up to 500 characters, and who claimed the task. The request is
+  deleted once the assignment is made, declined or cancelled; a short record
+  of the outcome is kept for 2 years.
+- Only the people who can make assignments in Manuscript Central (the
+  co-chairs and editorial staff) see the queue.
+- Message-board messages name a manuscript by its ID only; the title is
+  filled in from your own browser and never reaches the server. Messages are
+  limited to 1 KB and never contain email bodies, reviews or author names.
+- The server records when you have seen each message. A message is deleted
+  once you have seen it and it is more than 6 months old, and after 12
+  months even if unseen.
+
 ## 6. Activity tracking (opt-in)
 
 If you opt in, the extension records sessions: which manuscript, when, and
 how many seconds you were active. You can see your own history and delete
 it. By default it is visible to you, the EiC, and staff admins. Sessions are
 deleted automatically after one year.
+
+**AE last-seen (planned).** For assignment, co-chairs, staff and column
+heads will see, for each AE, the date of the AE's latest action that appears
+in Manuscript Central's own emails, and, only if the AE turns it on, the date
+(not the time) they last used Manuscript Central with the extension. Only the
+latest date is kept.
 
 ## 7. AE recruitment
 
@@ -295,3 +320,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-28 | Authored notes (section 5.1): the extension reads the logged-in person from MC's page metadata; with a notes server set, notes, a public key per browser and the person's MC details go to the server; titles never leave the browser, only a hash, which the server stores as an HMAC (extension 0.0.40). |
 | 2026-10-28 | Suggested AEs: the manuscript is embedded on-device and not stored; AE profiles are built locally from public OpenAlex and DBLP data and kept in local storage only; Clear all data removes them (extension 0.0.43). |
 | 2026-11-03 | Split the planned note-access rules into their own section 5.2, after the current notes behavior in 5.1, and said that people whose assignment ended keep the notes they could see up to then, including those from before they were assigned. |
+| 2026-11-03 | Planned: column-head assignment requests, a message board (IDs only, deleted 6 months after being seen), and AE last-seen dates (email-derived, plus an opt-in extension date) (section 5.3 and section 6). |
