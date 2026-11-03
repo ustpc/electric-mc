@@ -1,9 +1,9 @@
 // Earlier versions of a manuscript. On a revision's details page, the
 // Version History table lists every earlier version with a "Switch Details"
 // link, but the page shows only the current version's AE. Each version's AE
-// and dates are recorded whenever its own page is viewed; for what isn't
-// recorded, a link with a plain address is opened in a hidden frame. MC's
-// script links are never clicked, because they navigate the whole tab.
+// and dates are recorded whenever its own page is viewed. Nothing is loaded
+// in the background: MC's Switch Details links navigate the whole tab, and
+// loading MC pages beside the person's tab logged them out.
 //
 // Where the backend already knows (from the assignment emails), the content
 // script asks it first and only falls back to this.
@@ -42,46 +42,6 @@ export function findVersionLinks(doc: Document, current: ManuscriptRef, idPatter
     }
   }
   return out.sort((a, b) => b.ref.revision - a.ref.revision);
-}
-
-/** The link's plain http(s) address, or null for a script link (javascript: or onclick only). */
-export function plainHref(doc: Document, link: HTMLElement): string | null {
-  const href = link instanceof HTMLAnchorElement ? link.getAttribute('href')?.trim() ?? '' : '';
-  if (!href || /^(javascript:|#)/i.test(href)) return null;
-  try {
-    const u = new URL(href, doc.baseURI);
-    return /^https?:$/.test(u.protocol) ? u.href : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Open one version's details in a hidden frame and hand back its document.
- * Only links with a plain address are loaded. A script link is never
- * clicked: MC's scripts navigate the whole tab whatever the form's target,
- * which once switched the person's revision page to the original version.
- */
-export function loadInHiddenFrame(doc: Document, link: HTMLElement, timeoutMs = 20_000): Promise<Document> {
-  const href = plainHref(doc, link);
-  if (!href) return Promise.reject(new Error('script link not loaded in the background'));
-  return new Promise((resolve, reject) => {
-    const frame = doc.createElement('iframe');
-    frame.setAttribute('data-electric-mc', 'version-frame');
-    frame.style.cssText = 'position:absolute;width:1px;height:1px;left:-9999px;top:0;border:0;visibility:hidden';
-    doc.body.appendChild(frame);
-    const done = (fn: () => void) => {
-      clearTimeout(timer);
-      fn();
-      setTimeout(() => frame.remove(), 0);
-    };
-    const timer = setTimeout(() => done(() => reject(new Error('timed out'))), timeoutMs);
-    frame.addEventListener('load', () => {
-      const d = frame.contentDocument;
-      if (d && d.body && d.location.href !== 'about:blank') done(() => resolve(d));
-    });
-    frame.src = href;
-  });
 }
 
 /** Show each earlier version's AE next to its ID in the Version History table. */

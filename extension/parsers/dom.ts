@@ -225,6 +225,8 @@ export function cleanDocument(doc: Document): Document {
   const copy = doc.implementation.createHTMLDocument('');
   copy.replaceChild(copy.importNode(doc.documentElement, true), copy.documentElement);
   for (const el of marked) el.removeAttribute(MARK);
+  // Our clickable-ID links wrap MC's own ID text; keep the text, drop the link.
+  copy.querySelectorAll('[data-electric-mc="id-link"]').forEach((a) => a.replaceWith(...Array.from(a.childNodes)));
   copy.querySelectorAll(`[${MARK}], ${IGNORE_SEL}`).forEach((e) => e.remove());
   return copy;
 }

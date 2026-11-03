@@ -188,3 +188,23 @@ describe('reviewers mentioned but not parsed', () => {
     expect(warned(page('<table><tr><td><b>Reviewer List</b></td></tr><tr><td>Something unexpected</td></tr></table>'))).toBe(true);
   });
 });
+
+describe('pages we have already changed', () => {
+  // Synthetic grid laid out like MC's: ID first, Take Action last.
+  const GRID = `<div class="breadcrumb">Co-Chair Dashboard / Awaiting AE Assignment</div>
+    <table><tr><th>Manuscript ID</th><th>Manuscript Title</th><th>Date Submitted</th><th>Status</th><th>Take Action</th></tr>
+    <tr><td>XYZJ-26-10-9001</td><td>A Synthetic Paper</td><td>01-Oct-2026</td><td>AE: Not Assigned</td><td><a href="#" id="go1"><img src="check.gif"></a></td></tr>
+    <tr><td>XYZJ-26-07-9002.R1</td><td>Another Synthetic Paper</td><td>02-Oct-2026</td><td>AE: Not Assigned</td><td><a href="#" id="go2"><img src="check.gif"></a></td></tr>
+    <tr><td>XYZJ-26-10-9003</td><td>A Third Synthetic Paper</td><td>03-Oct-2026</td><td>AE: Not Assigned</td><td><a href="#" id="go3"><img src="check.gif"></a></td></tr></table>`;
+
+  it('still reads a queue after its IDs were made clickable', async () => {
+    const { linkIds } = await import('../lib/idlink');
+    document.body.innerHTML = GRID;
+    const before = parsePage(document, URL);
+    expect(before.pageType).toBe('queue-list');
+    expect(linkIds(document)).toBe(3);
+    const after = parsePage(document, URL);
+    expect(after.pageType).toBe('queue-list');
+    expect(after.rows?.map((x) => x.id)).toEqual(before.rows?.map((x) => x.id));
+  });
+});

@@ -9,6 +9,7 @@ import { CLICK_ATTR, CLICK_EVENT } from '../lib/click';
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
   runAt: 'document_start',
+  allFrames: false,
   world: 'MAIN',
   main() {
     document.addEventListener(CLICK_EVENT, (e) => {

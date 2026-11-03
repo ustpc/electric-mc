@@ -8,3 +8,8 @@ captures/
 
 # The root .gitignore (Python template) ignores lib/; this one is source.
 !/lib/
+coverage/
+
+# Bundled at build time by scripts/fetch-model.mjs.
+public/models/
+public/ort/

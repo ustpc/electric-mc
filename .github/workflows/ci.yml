@@ -1,0 +1,53 @@
+# Typechecks, tests (with coverage) and builds the extension on every push
+# and pull request. The coverage table goes in the run summary and, on pull
+# requests, in a comment; the HTML report is the "coverage" artifact.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extension
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run coverage
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: extension/coverage/
+          if-no-files-found: ignore
+
+      - name: Coverage summary and PR comment
+        if: always()
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          working-directory: extension
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json

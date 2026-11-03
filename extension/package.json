@@ -1,28 +1,37 @@
 {
   "name": "electric-mc-extension",
   "private": true,
-  "version": "0.0.25",
+  "version": "0.0.48",
   "description": "Electric MC test extension: page parsers, debug overlay, and logging for Manuscript Central",
   "type": "module",
   "scripts": {
     "dev": "wxt",
+    "prebuild": "node scripts/fetch-model.mjs",
     "build": "wxt build",
+    "prezip": "node scripts/fetch-model.mjs",
+    "prezip:store": "node scripts/fetch-model.mjs",
     "zip": "wxt zip",
     "zip:store": "STORE=1 wxt zip",
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "validate": "tsx tools/validate.ts"
+    "validate": "tsx tools/validate.ts",
+    "coverage": "vitest run --coverage",
+    "ae-profiles": "tsx tools/ae-profiles/build.ts"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
     "@types/chrome": "^0.3.5",
     "@types/jsdom": "^30.0.0",
+    "@vitest/coverage-v8": "^5.0.5",
     "jsdom": "^29.1.1",
     "preact": "^11.0.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5",
     "wxt": "^0.21.4"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.2"
   }
 }

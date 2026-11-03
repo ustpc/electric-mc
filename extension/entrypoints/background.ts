@@ -4,9 +4,17 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
-import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
+import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
+import { pruneSeen } from '../lib/seen';
+import { closeLiveLog, liveLog } from '../lib/livelog';
+import { makeQueue } from '../lib/queue';
+import { addRoles, type KnownRoles, type Role } from '../lib/roles';
+import type { EicItem } from '../lib/recommend';
+import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
+import type { McIdentity } from '../lib/identity';
+import { migrateNotes, needsMigration, nowS } from '../lib/notes';
 
 const BADGE: Record<string, string> = {
   login: 'LOG',
@@ -20,6 +28,12 @@ const BADGE: Record<string, string> = {
 
 export default defineBackground(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  // One window-wide panel, so it follows the person across MC tabs;
+  // refreshTab switches it off for each non-MC tab, where Chrome hides it.
+  chrome.sidePanel.setOptions({ path: PANEL_PATH, enabled: true }).catch(() => {});
+  // No alarms permission, so old data is pruned when the worker starts, at most daily.
+  void pruneOld();
+  void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
 
   chrome.runtime.onInstalled.addListener((d) => {
     void log({ level: 'info', source: 'background', event: 'installed', data: { reason: d.reason, version: chrome.runtime.getManifest().version } });
@@ -44,6 +58,7 @@ export default defineBackground(() => {
   });
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area === SETTINGS_AREA && ch[KEY.settings]) {
+      if (!(ch[KEY.settings]!.newValue as { developer?: boolean } | undefined)?.developer) closeLiveLog();
       void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
     }
   });
@@ -52,8 +67,16 @@ export default defineBackground(() => {
     const tabId = sender.tab?.id;
     if (msg.type === 'parsed' && tabId !== undefined) {
       void onParsed(tabId, msg.result, msg.reason, msg.title);
+    } else if (msg.type === 'roles') {
+      void rememberRoles(msg.site, msg.roles);
+    } else if (msg.type === 'identity') {
+      void rememberIdentity(msg.site, msg.identity);
+    } else if (msg.type === 'eic') {
+      void updateEic(msg.set, msg.remove);
     } else if (msg.type === 'version-info') {
       void rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info);
+    } else if (msg.type === 'ae-load') {
+      void rememberAeLoad(msg.journal, msg.entries);
     } else if (msg.type === 'disabled' && tabId !== undefined) {
       void chrome.storage.session.remove(KEY.tab(tabId));
     } else if (msg.type === 'log') {
@@ -76,10 +99,84 @@ export default defineBackground(() => {
 const MENU_TOGGLE = 'toggle-site';
 const ICON = (dir: string) => ({ 16: `${dir}/16.png`, 32: `${dir}/32.png`, 48: `${dir}/48.png`, 128: `${dir}/128.png` });
 
+/** Add roles seen on a site; roles are never forgotten (except by Clear all data). */
+function rememberRoles(site: string, roles: Role[]): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.roles))[KEY.roles] as Record<string, KnownRoles> | undefined) ?? {};
+    const next = addRoles(all[site] ?? {}, roles, new Date().toISOString().slice(0, 10));
+    if (Object.keys(next).length === Object.keys(all[site] ?? {}).length) return;
+    await chrome.storage.local.set({ [KEY.roles]: { ...all, [site]: next } });
+    await log({ level: 'info', source: 'background', event: 'roles learned', data: { site, roles: Object.keys(next) } });
+  });
+}
+
+/** Who is logged in on a site; the latest page wins (people switch accounts). */
+function rememberIdentity(site: string, identity: McIdentity): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.identity))[KEY.identity] as Record<string, McIdentity> | undefined) ?? {};
+    if (JSON.stringify(all[site]) === JSON.stringify(identity)) return;
+    await chrome.storage.local.set({ [KEY.identity]: { ...all, [site]: identity } });
+    // Notes from before 0.0.40 had no author: they become this person's.
+    const notes = (await chrome.storage.local.get(KEY.notes))[KEY.notes];
+    if (needsMigration(notes)) {
+      const { displayName } = await getSettings();
+      const author = displayName.trim() || [identity.firstName, identity.lastName].filter(Boolean).join(' ') || identity.email;
+      await chrome.storage.local.set({ [KEY.notes]: migrateNotes(notes, { email: identity.email, author }, nowS()) });
+      await log({ level: 'info', source: 'background', event: 'notes migrated to authored notes' });
+    }
+  });
+}
+
+/** Add or update one To EIC item, or remove one. */
+function updateEic(set?: EicItem, remove?: string): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+    if (set) {
+      const prev = all[set.id];
+      // Keep the first date seen; a changed recommendation replaces the old one.
+      if (prev && prev.recommendation === set.recommendation && prev.title === set.title) return;
+      all[set.id] = { ...set, seen: prev?.seen ?? set.seen };
+    }
+    if (remove) {
+      if (!all[remove]) return;
+      delete all[remove];
+    }
+    await chrome.storage.local.set({ [KEY.eic]: all });
+  });
+}
+
+/** Drop manuscripts not viewed in two years, and their notes. At most once a day. */
+function pruneOld(): Promise<void> {
+  return serial(async () => {
+    const got = await chrome.storage.local.get([KEY.seen, KEY.notes, KEY.lastPrune]);
+    const last = got[KEY.lastPrune] as number | undefined;
+    if (last && Date.now() - last < 86_400_000) return;
+    const r = pruneSeen(
+      (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {},
+      (got[KEY.notes] as Record<string, unknown> | undefined) ?? {},
+      new Date(),
+    );
+    await chrome.storage.local.set({ ...(r.dropped ? { [KEY.seen]: r.seen, [KEY.notes]: r.notes } : {}), [KEY.lastPrune]: Date.now() });
+    // To EIC items normally leave when the EIC acts; drop any left after two years too.
+    const eic = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+    const cutoff = new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
+    const keep = Object.fromEntries(Object.entries(eic).filter(([, m]) => m.seen >= cutoff));
+    if (Object.keys(keep).length !== Object.keys(eic).length) await chrome.storage.local.set({ [KEY.eic]: keep });
+    if (r.dropped) await log({ level: 'info', source: 'background', event: 'pruned old manuscripts', data: { dropped: r.dropped } });
+  });
+}
+
 async function refreshTab(tabId: number) {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) return;
-  const onMc = !!tab.url && /^https:\/\/([^/]+\.)?manuscriptcentral\.com\//.test(tab.url);
+  const onMc = panelEnabledFor(tab.url);
+  // Non-MC tabs are switched off; see panelOptionsFor for MC tabs. Chrome
+  // is asked what the tab has now, rather than remembering which tabs we
+  // switched off: that record was lost when the extension reloaded, while
+  // Chrome kept the tab switched off, so the panel wouldn't open (0.0.35).
+  const now = await chrome.sidePanel.getOptions({ tabId }).catch(() => null);
+  const options = panelOptionsFor(tab.url, !!now && (!now.enabled || !now.path));
+  if (options) await chrome.sidePanel.setOptions({ tabId, ...options }).catch(() => {});
   const enabled = isEnabledFor(await getSettings(), tab.url);
   // setIcon reports a vanished tab through runtime.lastError even when its
   // promise is caught, so it gets a callback that reads the error.
@@ -110,6 +207,8 @@ async function onParsed(tabId: number, result: ParseResult, reason: string, titl
 
 /** AE (and status) of an earlier version, looked up by the content script. */
 function rememberVersion(baseId: string, id: string, ae?: string, status?: string, info?: VersionInfo): Promise<void> {
+  if (ae && /not assigned/i.test(ae)) ae = undefined;
+  if (info?.ae && /not assigned/i.test(info.ae)) info = { ...info, ae: undefined };
   if (!ae && !status && !info) return Promise.resolve();
   return serial(async () => {
     const got = await chrome.storage.local.get(KEY.seen);
@@ -127,24 +226,39 @@ function rememberVersion(baseId: string, id: string, ae?: string, status?: strin
   });
 }
 
+/** The latest AE workloads for one journal; each reading replaces the last. */
+function rememberAeLoad(journal: string, entries: AeLoadEntry[]): Promise<void> {
+  return serial(async () => {
+    const got = await chrome.storage.local.get(KEY.aeLoad);
+    const all = (got[KEY.aeLoad] as Record<string, AeLoad> | undefined) ?? {};
+    all[journal] = { at: new Date().toISOString(), journal, entries };
+    await chrome.storage.local.set({ [KEY.aeLoad]: all });
+  });
+}
+
 function defined<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
 }
 
-// Storage writes are serialized so concurrent tabs don't drop each other's entries.
-let chain: Promise<unknown> = Promise.resolve();
-function serial<T>(fn: () => Promise<T>): Promise<T> {
-  const p = chain.then(fn, fn);
-  chain = p.catch(() => {});
-  return p;
-}
+// Storage writes are serialized so concurrent tabs don't drop each other's
+// entries. The log has its own queue, so data tasks can log (lib/queue.ts).
+const serial = makeQueue();
+const logQueue = makeQueue();
 
 function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
-  return serial(async () => {
+  const entry: LogEntry = { ts: new Date().toISOString(), ...e };
+  return logQueue(async () => {
     const got = await chrome.storage.local.get(KEY.log);
     const list = (got[KEY.log] as LogEntry[] | undefined) ?? [];
-    await chrome.storage.local.set({ [KEY.log]: appendCapped(list, { ts: new Date().toISOString(), ...e }) });
+    await chrome.storage.local.set({ [KEY.log]: appendCapped(list, entry) });
+    // Developer mode in a test build: also append it to the live log file.
+    if (liveLogAllowed() && (await getSettings()).developer) liveLog(entry);
   });
+}
+
+/** Test builds only: the Web Store build has no nativeMessaging permission. */
+function liveLogAllowed(): boolean {
+  return chrome.runtime.getManifest().permissions?.includes('nativeMessaging') ?? false;
 }
 
 function remember(r: ParseResult): Promise<void> {
