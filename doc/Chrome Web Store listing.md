@@ -151,6 +151,18 @@ visibility, publish once by hand before the workflow can publish again.
    step needs the second one to turn the key into an access token).
 2. Under IAM & Admin → Service accounts, create a service account
    (e.g. `cws-publisher`), open it, and under Keys → Add key → JSON download a key.
+   Then, on the same account's **Permissions** tab, click **Grant access**, enter
+   the service account's own email as the principal, and give it the role
+   **Service Account Token Creator** (`roles/iam.serviceAccountTokenCreator`).
+   The sign-in step turns the key into an access token by asking for a token
+   for this same account, and an account can't do that for itself without
+   this grant. In Cloud Shell the same grant is:
+
+   ```sh
+   SA=cws-publisher@<project-id>.iam.gserviceaccount.com
+   gcloud iam service-accounts add-iam-policy-binding "$SA" \
+     --member="serviceAccount:$SA" --role=roles/iam.serviceAccountTokenCreator
+   ```
 3. In the [developer dashboard](https://chrome.google.com/webstore/devconsole),
    click **Settings** under PUBLISHER in the left column (not the account's
    Profile page) and add the service account's email in the Service account
