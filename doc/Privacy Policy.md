@@ -141,21 +141,6 @@ made it. Messages are capped at 2 KB. How long they are kept after a final
 decision is still to be decided (Design Goals open question 9).
 
 ## 5.1 Notes (extension 0.0.40)
-### 5.1 Who can see manuscript notes (planned)
-
-This is planned for the backend and is not in the current release. The
-design is in [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
-section 5.5.
-
-- An editor or AE sees notes only for the manuscripts assigned to them.
-- Assignments come from ScholarOne's assignment emails, not from what the
-  extension reads on Manuscript Central pages, so a page can't be used to
-  claim access.
-- A sign-in is linked to a person only after they verify the email address
-  that ScholarOne uses for them.
-- When an assignment ends, the person can still read the notes posted while
-  they were assigned, but nothing posted after that.
-- The co-chair can see all notes, and can grant or revoke anyone's access.
 
 Each note on a manuscript is signed with its author's name and the time its
 editing session began.
@@ -192,7 +177,25 @@ legitimate. Anyone could register a key with someone else's MC details, and
 the person who knows a paper's ID and exact title (including its authors)
 can read its notes. Until the owner approves identities, use the notes
 server only for notes that wouldn't harm anyone if read. Approval and
-per-assignment visibility come later (sections 5 and 10).
+per-assignment visibility come later (sections 5, 5.2 and 10).
+
+## 5.2 Who can see manuscript notes (planned)
+
+This is planned for the backend and is not in the current release. The
+design is in [Technical Stack and Architecture.md](planning/Technical%20Stack%20and%20Architecture.md)
+section 5.5.
+
+- An editor or AE sees notes only for the manuscripts assigned to them.
+- Assignments come from ScholarOne's assignment emails, not from what the
+  extension reads on Manuscript Central pages, so a page can't be used to
+  claim access.
+- A sign-in is linked to a person only after they verify the email address
+  that ScholarOne uses for them.
+- When an assignment ends (a reassignment or a final decision), the person
+  can still read every note they could see up to the moment it ended,
+  including notes posted before they were assigned, but nothing posted
+  after that. They can no longer post.
+- The co-chair can see all notes, and can grant or revoke anyone's access.
 
 ## 6. Activity tracking (opt-in)
 
@@ -291,3 +294,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-27 | Test builds in developer mode can append the log to a local file through a helper the user installs (native messaging; not in the Web Store build) (extension 0.0.34). |
 | 2026-10-28 | Authored notes (section 5.1): the extension reads the logged-in person from MC's page metadata; with a notes server set, notes, a public key per browser and the person's MC details go to the server; titles never leave the browser, only a hash, which the server stores as an HMAC (extension 0.0.40). |
 | 2026-10-28 | Suggested AEs: the manuscript is embedded on-device and not stored; AE profiles are built locally from public OpenAlex and DBLP data and kept in local storage only; Clear all data removes them (extension 0.0.43). |
+| 2026-11-03 | Split the planned note-access rules into their own section 5.2, after the current notes behavior in 5.1, and said that people whose assignment ended keep the notes they could see up to then, including those from before they were assigned. |
