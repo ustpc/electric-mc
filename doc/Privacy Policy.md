@@ -141,6 +141,21 @@ made it. Messages are capped at 2 KB. How long they are kept after a final
 decision is still to be decided (Design Goals open question 9).
 
 ## 5.1 Notes (extension 0.0.40)
+### 5.1 Who can see manuscript notes (planned)
+
+This is planned for the backend and is not in the current release. The
+design is in [Technical Stack and Architecture.md](Technical%20Stack%20and%20Architecture.md)
+section 5.5.
+
+- An editor or AE sees notes only for the manuscripts assigned to them.
+- Assignments come from ScholarOne's assignment emails, not from what the
+  extension reads on Manuscript Central pages, so a page can't be used to
+  claim access.
+- A sign-in is linked to a person only after they verify the email address
+  that ScholarOne uses for them.
+- When an assignment ends, the person can still read the notes posted while
+  they were assigned, but nothing posted after that.
+- The co-chair can see all notes, and can grant or revoke anyone's access.
 
 Each note on a manuscript is signed with its author's name and the time its
 editing session began.
@@ -269,6 +284,7 @@ staff will be switched on later, and this page will say so.
 |------|--------|
 | 2026-10-18 | First draft. Added AE recruitment, on-device-only AI and vector matching, and co-chair-only emails. Preferences sync through the Chrome profile (extension 0.2.6); manuscript data stays local. |
 | 2026-10-19 | Added "Current release": the published extension has no backend and sends nothing off the device. |
+| 2026-10-23 | Added 5.1, who can see manuscript notes (planned; design in PR #21). |
 | 2026-10-22 | Local manuscript data (Seen list and its notes) is removed after 2 years without a view; added Clear all data (extension 0.0.30). |
 | 2026-10-23 | The editorial matrix: AE assignment counts read from MC's pull-down, and a roster loaded from a file, both kept in local storage only; Clear all data removes them (extension 0.0.32). |
 | 2026-10-24 | The To EIC list (your recommendations, without comments) and the MC roles you have, kept in local storage only; Clear all data removes them (extension 0.0.33). |
