@@ -19,6 +19,7 @@ import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { keepaliveDue, sendKeepalive } from '../lib/keepalive';
 import { onPageLoad, watchRecommendations } from '../lib/advance';
+import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -85,6 +86,7 @@ async function start() {
     recordIdentity(r);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
+    if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
     if (reason === 'load' || reason === 'bfcache') {
       const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
       if (adv) {
@@ -315,6 +317,9 @@ async function start() {
     () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
     (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
   );
+
+  // Developer trace: every click, for replaying a session from the log.
+  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
   watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);

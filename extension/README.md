@@ -10,7 +10,7 @@ Design notes are in
 
 ## Version
 
-Semantic versioning, set in `package.json` (now 0.0.49). The version shows
+Semantic versioning, set in `package.json` (now 0.0.50). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -73,6 +73,11 @@ build instead.
   turn it off in Settings.
 - **Live log file** (test builds, developer mode): see "Live log file"
   below. The Log tab shows whether the file is being written.
+- **Developer trace** (developer mode). Every click (which control, its
+  label, the section it's in, what its link runs) and every page load (the
+  address, MC's action and hidden form fields, any JSON MC embeds) go into
+  the log and the live log file, so a session can be replayed. Typed text is
+  never recorded.
 - **Developer mode** (Settings, off by default). Turns on the on-page debug
   pill, the page type on the toolbar icon, full parse results in the log, the
   Log tab, capture and the raw JSON. With it off, the log holds only problems.
