@@ -171,6 +171,8 @@ export const KEY = {
   eic: 'eic',
   /** AE expertise profiles the person loaded, as the file was written (lib/match.ts). */
   aeProfiles: 'aeProfiles',
+  /** The AE-assignment menu's layout: this browser's copy, the server's, and which is used (lib/aemenu.ts). */
+  aeMenu: 'aeMenu',
   /** Who is logged in to MC, per site (lib/identity.ts). */
   identity: 'identity',
   tab: (id: number) => `tab:${id}`,

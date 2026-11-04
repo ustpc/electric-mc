@@ -90,6 +90,15 @@ contact links and headshots of the section's editors) is not part of the
 extension. You load it from a file, and it is kept in `chrome.storage.local`
 in that browser only, like the AE counts. Clear all data removes both.
 
+**The AE assignment menu's layout** (extension 0.0.51). The extension can
+regroup and color MC's Assign Associate Editor pull-down by a config you
+keep in `chrome.storage.local` in that browser only. The config names its
+groups and usually takes their members from the roster you loaded; it holds
+editors' names only if you type them in. It changes how the options are
+ordered and drawn, never what MC submits. A shared copy on the notes server
+is planned but not built, so nothing about it leaves the browser. Clear all
+data removes it.
+
 **Suggested AEs** (extension 0.0.43). On a manuscript page, the side panel
 reads the title, abstract and keywords, turns them into an embedding vector
 with the model bundled in the extension, compares it with the AE profiles
@@ -295,3 +304,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-28 | Authored notes (section 5.1): the extension reads the logged-in person from MC's page metadata; with a notes server set, notes, a public key per browser and the person's MC details go to the server; titles never leave the browser, only a hash, which the server stores as an HMAC (extension 0.0.40). |
 | 2026-10-28 | Suggested AEs: the manuscript is embedded on-device and not stored; AE profiles are built locally from public OpenAlex and DBLP data and kept in local storage only; Clear all data removes them (extension 0.0.43). |
 | 2026-11-03 | Split the planned note-access rules into their own section 5.2, after the current notes behavior in 5.1, and said that people whose assignment ended keep the notes they could see up to then, including those from before they were assigned. |
+| 2026-11-04 | The AE assignment menu's layout config, kept in local storage only (a server copy is planned, not built); Clear all data removes it (extension 0.0.51). |

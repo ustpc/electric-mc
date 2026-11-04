@@ -55,6 +55,14 @@ pitch to associate editors.
   how many manuscripts they have right now, as MC's Assign Associate Editor
   pull-down reports it. Search by name, column or expertise. 
   
+- **An AE menu you can read (now).** MC's Assign Associate Editor
+  pull-down is one long alphabetical list. Electric MC regroups it under
+  dividers (for the Opinions co-chair: column heads, then Opinions AEs,
+  then everyone else) and gives each group its own color, weight and font,
+  using Chrome's new customizable select. What MC submits doesn't change.
+  The layout is a small config you edit in the side panel, save as a file,
+  or start from the co-chair layout; sharing one config from the server is
+  coming.
 - **Suggested AEs for each manuscript (in development).** Open a manuscript and the
   side panel ranks your AEs by how close their published work is to its
   title, abstract and keywords, with each AE's current load and the paper of

@@ -16,6 +16,7 @@ import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
+import { AeMenuSettings } from './AeMenuSettings';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -244,7 +245,7 @@ function App() {
         {tab === 'eic' && coChair && <EicView tabId={tabId} url={url} flash={flash} />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} title={state?.result.manuscript?.title} site={state?.result.site} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
-        {tab === 'settings' && <SettingsView />}
+        {tab === 'settings' && <SettingsView flash={flash} />}
       </main>
       {toast && <div class="toast">{toast}</div>}
     </>
@@ -742,13 +743,13 @@ function summary(d: unknown): string {
  * tabs whose side panel is switched off, which Chrome needs to put it back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster and the AE profiles? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles and the AE menu config? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }
 
-function SettingsView() {
+function SettingsView({ flash }: { flash: (s: string) => void }) {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
   useEffect(() => void getSettings().then(setS), []);
   // Changes made elsewhere (the toolbar menu, another window) show up here too.
@@ -792,6 +793,7 @@ function SettingsView() {
         Notes server (blank keeps notes in this browser)
         <input class="search" value={s.notesServer} placeholder="https://….lambda-url.us-east-2.on.aws/" onChange={(e) => update({ notesServer: (e.target as HTMLInputElement).value.trim() })} />
       </label>
+      <AeMenuSettings notesServer={s.notesServer} flash={flash} />
       <h2 style="margin-top:12px">Developer</h2>
       {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
       {s.developer && <label>

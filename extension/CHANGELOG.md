@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.51 (2026-11-04)
+
+- **Grouped, colored AE menu.** MC's Assign Associate Editor pull-down can be regrouped under labeled dividers and styled per group (color, bold, italic, menu font and size). The Opinions co-chair layout puts column heads first, then Opinions AEs, then other AEs, using the sections of the roster loaded in the Matrix window. MC's option values, text and selection are unchanged, so assignment submits as before; turning it off puts MC's order back. The open menu shows the styles in Chrome 135+ (`appearance: base-select`); older Chrome gets the order and dividers only.
+- The layout is a JSON config edited in Settings > AE assignment menu, kept in this browser's local storage, and can be saved as or loaded from `ae-menu.json`. Choosing the server's config, copying it here and sending yours back are in the panel but not built on the server yet; those buttons say so. Clear all data removes the config. No new permission. (0.0.49 and 0.0.50 are on open branches.)
+
 ## 0.0.48 (2026-11-02)
 
 - The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).
