@@ -1,22 +1,17 @@
-# AE menu config: local now, shared later
+# AE menu config: local now, DynamoDB later
 
-Extension 0.0.51 regroups MC's Assign Associate Editor pull-down by a config
-(`extension/lib/aemenu.ts`). This note records how the config works today and
-how a shared server copy should work when it is built.
+Extension 0.0.51 groups, relabels and colors MC's Assign Associate Editor
+pull-down by a config (`extension/lib/aemenu.ts`). This note records how
+the config works today and how the shared store on the notes server should
+work when it is built.
 
-## Today: this browser's config
+## The config
 
-- Stored in `chrome.storage.local` under `aeMenu` as
-  `{ source: 'local' | 'server', local?, server?, serverFetchedAt? }`.
-- Edited as JSON in Settings > AE assignment menu, started from the Opinions
-  co-chair layout, or loaded from / saved to `ae-menu.json`.
-- Groups normally take their members from a roster section
-  (`rosterGroup`), so the config itself names no one. `names` lets a person
-  pin specific editors to a group; those names stay in that browser.
-- The repository never holds a real config. Real ones live in local storage
-  or in `var/` (git-ignored).
-
-Format (version 1):
+A table-driven JSON file. The copy shipped with the extension,
+`extension/config/ae-menu.json`, is the Opinions co-chair layout with an
+**empty table**. Real tables name real editors, so they never go in this
+repository: they live in a browser's `chrome.storage.local`, in files the
+person saves, or in `var/` (git-ignored).
 
 ```json
 {
@@ -27,32 +22,79 @@ Format (version 1):
   "fontSize": 0,
   "fontFamily": "",
   "sort": "mc",
+  "label": "{section} - {given} {family}",
+  "people": [
+    { "given": "Pat", "family": "Editor", "section": "Example Column", "email": "pat@example.org" }
+  ],
   "groups": [
-    { "label": "Column heads", "rosterGroup": "column_heads", "color": "#7a3e00", "bold": true, "names": [] },
-    { "label": "Opinions AEs", "rosterGroup": "associate_editors", "color": "#1d4ed8", "names": [] }
+    { "label": "Column heads", "fromTable": true, "rosterGroup": "column_heads", "color": "#7a3e00", "bold": true },
+    { "label": "Opinions AEs", "rosterGroup": "associate_editors", "color": "#1d4ed8" }
   ],
   "rest": { "label": "Other AEs", "color": "#6b7280" }
 }
 ```
 
-## Later: a shared copy on the notes server
+- `people` is the table. Each row is matched to MC's "Family, Given" entry
+  and shown with `label`, so MC's "Editor, Pat (3)" becomes
+  "Example Column - Pat Editor (3)". MC's count stays; the option's value
+  never changes, and MC's own text is kept on the option so workload counts
+  still read correctly.
+- `groups` are in menu order, each under a divider. A person goes in the
+  first group that claims them: `names` typed into the JSON, then the table
+  (`fromTable`: `true` for everyone in it, or a list of sections), then a
+  section of the roster loaded in the Matrix window (`rosterGroup`).
+  Everyone else goes in `rest`.
 
-So every co-chair sees the same grouping without passing files around.
+## Today: this browser
 
-- **Storage.** One item per section and profile in the notes table, for
-  example `pk = "config#ae-menu"`, `sk = "<profile>"`, holding the config JSON,
-  who last wrote it and when.
-- **Reading.** Any registered key may read (`op: "config-get"`). The
-  extension keeps the last copy as `aeMenu.server`, so the menu works
-  offline, and the person chooses whether the menu follows it.
-- **Writing.** `op: "config-put"`, signed like a note. The server accepts it
-  only from keys whose registered MC identity is a co-chair or EIC, the
-  same rule as deleting anyone's note. The extension's "Send mine to the
-  server" button calls this; it is a stub (`pushServerAeMenu`) until then.
-- **Copying.** "Copy server config here" copies `aeMenu.server` into
-  `aeMenu.local`, so a person can start from the shared layout and adjust it
-  for themselves.
-- **Privacy.** A config with `names` would put editors' names on the
-  server. Editor names are already there with notes' authors; still, the
-  server copy should prefer `rosterGroup` and the panel should warn before
-  sending a config that has names.
+- Stored under `aeMenu` in `chrome.storage.local`:
+  `{ source: 'local' | 'server', local?, server?, serverName?, serverFetchedAt? }`.
+- Settings > AE assignment menu turns it on, picks this browser's config or
+  the downloaded server copy, copies the server copy here for editing, and
+  opens the editor window.
+- The editor (`entrypoints/aemenu`) edits the table (rows, paste from a
+  spreadsheet, sort), the label, the groups and their styles, and the menu
+  font and order; saves to and loads from a JSON file; previews the result
+  on a copy of the last pull-down MC showed; and marks table rows MC's
+  pull-down doesn't list.
+
+## Later: configs in DynamoDB
+
+The notes server (`backend/notes`, one DynamoDB table with `pk`/`sk`) gets
+a small config store. No Cognito: every request is already signed with the
+browser's registered key, and the server knows each key's email.
+
+**Items**
+
+| item        | pk         | sk            | attributes                                        |
+|-------------|------------|---------------|---------------------------------------------------|
+| a config    | `config`   | `ae-menu#<name>` | `body` (the JSON), `savedBy`, `savedAt`, `people` (count) |
+
+`<name>` is the config's `profile`, trimmed, at most 80 characters.
+
+**Operations** (signed envelopes, like the notes ones)
+
+| op               | who                 | does                                                   |
+|------------------|---------------------|--------------------------------------------------------|
+| `config-list`    | any registered key  | Query `pk = config`, `begins_with(sk, "ae-menu#")`; returns name, savedAt, savedBy, people for each, without bodies |
+| `config-get`     | any registered key  | Returns one config's body                              |
+| `config-put`     | owner only          | Validates the body (same rules as `parseAeMenu`, size under 200 KB) and writes it, replacing any config of that name |
+| `config-delete`  | owner only          | Deletes one config                                     |
+
+"Owner" is the existing `OWNERS` list (Simson), the same check that guards
+bans and key listing; a banned key or email is refused as everywhere else.
+Writes record who and when. The extension's client calls already exist as
+stubs (`listServerConfigs`, `getServerConfig`, `saveServerConfig`,
+`deleteServerConfig` in `lib/aemenu.ts`) and the editor's Server section
+calls them; building the server side means filling those in and adding the
+four ops and their tests to `backend/notes`.
+
+**Downloading** keeps the copy as `aeMenu.server`, so the menu works without
+the server, and the person chooses in Settings whether the menu follows it
+or their own copy. "Copy the server's config here" copies it into
+`aeMenu.local` to edit.
+
+**Privacy.** A config on the server names editors and may hold their
+emails. Editor names are already on the server as note authors, and only
+registered keys can read configs. The editor should still warn before the
+admin uploads a config with emails, and offer to leave them out.

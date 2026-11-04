@@ -4,7 +4,9 @@
 // that values and the selection survive, that a second run changes nothing,
 // and that clearing puts MC's menu back exactly.
 import { describe, expect, it } from 'vitest';
-import { applyAeMenu, clearAeMenu, defaultAeMenu, groupCounts, parseAeMenu, sameName, type AeMenuConfig } from '../lib/aemenu';
+import { applyAeMenu, clearAeMenu, defaultAeMenu, groupCounts, labelFor, parseAeMenu, parsePeopleTable, sameName, unmatchedPeople, type AeMenuConfig } from '../lib/aemenu';
+import { readAeLoad } from '../lib/aeload';
+import shipped from '../config/ae-menu.json';
 import type { Roster, RosterPerson } from '../lib/roster';
 
 const EDITORS: Array<[string, string]> = [
@@ -13,7 +15,7 @@ const EDITORS: Array<[string, string]> = [
   ['103', 'Chen, Casey (5)'],
   ['104', 'Diaz, Drew (1)'],
   ['105', 'Evans, Emery (3)'],
-  ['106', 'Fox, Finley (4)'],
+  ['106', 'Ford, Finley (4)'],
 ];
 
 function page(selected = '104'): HTMLSelectElement {
@@ -37,7 +39,7 @@ const roster: Roster = {
   exportedAt: '2026-01-01',
   people: [
     person('p1', 'Casey Chen', 'column_heads'),
-    person('p2', 'Finley Fox', 'column_heads'),
+    person('p2', 'Finley Ford', 'column_heads'),
     person('p3', 'Blair Brown', 'associate_editors'),
     person('p4', 'Emery Evans', 'associate_editors'),
   ],
@@ -89,7 +91,7 @@ describe('AE menu', () => {
 
   it('lets typed names win over roster sections, and sorts by load', () => {
     const s = page();
-    const c: AeMenuConfig = { ...defaultAeMenu(), sort: 'load', groups: [{ label: 'Mine', names: ['Alex Adams', 'Fox, F.'] }, ...defaultAeMenu().groups] };
+    const c: AeMenuConfig = { ...defaultAeMenu(), sort: 'load', groups: [{ label: 'Mine', names: ['Alex Adams', 'Ford, F.'] }, ...defaultAeMenu().groups] };
     applyAeMenu(document, c, roster);
     expect(shape(s)).toEqual(['(placeholder)', '[Mine] 101,106', '[Column heads] 103', '[Opinions AEs] 102,105', '[Other AEs] 104']);
     expect(groupCounts(EDITORS.map(([, t]) => t.replace(/ \(\d+\)$/, '')), c, roster)).toEqual([2, 1, 2, 1]);
@@ -127,5 +129,83 @@ describe('AE menu', () => {
     expect(sameName('Editor, P.', 'Pat Editor')).toBe(true);
     expect(sameName('Editor, Pat', 'Robin Editor')).toBe(false);
     expect(sameName('Editor, Pat', 'Pat Reviewer')).toBe(false);
+  });
+
+  it('ships a blank table', () => {
+    expect(shipped.people).toEqual([]);
+    expect(defaultAeMenu().people).toEqual([]);
+  });
+
+  it('relabels table people, keeps MC\'s count, and still reads MC\'s names and counts', () => {
+    const s = page('103');
+    const c: AeMenuConfig = {
+      ...defaultAeMenu(),
+      people: [
+        { given: 'Casey', family: 'Chen', section: 'Example Column' },
+        { given: 'Drew', family: 'Diaz', section: 'Another Column', email: 'drew@example.org' },
+      ],
+    };
+    applyAeMenu(document, c, roster);
+    // Both table people are column heads now, ahead of the roster's.
+    expect(shape(s)).toEqual(['(placeholder)', '[Column heads] 103,104,106', '[Opinions AEs] 102,105', '[Other AEs] 101']);
+    expect(s.querySelector<HTMLOptionElement>('option[value="103"]')!.text).toBe('Example Column - Casey Chen (5)');
+    expect(s.querySelector<HTMLOptionElement>('option[value="106"]')!.text).toBe('Ford, Finley (4)');
+    expect(s.value).toBe('103');
+    expect(readAeLoad(document)!.find((e) => e.name === 'Chen, Casey')?.count).toBe(5);
+    // Idempotent with labels too.
+    const seen: MutationRecord[] = [];
+    const ob = new MutationObserver((r) => seen.push(...r));
+    ob.observe(s, { childList: true, subtree: true, characterData: true });
+    applyAeMenu(document, c, roster);
+    seen.push(...ob.takeRecords());
+    ob.disconnect();
+    expect(seen).toHaveLength(0);
+    clearAeMenu(document);
+    expect(texts(s)).toEqual(['Select...', ...EDITORS.map(([, t]) => t)]);
+    expect(s.querySelector('[data-emc-text]')).toBeNull();
+  });
+
+  it('can take only some table sections into a group', () => {
+    const s = page();
+    const base = defaultAeMenu();
+    const c: AeMenuConfig = {
+      ...base,
+      label: '',
+      people: [{ given: 'Alex', family: 'Adams', section: 'Co-Chair' }, { given: 'Drew', family: 'Diaz', section: 'Privacy' }],
+      groups: [{ label: 'Chairs', fromTable: ['co-chair'] }, ...base.groups],
+    };
+    applyAeMenu(document, c, null);
+    // Diaz is in the table, so "Column heads" (everyone in the table) takes them.
+    expect(shape(s)).toEqual(['(placeholder)', '[Chairs] 101', '[Column heads] 104', '[Other AEs] 102,103,105,106']);
+    expect(s.querySelector<HTMLOptionElement>('option[value="101"]')!.text).toBe('Adams, Alex (2)');
+  });
+
+  it('fills labels and drops a separator a blank section would leave', () => {
+    const p = { given: 'Pat', family: 'Editor', section: '' };
+    expect(labelFor({ ...p, section: 'Example' }, 'Editor, Pat', '{section} - {given} {family}')).toBe('Example - Pat Editor');
+    expect(labelFor(p, 'Editor, Pat', '{section} - {given} {family}')).toBe('Pat Editor');
+    expect(labelFor(p, 'Editor, Pat', '{mc} [{nope}]')).toBe('Editor, Pat [{nope}]');
+  });
+
+  it('reads pasted spreadsheet rows', () => {
+    const rows = parsePeopleTable('First (Given) Name\tLast (Family) Name\tSection\tEmail Address\nPat\tEditor\tExample Column\tpat@example.org\nRobin\tVan Reviewer\tOther\t\n\nbad-line\n');
+    expect(rows).toEqual([
+      { given: 'Pat', family: 'Editor', section: 'Example Column', email: 'pat@example.org' },
+      { given: 'Robin', family: 'Van Reviewer', section: 'Other' },
+    ]);
+    expect(parsePeopleTable('Pat, Editor, Example')).toEqual([{ given: 'Pat', family: 'Editor', section: 'Example' }]);
+  });
+
+  it('matches multi-word and accented names, and lists table people MC lacks', () => {
+    expect(sameName('Van Reviewer, Robin', 'Robin Van Reviewer')).toBe(true);
+    expect(sameName('Editor, Benjamin', 'Editor, R. Benjamin')).toBe(true);
+    expect(sameName('Éditeur, Anne-Cécile', 'Editeur, Anne')).toBe(true);
+    const people = [{ given: 'Pat', family: 'Editor', section: '' }, { given: 'Sam', family: 'Missing', section: '' }];
+    expect(unmatchedPeople(['Editor, Pat'], people)).toEqual([people[1]]);
+  });
+
+  it('rejects bad table rows', () => {
+    expect(() => parseAeMenu({ ...defaultAeMenu(), people: [{ given: '', family: 'X', section: '' }] })).toThrow(/given/);
+    expect(() => parseAeMenu({ ...defaultAeMenu(), people: [{ given: 'A', family: 'B', section: '', email: 'nope' }] })).toThrow(/email/);
   });
 });

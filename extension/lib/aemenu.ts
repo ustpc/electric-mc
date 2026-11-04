@@ -1,17 +1,20 @@
-// The AE-assignment menu, regrouped and restyled. MC's Assign Associate
-// Editor pull-down lists every editor in one alphabetical run. Here its
-// options are moved into groups the person chooses (for the Opinions
-// co-chair: column heads, then Opinions AEs, then everyone else), each group
-// under a labeled divider (an <optgroup>), with the group's own color and
-// weight. Option values, text and the selection are never changed, so MC
-// submits exactly what it would have. Chrome 135+'s `appearance: base-select`
-// lets the open menu show the fonts and colors; older Chrome still gets the
-// order and the dividers. The config names no one unless the person types
-// names in: groups normally draw on the roster they loaded (lib/roster.ts).
-// Configs live in chrome.storage.local; a shared server copy is designed but
-// not built (fetchServerAeMenu, pushServerAeMenu).
+// The AE-assignment menu, regrouped, relabeled and restyled. MC's Assign
+// Associate Editor pull-down lists every editor in one alphabetical run as
+// "Last, First (n)". A config moves the options into groups (for the
+// Opinions co-chair: column heads, then Opinions AEs, then everyone else),
+// each under a labeled divider (an <optgroup>) with its own color and
+// weight, and can relabel the people in its table ("Research Pathways -
+// Pat Editor (3)"). Option values and the selection never change, so MC
+// submits exactly what it would have; MC's own text is kept on the option
+// (lib/aeload.ts MC_TEXT) so workload counts still read correctly. Chrome
+// 135+'s `appearance: base-select` lets the open menu show the styles.
+// The shipped config (config/ae-menu.json) has an empty table: real tables
+// are loaded from a local file and kept in chrome.storage.local. A shared
+// store on the server is planned (doc/planning/AE menu config.md); its
+// client calls below are stubs.
 
-import { PLACEHOLDER, findAeSelect, matchPerson, nameParts, parseOption } from './aeload';
+import blank from '../config/ae-menu.json';
+import { MC_TEXT, PLACEHOLDER, findAeSelect, matchPerson, mcText, nameParts, parseOption } from './aeload';
 import { GROUPS, type GroupId, type Roster } from './roster';
 
 export interface AeMenuStyle {
@@ -21,27 +24,44 @@ export interface AeMenuStyle {
   italic?: boolean;
 }
 
+/** One row of the config's table. */
+export interface AePerson {
+  given: string;
+  family: string;
+  /** Column or role, such as "Privacy" or "Co-Chair". */
+  section: string;
+  email?: string;
+}
+
 export interface AeMenuGroup extends AeMenuStyle {
   /** The divider's label, such as "Column heads". */
   label: string;
+  /** People in the config's table: true for all of them, or only these sections. */
+  fromTable?: boolean | string[];
   /** Everyone in this section of the loaded roster. */
   rosterGroup?: GroupId;
-  /** Editors named the way MC lists them ("Editor, Pat"); these win over roster sections. */
+  /** Editors named the way MC lists them ("Editor, Pat"); these win over everything else. */
   names?: string[];
 }
 
 export interface AeMenuConfig {
   format: 'electric-mc-ae-menu';
   version: 1;
-  /** Who the layout is for, such as "Opinions co-chair". */
+  /** The config's name, such as "Opinions co-chair"; also its name on the server. */
   profile: string;
   enabled: boolean;
   /** Menu text size in px; 0 keeps MC's. */
   fontSize: number;
   /** A CSS font family; blank keeps MC's. */
   fontFamily: string;
-  /** Order within each group: MC's own (alphabetical), by name, or fewest manuscripts first. */
+  /** Order within each group: MC's own (alphabetical), by label, or fewest manuscripts first. */
   sort: 'mc' | 'name' | 'load';
+  /**
+   * How table people are shown, with {section}, {given}, {family} and {mc}
+   * (MC's own name); MC's count is kept after it. Blank keeps MC's text.
+   */
+  label: string;
+  people: AePerson[];
   groups: AeMenuGroup[];
   /** Everyone no group claims, last. */
   rest: AeMenuStyle & { label: string };
@@ -51,27 +71,15 @@ export interface AeMenuConfig {
 export interface AeMenuStore {
   source: 'local' | 'server';
   local?: AeMenuConfig;
-  /** The last copy fetched from the server. */
+  /** The server config last downloaded, and its name there. */
   server?: AeMenuConfig;
+  serverName?: string;
   serverFetchedAt?: string;
 }
 
-/** The Opinions co-chair's layout: column heads, Opinions AEs, then everyone else. */
+/** The config shipped with the extension: the Opinions co-chair layout with an empty table. */
 export function defaultAeMenu(): AeMenuConfig {
-  return {
-    format: 'electric-mc-ae-menu',
-    version: 1,
-    profile: 'Opinions co-chair',
-    enabled: true,
-    fontSize: 0,
-    fontFamily: '',
-    sort: 'mc',
-    groups: [
-      { label: 'Column heads', rosterGroup: 'column_heads', color: '#7a3e00', bold: true, names: [] },
-      { label: 'Opinions AEs', rosterGroup: 'associate_editors', color: '#1d4ed8', bold: false, names: [] },
-    ],
-    rest: { label: 'Other AEs', color: '#6b7280', italic: false },
-  };
+  return parseAeMenu(structuredClone(blank));
 }
 
 /** The config the menu uses now, or undefined when it's left alone. */
@@ -86,6 +94,7 @@ class Invalid extends Error {}
 // isn't valid CSS, but they are still kept short and plain.
 const COLOR = /^(?:#[0-9a-f]{3,8}|[a-z]{3,30}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%deg]+\))$/i;
 const FONT = /^[\w\s,'"-]{0,200}$/;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GROUP_IDS = new Set<string>(GROUPS.map((g) => g.id));
 
 function style(v: Record<string, unknown>, at: string): AeMenuStyle {
@@ -102,9 +111,17 @@ function style(v: Record<string, unknown>, at: string): AeMenuStyle {
   return out;
 }
 
-function label(v: unknown, at: string): string {
-  if (typeof v !== 'string' || !v.trim() || v.length > 80) throw new Invalid(`${at}.label must be text (up to 80 characters)`);
-  return v.trim();
+function text(v: unknown, at: string, max: number, required = true): string {
+  if (v === undefined || v === null) v = '';
+  if (typeof v !== 'string' || v.length > max) throw new Invalid(`${at} must be text (up to ${max} characters)`);
+  const t = v.trim();
+  if (required && !t) throw new Invalid(`${at} can't be blank`);
+  return t;
+}
+
+function strings(v: unknown, at: string, max = 500): string[] {
+  if (!Array.isArray(v) || v.length > max || v.some((n) => typeof n !== 'string' || n.length > 200)) throw new Invalid(`${at} must be a list of text`);
+  return (v as string[]).map((n) => n.trim()).filter(Boolean);
 }
 
 /** A config from JSON, or an Error saying what's wrong with it. */
@@ -112,28 +129,40 @@ export function parseAeMenu(json: unknown): AeMenuConfig {
   const r = json as Record<string, unknown> | null;
   if (!r || typeof r !== 'object' || r.format !== 'electric-mc-ae-menu') throw new Invalid('This is not an Electric MC AE menu config ("format": "electric-mc-ae-menu").');
   if (r.version !== 1) throw new Invalid(`AE menu config version ${String(r.version)} is newer than this extension understands.`);
-  const profile = typeof r.profile === 'string' ? r.profile.slice(0, 80) : '';
   if (r.enabled !== undefined && typeof r.enabled !== 'boolean') throw new Invalid('enabled must be true or false');
   const fontSize = r.fontSize === undefined ? 0 : Number(r.fontSize);
-  if (!Number.isInteger(fontSize) || (fontSize !== 0 && (fontSize < 8 || fontSize > 30))) throw new Invalid('fontSize must be 0 (MC\'s own) or 8 to 30');
+  if (!Number.isInteger(fontSize) || (fontSize !== 0 && (fontSize < 8 || fontSize > 30))) throw new Invalid("fontSize must be 0 (MC's own) or 8 to 30");
   const fontFamily = r.fontFamily === undefined ? '' : r.fontFamily;
   if (typeof fontFamily !== 'string' || !FONT.test(fontFamily)) throw new Invalid('fontFamily must be a plain font list, such as "Helvetica, Arial, sans-serif"');
   const sort = r.sort === undefined ? 'mc' : r.sort;
   if (sort !== 'mc' && sort !== 'name' && sort !== 'load') throw new Invalid('sort must be "mc", "name" or "load"');
+  const label = text(r.label, 'label', 120, false);
+  const people = r.people === undefined ? [] : r.people;
+  if (!Array.isArray(people) || people.length > 1000) throw new Invalid('people must be a list (up to 1000)');
+  const table = people.map((raw, i): AePerson => {
+    const at = `people[${i}]`;
+    const p = raw as Record<string, unknown> | null;
+    if (!p || typeof p !== 'object') throw new Invalid(`${at} must be an object`);
+    const out: AePerson = { given: text(p.given, `${at}.given`, 100), family: text(p.family, `${at}.family`, 100), section: text(p.section, `${at}.section`, 100, false) };
+    const email = text(p.email, `${at}.email`, 200, false);
+    if (email) {
+      if (!EMAIL.test(email)) throw new Invalid(`${at}.email is not an email address`);
+      out.email = email;
+    }
+    return out;
+  });
   if (!Array.isArray(r.groups) || r.groups.length > 20) throw new Invalid('groups must be a list (up to 20)');
   const groups = r.groups.map((raw, i): AeMenuGroup => {
     const at = `groups[${i}]`;
     const g = raw as Record<string, unknown> | null;
     if (!g || typeof g !== 'object') throw new Invalid(`${at} must be an object`);
-    const out: AeMenuGroup = { label: label(g.label, at), ...style(g, at) };
+    const out: AeMenuGroup = { label: text(g.label, `${at}.label`, 80), ...style(g, at) };
+    if (g.fromTable !== undefined && g.fromTable !== false) out.fromTable = g.fromTable === true ? true : strings(g.fromTable, `${at}.fromTable`, 100);
     if (g.rosterGroup !== undefined && g.rosterGroup !== null && g.rosterGroup !== '') {
       if (typeof g.rosterGroup !== 'string' || !GROUP_IDS.has(g.rosterGroup)) throw new Invalid(`${at}.rosterGroup must be one of ${[...GROUP_IDS].join(', ')}`);
       out.rosterGroup = g.rosterGroup as GroupId;
     }
-    if (g.names !== undefined) {
-      if (!Array.isArray(g.names) || g.names.length > 500 || g.names.some((n) => typeof n !== 'string' || n.length > 200)) throw new Invalid(`${at}.names must be a list of names`);
-      out.names = (g.names as string[]).map((n) => n.trim()).filter(Boolean);
-    }
+    if (g.names !== undefined) out.names = strings(g.names, `${at}.names`);
     return out;
   });
   const rest = (r.rest ?? { label: 'Other AEs' }) as Record<string, unknown>;
@@ -141,37 +170,82 @@ export function parseAeMenu(json: unknown): AeMenuConfig {
   return {
     format: 'electric-mc-ae-menu',
     version: 1,
-    profile,
+    profile: text(r.profile, 'profile', 80, false),
     enabled: r.enabled !== false,
     fontSize,
     fontFamily: fontFamily.trim(),
     sort,
+    label,
+    people: table,
     groups,
-    rest: { label: label(rest.label, 'rest'), ...style(rest, 'rest') },
+    rest: { label: text(rest.label, 'rest.label', 80), ...style(rest, 'rest') },
   };
 }
 
-/** Whether two names written the way MC or a person might ("Editor, Pat", "Pat Editor") are the same editor. */
+/**
+ * Table rows from pasted text: one person per line, tab- or comma-separated
+ * given name, family name, section and email, as copied from a spreadsheet.
+ * A header row (mentioning "name") is skipped.
+ */
+export function parsePeopleTable(pasted: string): AePerson[] {
+  const out: AePerson[] = [];
+  for (const line of pasted.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const cells = (line.includes('\t') ? line.split('\t') : line.split(',')).map((c) => c.trim());
+    if (/\bname\b/i.test(cells[0] ?? '') || /\bname\b/i.test(cells[1] ?? '')) continue;
+    const [given = '', family = '', section = '', email = ''] = cells;
+    if (!given || !family) continue;
+    out.push(email ? { given, family, section, email } : { given, family, section });
+  }
+  return out;
+}
+
+/**
+ * Whether two names written the way MC or a person might ("Editor, Pat",
+ * "Pat Editor") are the same editor. Family names must agree; given names
+ * agree when any word of one matches a word of the other or its initial
+ * ("Editor, R. Pat" and "Pat Editor"). Nicknames are never guessed.
+ */
 export function sameName(a: string, b: string): boolean {
-  const x = nameParts(a);
-  const y = nameParts(b);
+  let x = nameParts(a);
+  let y = nameParts(b);
+  // "Robin Van Reviewer" has no comma to say where the family name starts:
+  // take as many final words as the other name's family name has.
+  const split = (n: string, len: number) => {
+    const all = [...nameParts(n).given, ...nameParts(n).surname];
+    return { surname: all.slice(-len), given: all.slice(0, -len) };
+  };
+  if (!a.includes(',') && b.includes(',')) x = split(a, y.surname.length);
+  else if (a.includes(',') && !b.includes(',')) y = split(b, x.surname.length);
   if (!x.surname.length || x.surname.join(' ') !== y.surname.join(' ')) return false;
-  const f = x.given[0] ?? '';
-  const g = y.given[0] ?? '';
-  return !f || !g || f === g || (f.length === 1 && g.startsWith(f)) || (g.length === 1 && f.startsWith(g));
+  if (!x.given.length || !y.given.length) return true;
+  const fits = (f: string, g: string) => f === g || (f.length === 1 && g.startsWith(f)) || (g.length === 1 && f.startsWith(g));
+  return x.given.some((f) => y.given.some((g) => fits(f, g)));
 }
 
-interface Item {
-  option: HTMLOptionElement;
-  name: string;
-  count: number;
-  mcIndex: number;
+/** The table row for an editor MC names, if there is exactly one. */
+export function personFor(mcName: string, people: AePerson[]): AePerson | undefined {
+  const hits = people.filter((p) => sameName(`${p.family}, ${p.given}`, mcName));
+  return hits.length === 1 ? hits[0] : undefined;
 }
 
-/** Which group (an index into config.groups, or -1 for the rest) each editor falls in. */
+/** How a table person is shown: the config's label with its fields filled in. */
+export function labelFor(p: AePerson, mcName: string, template: string): string {
+  const fields: Record<string, string> = { section: p.section, given: p.given, family: p.family, mc: mcName };
+  const out = template.replace(/\{(\w+)\}/g, (m, k: string) => fields[k] ?? m).replace(/\s+/g, ' ').trim();
+  // A blank section leaves a dangling separator ("- Pat Editor").
+  return out.replace(/^[-–:,|·]\s*/, '').replace(/\s*[-–:,|·]$/, '');
+}
+
+/** Which group (an index into config.groups, or -1 for the rest) an editor falls in. */
 export function groupOf(mcName: string, config: AeMenuConfig, roster: Roster | null | undefined): number {
   const named = config.groups.findIndex((g) => g.names?.some((n) => sameName(n, mcName)));
   if (named >= 0) return named;
+  const row = personFor(mcName, config.people);
+  if (row) {
+    const t = config.groups.findIndex((g) => g.fromTable === true || (Array.isArray(g.fromTable) && g.fromTable.some((s) => s.toLowerCase() === row.section.toLowerCase())));
+    if (t >= 0) return t;
+  }
   const person = roster ? matchPerson(mcName, roster.people) : undefined;
   return person ? config.groups.findIndex((g) => g.rosterGroup === person.group) : -1;
 }
@@ -184,6 +258,20 @@ export function groupCounts(names: string[], config: AeMenuConfig, roster: Roste
     out[g < 0 ? config.groups.length : g]!++;
   }
   return out;
+}
+
+/** Table people MC's pull-down didn't list, so a typo or a missing account shows. */
+export function unmatchedPeople(names: string[], people: AePerson[]): AePerson[] {
+  return people.filter((p) => !names.some((n) => sameName(`${p.family}, ${p.given}`, n)));
+}
+
+interface Item {
+  option: HTMLOptionElement;
+  name: string;
+  count: number;
+  mcIndex: number;
+  /** The text to show, or MC's own. */
+  shown: string;
 }
 
 const MENU = 'data-emc-aemenu';
@@ -220,6 +308,20 @@ function restoreStyle(el: Element) {
   el.removeAttribute(STYLE0);
 }
 
+/** Show this text on an option, keeping MC's own the first time. Only writes when it differs. */
+function setText(o: HTMLOptionElement, shown: string) {
+  const mc = o.getAttribute(MC_TEXT);
+  if (shown === (mc ?? o.text)) {
+    if (mc !== null) {
+      o.text = mc;
+      o.removeAttribute(MC_TEXT);
+    }
+    return;
+  }
+  if (mc === null) o.setAttribute(MC_TEXT, o.text);
+  if (o.text !== shown) o.text = shown;
+}
+
 function keepSelection(select: HTMLSelectElement, change: () => void) {
   const chosen = select.selectedOptions[0] ?? null;
   const value = select.value;
@@ -229,10 +331,10 @@ function keepSelection(select: HTMLSelectElement, change: () => void) {
 }
 
 /**
- * Regroup and restyle MC's AE pull-down on this page. Returns whether there
- * was one. Running it again with the same config changes nothing, so the
- * page's mutation observer doesn't loop. A select MC already divides into
- * its own optgroups is left alone.
+ * Regroup, relabel and restyle MC's AE pull-down on this page. Returns
+ * whether there was one. Running it again with the same config changes
+ * nothing, so the page's mutation observer doesn't loop. A select MC
+ * already divides into its own optgroups is left alone.
  */
 export function applyAeMenu(doc: Document, config: AeMenuConfig, roster: Roster | null | undefined): boolean {
   const found = findAeSelect(doc);
@@ -255,16 +357,20 @@ export function applyAeMenu(doc: Document, config: AeMenuConfig, roster: Roster 
   const buckets: Item[][] = config.groups.map(() => []);
   const rest: Item[] = [];
   options.forEach((option, mcIndex) => {
-    const text = option.text.replace(/\s+/g, ' ').trim();
-    if (PLACEHOLDER.test(text) || !option.value) return void top.push(option);
-    const parsed = parseOption(text);
-    const item: Item = { option, name: parsed?.name ?? text, count: parsed?.count ?? 0, mcIndex };
-    const g = groupOf(item.name, config, roster);
+    const mc = mcText(option);
+    if (PLACEHOLDER.test(mc) || !option.value) return void top.push(option);
+    const parsed = parseOption(mc);
+    const name = parsed?.name ?? mc;
+    const row = config.label ? personFor(name, config.people) : undefined;
+    // MC's count ("(3)") stays after the new label.
+    const shown = row ? `${labelFor(row, name, config.label)}${mc.slice(name.length)}` : mc;
+    const item: Item = { option, name, count: parsed?.count ?? 0, mcIndex, shown };
+    const g = groupOf(name, config, roster);
     (g < 0 ? rest : buckets[g]!).push(item);
   });
   const order = (list: Item[]) =>
     config.sort === 'name'
-      ? list.sort((a, b) => a.name.localeCompare(b.name) || a.mcIndex - b.mcIndex)
+      ? list.sort((a, b) => a.shown.localeCompare(b.shown) || a.mcIndex - b.mcIndex)
       : config.sort === 'load'
         ? list.sort((a, b) => a.count - b.count || a.mcIndex - b.mcIndex)
         : list;
@@ -274,8 +380,9 @@ export function applyAeMenu(doc: Document, config: AeMenuConfig, roster: Roster 
   // With no group used, the menu keeps MC's single list (styled as the rest).
   if (sections.length && rest.length) sections.push({ label: config.rest.label, style: config.rest, items: order(rest) });
   const plain = !sections.length;
+  const all = plain ? order(rest) : sections.flatMap((s) => s.items);
 
-  const wanted = [...top, ...(plain ? order(rest) : sections.flatMap((s) => s.items)).map((i) => i.option)];
+  const wanted = [...top, ...all.map((i) => i.option)];
   const groupsNow = Array.from(select.querySelectorAll(`optgroup[${GROUP}]`)).map((g) => `${g.getAttribute('label')}:${g.children.length}`);
   const groupsWanted = plain ? [] : sections.map((s) => `${s.label}:${s.items.length}`);
   const same = wanted.length === select.options.length && wanted.every((o, i) => select.options[i] === o) && groupsNow.join('|') === groupsWanted.join('|');
@@ -295,6 +402,7 @@ export function applyAeMenu(doc: Document, config: AeMenuConfig, roster: Roster 
       });
     });
   }
+  for (const i of all) setText(i.option, i.shown);
   for (const s of sections) for (const i of s.items) setStyle(i.option, s.style);
   if (plain) for (const i of rest) setStyle(i.option, config.rest);
   return true;
@@ -310,6 +418,9 @@ export function clearAeMenu(doc: Document): void {
       select.querySelectorAll(`optgroup[${GROUP}]`).forEach((g) => g.remove());
     });
     for (const o of options) {
+      const mc = o.getAttribute(MC_TEXT);
+      if (mc !== null) o.text = mc;
+      o.removeAttribute(MC_TEXT);
       restoreStyle(o);
       o.removeAttribute(INDEX);
     }
@@ -318,19 +429,41 @@ export function clearAeMenu(doc: Document): void {
   }
 }
 
-/**
- * The shared config, from the notes server (Settings > Notes server). Not
- * built yet: the plan is a signed request like the notes' ones
- * (lib/notesClient.ts), answered with the config section co-chairs keep on
- * the server. See doc/planning/AE menu config.md.
- */
-export async function fetchServerAeMenu(server: string): Promise<AeMenuConfig> {
-  if (!server) throw new Error('Set a notes server in Settings first.');
-  throw new Error("The notes server doesn't keep AE menu configs yet. Use this browser's config for now.");
+// ---- The shared store on the server (planned; doc/planning/AE menu config.md) ----
+
+/** One config saved on the server, as its list shows it. */
+export interface ServerConfigInfo {
+  name: string;
+  savedAt: string;
+  savedBy: string;
+  people: number;
 }
 
-/** Send this browser's config to the server, for people the server lets change it. Not built yet. */
-export async function pushServerAeMenu(server: string, _config: AeMenuConfig): Promise<void> {
+const NOT_YET = "The server doesn't store AE menu configs yet. Save and load files for now.";
+const needServer = (server: string) => {
   if (!server) throw new Error('Set a notes server in Settings first.');
-  throw new Error("The notes server doesn't keep AE menu configs yet, so there's nothing to send it to.");
+};
+
+/** The configs saved on the server. Anyone with a registered key may list them. */
+export async function listServerConfigs(server: string): Promise<ServerConfigInfo[]> {
+  needServer(server);
+  throw new Error(NOT_YET);
+}
+
+/** Download one saved config. */
+export async function getServerConfig(server: string, _name: string): Promise<AeMenuConfig> {
+  needServer(server);
+  throw new Error(NOT_YET);
+}
+
+/** Save a config under its profile name; the server accepts it only signed by the admin's key. */
+export async function saveServerConfig(server: string, _config: AeMenuConfig): Promise<void> {
+  needServer(server);
+  throw new Error(NOT_YET);
+}
+
+/** Delete a saved config; admin only, like saving. */
+export async function deleteServerConfig(server: string, _name: string): Promise<void> {
+  needServer(server);
+  throw new Error(NOT_YET);
 }

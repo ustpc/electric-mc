@@ -793,7 +793,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
         Notes server (blank keeps notes in this browser)
         <input class="search" value={s.notesServer} placeholder="https://….lambda-url.us-east-2.on.aws/" onChange={(e) => update({ notesServer: (e.target as HTMLInputElement).value.trim() })} />
       </label>
-      <AeMenuSettings notesServer={s.notesServer} flash={flash} />
+      <AeMenuSettings flash={flash} />
       <h2 style="margin-top:12px">Developer</h2>
       {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
       {s.developer && <label>

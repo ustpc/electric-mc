@@ -59,6 +59,14 @@ function contextOf(select: HTMLSelectElement): string {
 const EDITOR = /\b(?:associate\s+editor|editor|AE)s?\b/i;
 const REVIEWER = /\breviewers?\b/i;
 
+/** Where lib/aemenu.ts keeps MC's own text of an option it relabeled. */
+export const MC_TEXT = 'data-emc-text';
+
+/** An option's text as MC wrote it, even after lib/aemenu.ts relabeled it. */
+export function mcText(o: HTMLOptionElement): string {
+  return (o.getAttribute(MC_TEXT) ?? o.text).replace(/\s+/g, ' ').trim();
+}
+
 /**
  * MC's AE-assignment pull-down on this page, or null when there isn't one.
  * Most non-placeholder options must end in a count (at least two of them),
@@ -66,7 +74,7 @@ const REVIEWER = /\breviewers?\b/i;
  */
 export function findAeSelect(doc: Document): { select: HTMLSelectElement; entries: AeLoadEntry[] } | null {
   for (const select of Array.from(doc.querySelectorAll('select'))) {
-    const opts = Array.from(select.options).map((o) => o.text.replace(/\s+/g, ' ').trim()).filter((t) => !PLACEHOLDER.test(t));
+    const opts = Array.from(select.options).map((o) => mcText(o)).filter((t) => !PLACEHOLDER.test(t));
     if (opts.length < 2) continue;
     const entries = opts.map(parseOption).filter((e): e is AeLoadEntry => !!e);
     if (entries.length < 2 || entries.length < opts.length * 0.6) continue;

@@ -1,0 +1,16 @@
+{
+  "format": "electric-mc-ae-menu",
+  "version": 1,
+  "profile": "Opinions co-chair",
+  "enabled": true,
+  "fontSize": 0,
+  "fontFamily": "",
+  "sort": "mc",
+  "label": "{section} - {given} {family}",
+  "people": [],
+  "groups": [
+    { "label": "Column heads", "fromTable": true, "rosterGroup": "column_heads", "color": "#7a3e00", "bold": true, "names": [] },
+    { "label": "Opinions AEs", "rosterGroup": "associate_editors", "color": "#1d4ed8", "bold": false, "names": [] }
+  ],
+  "rest": { "label": "Other AEs", "color": "#6b7280", "italic": false }
+}
