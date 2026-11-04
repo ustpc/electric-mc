@@ -123,10 +123,14 @@ function App() {
   };
   const importFile = async (f: File | undefined) => {
     if (!f) return;
+    if (dirty && !window.confirm('Loading a file replaces your unsaved changes. Load it?')) return;
     try {
-      setDraft(parseAeMenu(JSON.parse(await f.text())));
-      setDirty(true);
-      say(`Loaded ${f.name}. Save to use it.`);
+      // A loaded file is checked and used at once, like opening a document.
+      const c = parseAeMenu(JSON.parse(await f.text()));
+      await saveStore((st) => ({ ...st, local: c }));
+      setDraft(c);
+      setDirty(false);
+      say(`Loaded and saved ${f.name}. Open MC tabs update right away.`);
     } catch (e) {
       setError(`${f.name}: ${e instanceof SyntaxError ? `not valid JSON (${e.message})` : (e as Error).message}`);
     }
