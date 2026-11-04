@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.53 (2026-11-04)
+
+- The Version History box on a revision's page is easier to see: its heading is bold and everything in it, including the "View Review Details" links, is one point larger than the rest of the page's text. It follows the text-size setting.
+
 ## 0.0.48 (2026-11-02)
 
 - The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).

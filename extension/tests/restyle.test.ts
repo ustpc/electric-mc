@@ -119,3 +119,44 @@ describe('enlargeNavArrows', () => {
     expect(next!.style.width).toBe('');
   });
 });
+
+describe('emphasizeVersionHistory', () => {
+  const html = `<body style="font-size:11px"><div class="side">
+      <div class="panel"><div class="panel-heading" id="head">Version History</div>
+        <ul id="list"><li>XYZJ-26-07-1234.R1 <span id="date" style="font-size:10px">Submitted on 10-Oct-2026</span></li>
+        <li><a href="#">XYZJ-26-07-1234</a> <a href="#" id="details">View Review Details</a></li></ul></div>
+      <div id="other">Set My Search Preferences</div></div></body>`;
+
+  it('makes the heading bold and the box one point larger, without compounding', async () => {
+    const { emphasizeVersionHistory, applyRestyle, clearRestyle } = await import('../lib/restyle');
+    clearRestyle(document);
+    document.documentElement.innerHTML = html;
+    const $ = (id: string) => document.getElementById(id)!;
+    emphasizeVersionHistory(document, true);
+    emphasizeVersionHistory(document, true);
+    expect($('head').style.fontWeight).toBe('bold');
+    expect($('head').style.fontSize).toBe('12.3px');
+    expect($('date').style.fontSize).toBe('11.3px');
+    expect($('details').style.fontSize).toBe('12.3px');
+    expect($('other').style.fontSize).toBe('');
+    // With the text-size preference, still one point above the scaled size.
+    applyRestyle(document, { fullWidth: false, fontSize: 14 });
+    emphasizeVersionHistory(document, true, 14);
+    expect($('head').style.fontSize).toBe('15.3px');
+    expect($('other').style.fontSize).toBe('');
+    expect(document.body.style.fontSize).toBe('14px');
+    applyRestyle(document, { fullWidth: false, fontSize: 14 });
+    emphasizeVersionHistory(document, true, 14);
+    expect($('head').style.fontSize).toBe('15.3px');
+    emphasizeVersionHistory(document, false);
+    expect($('head').style.fontWeight).toBe('');
+    expect($('head').style.fontSize).toBe('');
+  });
+
+  it('leaves pages without a Version History box alone', async () => {
+    const { emphasizeVersionHistory } = await import('../lib/restyle');
+    document.documentElement.innerHTML = '<body><p id="p">Version History is explained in the help.</p></body>';
+    emphasizeVersionHistory(document, true);
+    expect(document.getElementById('p')!.style.fontSize).toBe('');
+  });
+});
