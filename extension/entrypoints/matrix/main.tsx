@@ -9,6 +9,8 @@ import type { AeLoad } from '../../lib/aeload';
 import { assignedLabel, joinLoads, latestJournal } from '../../lib/matrix';
 import { KEY } from '../../lib/messages';
 import { GROUPS, fold, matchesSearch, parseRoster, type Roster, type RosterPerson } from '../../lib/roster';
+import { parseAeMenu, type AeMenuStore } from '../../lib/aemenu';
+import { openAeMenuEditor } from '../sidepanel/AeMenuSettings';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -68,7 +70,17 @@ function App() {
   const loadFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const r = parseRoster(JSON.parse(await file.text()));
+      const json = JSON.parse(await file.text()) as { format?: unknown };
+      // An AE menu config chosen here by mistake is opened in its editor instead.
+      if (json?.format === 'electric-mc-ae-menu') {
+        const c = parseAeMenu(json);
+        const store = ((await chrome.storage.local.get(KEY.aeMenu))[KEY.aeMenu] as AeMenuStore | undefined) ?? { source: 'local' };
+        await chrome.storage.local.set({ [KEY.aeMenu]: { ...store, local: c } });
+        setError(`${file.name} is an AE menu config, not a roster. It's loaded as this browser's AE menu config; the editor is open to check it.`);
+        await openAeMenuEditor();
+        return;
+      }
+      const r = parseRoster(json);
       await chrome.storage.local.set({ [KEY.roster]: r });
       setError(null);
     } catch (e) {
@@ -110,7 +122,7 @@ function App() {
       {error && <p class="error">{error}</p>}
       {!roster && (
         <div class="intro">
-          <p>Load the Opinions roster to see the full matrix. In your cacm-opn-dashboard checkout, run <code>make export</code>, then press <b>Load roster…</b> and choose the <code>roster.json</code> it writes. The roster stays in this browser only.</p>
+          <p>Load the Opinions roster to see the full matrix. In your electric-mc checkout, run <code>make roster</code> (it reads cacm-opn-dashboard's <code>team.yaml</code>), then press <b>Load roster…</b> and choose the <code>var/roster.json</code> it writes. The roster stays in this browser only.</p>
         </div>
       )}
       {roster && GROUPS.map((g) => {

@@ -121,8 +121,8 @@ build instead.
   manuscripts in bold brown. The counts are read from MC's Assign Associate
   Editor pull-down whenever it is on the page, and the window shows when they
   were read. The extension ships no names: press **Load roster…** and choose
-  the `roster.json` that `make export` writes in
-  [cacm-opn-dashboard](https://github.com/ustpc/cacm-opn-dashboard). Editors
+  the `var/roster.json` that `make roster` writes from
+  [cacm-opn-dashboard](https://github.com/ustpc/cacm-opn-dashboard)'s `data/team.yaml`. Editors
   in MC's list who aren't in the roster are listed at the bottom.
 - **Stored data.** Manuscripts you haven't viewed in 2 years, and their
   notes, are removed automatically. **Clear all data** (bottom of Settings)

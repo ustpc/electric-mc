@@ -16,7 +16,7 @@ import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
-import { AeMenuSettings } from './AeMenuSettings';
+import { AeMenuSettings, openAeMenuEditor } from './AeMenuSettings';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -223,6 +223,7 @@ function App() {
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
+          <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>

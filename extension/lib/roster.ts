@@ -1,6 +1,6 @@
 // The Opinions roster for the editorial matrix. The extension carries no
-// names: the person loads roster.json, exported by cacm-opn-dashboard
-// (`make export`), and it stays in this browser's chrome.storage.local.
+// names: the person loads roster.json, written from cacm-opn-dashboard's
+// team.yaml by `make roster` (tools/roster-export), and it stays in this browser's chrome.storage.local.
 // Everything in it is checked here before it is stored or shown.
 
 export const GROUPS = [
@@ -84,7 +84,7 @@ const GROUP_IDS = new Set<string>(GROUPS.map((g) => g.id));
 /** The roster in a loaded file, or an Error saying what's wrong with it. */
 export function parseRoster(json: unknown): Roster {
   const r = json as Record<string, unknown> | null;
-  if (!r || typeof r !== 'object' || r.format !== 'electric-mc-roster') throw new Invalid('This is not an Electric MC roster file (roster.json from `make export`).');
+  if (!r || typeof r !== 'object' || r.format !== 'electric-mc-roster') throw new Invalid('This is not an Electric MC roster file (roster.json from `make roster`).');
   if (r.version !== 1) throw new Invalid(`Roster version ${String(r.version)} is newer than this extension understands.`);
   if (!Array.isArray(r.people) || !r.people.length || r.people.length > 500) throw new Invalid('The roster has no people.');
   const ids = new Set<string>();
