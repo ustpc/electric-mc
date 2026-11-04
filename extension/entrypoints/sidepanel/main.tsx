@@ -761,7 +761,7 @@ function SettingsView() {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
@@ -782,6 +782,7 @@ function SettingsView() {
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
       {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
       {box('autoAttach', 'Press Attach as soon as I select a file')}
+      {box('autoAdvance', 'After I submit a recommendation, go on to the next manuscript in the list')}
       {box('keepAlive', 'Send keepalives to prevent auto logout (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
       <h2 style="margin-top:12px">Notes</h2>
       <label>

@@ -119,3 +119,20 @@ describe('enlargeNavArrows', () => {
     expect(next!.style.width).toBe('');
   });
 });
+
+describe('enlargePagerArrows', () => {
+  it('redraws the grid page arrows twice as big, leaving the page picker alone', async () => {
+    const { enlargePagerArrows, pagerImage } = await import('../lib/restyle');
+    document.body.innerHTML = `<table><tr><td>Awaiting AE Assignment</td><td id="range">Manuscripts <select><option>11-12</option></select> of 12
+      <a href="#" id="back"><img src="/images/en_US/icons/arrow_left.gif"></a> <a href="#" id="fwd"><img src="/images/en_US/icons/arrow_right.gif"></a></td></tr></table>
+      <a href="#" id="other"><img src="/images/en_US/icons/arrow_left.gif"></a>`;
+    enlargePagerArrows(document, true);
+    enlargePagerArrows(document, true);
+    expect(document.querySelector('#back img')!.getAttribute('src')).toBe(pagerImage('prev'));
+    expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe(pagerImage('next'));
+    expect((document.querySelector('#fwd img') as HTMLElement).style.width).toBe('16px');
+    expect(document.querySelector('#other img')!.getAttribute('src')).toBe('/images/en_US/icons/arrow_left.gif');
+    enlargePagerArrows(document, false);
+    expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe('/images/en_US/icons/arrow_right.gif');
+  });
+});

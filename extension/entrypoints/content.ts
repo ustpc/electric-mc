@@ -5,7 +5,7 @@
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle, enlargeNavArrows, hidePageHeader } from '../lib/restyle';
+import { applyRestyle, clearRestyle, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { EMC_COLOR, EMC_STYLE, addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
@@ -18,6 +18,7 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { keepaliveDue, sendKeepalive } from '../lib/keepalive';
+import { onPageLoad, watchRecommendations } from '../lib/advance';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -84,6 +85,13 @@ async function start() {
     recordIdentity(r);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
+    if (reason === 'load' || reason === 'bfcache') {
+      const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
+      if (adv) {
+        send({ type: 'log', level: 'info', event: 'auto-advance after recommendation', data: adv });
+        if (adv.how === 'end') toast('E-MC: that was the last manuscript in this direction');
+      }
+    }
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
       // MC sometimes redraws the section; put our rows back.
@@ -100,6 +108,7 @@ async function start() {
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     enlargeNavArrows(document, true);
+    enlargePagerArrows(document, true);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -287,6 +296,7 @@ async function start() {
     clearRestyle(document);
     hidePageHeader(document, false);
     enlargeNavArrows(document, false);
+    enlargePagerArrows(document, false);
     unlinkIds(document);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();
@@ -305,6 +315,9 @@ async function start() {
     () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
     (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
   );
+
+  // After a recommendation, go on to the next manuscript (lib/advance.ts).
+  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);
 
   // Clicking anywhere in a radio-button row picks its radio button.
   watchRadioRows(document, () => !!chrome.runtime?.id && enabled());

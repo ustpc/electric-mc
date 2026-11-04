@@ -10,8 +10,7 @@ Design notes are in
 
 ## Version
 
-
-Semantic versioning, set in `package.json` (now 0.0.48). The version shows
+Semantic versioning, set in `package.json` (now 0.0.49). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -95,8 +94,14 @@ build instead.
   MC a small request. It stops after 48 idle hours, so an unattended computer
   is still logged out. **Ctrl+Shift+K** sends one at once and shows how many
   requests went to MC.
+- **Next manuscript after a recommendation** (Settings, on by default).
+  After you press Submit on a recommendation, the extension goes on to the
+  next manuscript in the list. It remembers the direction you're moving:
+  starting at the first one goes forward, starting at the last one goes
+  backward, and pressing MC's arrows sets it.
 - **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are
-  redrawn twice as big, as sharp round brown buttons.
+  redrawn twice as big, as sharp round brown buttons, and so are the grids'
+  page arrows beside "Manuscripts 11-12 of 12".
 - **Radio-button rows.** In MC's choice tables (Co-Chair Recommends and
   the like), click anywhere in a row to pick it.
 - **Clickable IDs.** On MC's grids, the manuscript ID is a link that does

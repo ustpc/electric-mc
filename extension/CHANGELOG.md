@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.49 (2026-11-03)
+
+- After you submit a recommendation, the extension goes on to the next manuscript in the list, in the direction you're moving (forward if you started at the first one, backward if at the last). A setting turns it off.
+- The grids' page arrows (beside "Manuscripts 11-12 of 12") are redrawn twice as big.
+
 ## 0.0.48 (2026-11-02)
 
 - The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).

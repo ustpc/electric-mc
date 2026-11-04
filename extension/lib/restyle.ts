@@ -224,3 +224,58 @@ export function enlargeNavArrows(doc: Document, on: boolean): void {
     img.style.setProperty('height', `${size}px`);
   }
 }
+
+const PAGER_ORIGINAL = 'data-emc-pager-src';
+const PAGER_TEXT = 'data-emc-pager';
+const PAGE_RANGE = /\bmanuscripts\b.*\d+\s*[-–]\s*\d+.*\bof\s+\d+/i;
+
+/** A plain arrowhead in E-MC brown, drawn as SVG. */
+export function pagerImage(dir: 'next' | 'prev'): string {
+  const tip = dir === 'next' ? 'M5 3 L13 8 L5 13 Z' : 'M11 3 L3 8 L11 13 Z';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="${tip}" fill="${EMC_COLOR}"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * The grids' page arrows beside "Manuscripts 11-12 of 12", redrawn twice as
+ * big: images become sharp brown arrowheads, text arrows (◂ ▸) get bigger
+ * type. Off puts MC's back.
+ */
+export function enlargePagerArrows(doc: Document, on: boolean): void {
+  if (!on) {
+    doc.querySelectorAll<HTMLImageElement>(`img[${PAGER_ORIGINAL}]`).forEach((img) => {
+      img.setAttribute('src', img.getAttribute(PAGER_ORIGINAL)!);
+      img.removeAttribute(PAGER_ORIGINAL);
+      img.style.removeProperty('width');
+      img.style.removeProperty('height');
+    });
+    doc.querySelectorAll<HTMLElement>(`[${PAGER_TEXT}]`).forEach((el) => {
+      el.style.removeProperty('font-size');
+      el.removeAttribute(PAGER_TEXT);
+    });
+    return;
+  }
+  // The smallest elements whose text is the page range.
+  const holders = Array.from(doc.querySelectorAll<HTMLElement>('td, th, div, span')).filter(
+    (el) => PAGE_RANGE.test(textOf(el)) && textOf(el).length < 80 && !Array.from(el.children).some((c) => PAGE_RANGE.test(textOf(c))),
+  );
+  for (const holder of holders) {
+    const links = Array.from(holder.querySelectorAll<HTMLElement>('a, [onclick]'));
+    links.forEach((link, i) => {
+      const img = link.querySelector<HTMLImageElement>('img');
+      const name = `${img?.getAttribute(PAGER_ORIGINAL) ?? img?.getAttribute('src') ?? ''} ${img?.alt ?? ''} ${link.title} ${textOf(link)}`;
+      const dir = /prev|left|back|◀|◂|‹|«/i.test(name) ? 'prev' : /next|right|forward|▶|▸|›|»/i.test(name) ? 'next' : i === 0 ? 'prev' : 'next';
+      if (img) {
+        if (img.hasAttribute(PAGER_ORIGINAL)) return;
+        const size = 2 * (img.naturalWidth || img.width || 8);
+        img.setAttribute(PAGER_ORIGINAL, img.getAttribute('src') ?? '');
+        img.setAttribute('src', pagerImage(dir));
+        img.style.setProperty('width', `${size}px`);
+        img.style.setProperty('height', `${size}px`);
+      } else if (/^[◀◂‹«▶▸›»<>]+$/.test(textOf(link)) && !link.hasAttribute(PAGER_TEXT)) {
+        link.setAttribute(PAGER_TEXT, '');
+        link.style.setProperty('font-size', '200%');
+      }
+    });
+  }
+}
