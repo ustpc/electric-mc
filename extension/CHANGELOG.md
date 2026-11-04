@@ -4,6 +4,7 @@ Newest first. Every version bump gets an entry here.
 
 ## 0.0.50 (2026-11-04)
 
+- Fixed: a keepalive could be due in a tab whose page has no "+ Search" bar (a popup, the login page); that tab took the turn and sent nothing. Now only a tab that can send takes it.
 - Developer mode now records a trace in the log: every click (control, label, section, what its link runs) and every page load (address, MC's action and hidden form fields, embedded JSON). Typed text is never recorded.
 
 ## 0.0.49 (2026-11-03)

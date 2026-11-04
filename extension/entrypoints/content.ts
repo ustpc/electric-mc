@@ -17,7 +17,7 @@ import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
-import { keepaliveDue, sendKeepalive } from '../lib/keepalive';
+import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
 import { onPageLoad, watchRecommendations } from '../lib/advance';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
@@ -348,7 +348,9 @@ async function start() {
     void chrome.storage.local.get([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
       const activity = (got[KEY.lastActivity] as number | undefined) ?? Date.now();
       const sent = (got[KEY.lastKeepalive] as number | undefined) ?? 0;
-      if (keepaliveDue(Date.now(), activity, sent)) void keepalive('idle');
+      // Only a tab whose page has the "+ Search" toggle sends; the others
+      // leave the turn to it rather than claiming it and sending nothing.
+      if (keepaliveDue(Date.now(), activity, sent) && findSearchToggle(document)) void keepalive('idle');
     });
   }, 60_000);
   window.addEventListener('keydown', (e) => {
