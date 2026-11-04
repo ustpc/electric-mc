@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { KEY } from '../../lib/messages';
 import type { AeMenuStore } from '../../lib/aemenu';
+import { openAeMenuEditor, openTeamEditor } from '../../lib/windows';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -30,16 +31,6 @@ async function saveStore(change: (s: AeMenuStore) => AeMenuStore): Promise<void>
   await chrome.storage.local.set({ [KEY.aeMenu]: change(now) });
 }
 
-/** The editor window; one only. */
-export async function openAeMenuEditor(): Promise<void> {
-  const url = chrome.runtime.getURL('aemenu.html');
-  const [open] = await chrome.tabs.query({ url });
-  if (open?.windowId !== undefined) {
-    await chrome.windows.update(open.windowId, { focused: true });
-    return;
-  }
-  await chrome.windows.create({ url, type: 'popup', width: 1100, height: 900 });
-}
 
 export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
   const store = useLocal<AeMenuStore>(KEY.aeMenu, { source: 'local' });
@@ -69,7 +60,7 @@ export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
       </label>
       <label class="chk">
         <input type="radio" name="aemenu-source" checked={store.source !== 'server'} onChange={() => void saveStore((s) => ({ ...s, source: 'local' }))} />
-        This browser's config {local ? `(${local.profile || 'unnamed'}, ${local.people.length} people)` : '(none yet)'}
+        This browser's config {local ? `(${local.profile || 'unnamed'}, ${local.groups.length} groups)` : '(none yet)'}
       </label>
       <label class="chk">
         <input type="radio" name="aemenu-source" checked={store.source === 'server'} disabled={!server} onChange={() => void saveStore((s) => ({ ...s, source: 'server' }))} />
@@ -77,9 +68,10 @@ export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
       </label>
       <div class="note-actions" style="flex-wrap:wrap;margin:4px 0">
         <button class="act" onClick={() => void openAeMenuEditor()}>Edit the AE menu config…</button>
+        <button class="act" onClick={() => void openTeamEditor()}>Edit the team…</button>
         <button class="act" disabled={!server} onClick={() => void copyServer()}>Copy the server's config here</button>
       </div>
-      <p class="muted">MC's choices and what it submits don't change. Groups can use the roster loaded in the Matrix window.</p>
+      <p class="muted">MC's choices and what it submits don't change. People and their sections come from the team database.</p>
     </>
   );
 }

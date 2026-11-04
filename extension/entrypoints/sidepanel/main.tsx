@@ -16,7 +16,8 @@ import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
-import { AeMenuSettings, openAeMenuEditor } from './AeMenuSettings';
+import { AeMenuSettings } from './AeMenuSettings';
+import { openAeMenuEditor, openMatrix } from '../../lib/windows';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -199,16 +200,6 @@ function App() {
   const popOut = async () => {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
-  };
-  // The Opinions editorial matrix, in its own window; one window only.
-  const openMatrix = async () => {
-    const url = chrome.runtime.getURL('matrix.html');
-    const [open] = await chrome.tabs.query({ url });
-    if (open?.windowId !== undefined) {
-      await chrome.windows.update(open.windowId, { focused: true });
-      return;
-    }
-    await chrome.windows.create({ url, type: 'popup', width: 1280, height: 900 });
   };
   const popIn = async () => {
     const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
@@ -744,8 +735,8 @@ function summary(d: unknown): string {
  * tabs whose side panel is switched off, which Chrome needs to put it back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles and the AE menu config? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database and the AE menu config? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu, KEY.team]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }

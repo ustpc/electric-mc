@@ -31,6 +31,8 @@ export interface RosterPerson {
   email?: string;
   linkedin?: string;
   acmDl?: string;
+  /** Every link, labeled, when the roster comes from the team database (lib/team.ts). */
+  links?: Array<{ label: string; url: string }>;
   /** A data: URL of a JPEG or PNG headshot. */
   portrait?: string;
   initials: string;
@@ -115,6 +117,12 @@ export function parseRoster(json: unknown): Roster {
       email,
       linkedin: url(p.linkedin, `${at}.linkedin`),
       acmDl: url(p.acmDl, `${at}.acmDl`),
+      ...(Array.isArray(p.links)
+        ? { links: (p.links as unknown[]).slice(0, 30).map((l, j) => {
+            const x = l as Record<string, unknown>;
+            return { label: str(x?.label ?? '', `${at}.links[${j}].label`, 60), url: url(x?.url, `${at}.links[${j}].url`) ?? '' };
+          }).filter((l) => l.url) }
+        : {}),
       portrait,
       initials: str(p.initials ?? '', `${at}.initials`, 4),
     };

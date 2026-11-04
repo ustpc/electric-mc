@@ -90,13 +90,20 @@ contact links and headshots of the section's editors) is not part of the
 extension. You load it from a file, and it is kept in `chrome.storage.local`
 in that browser only, like the AE counts. Clear all data removes both.
 
+**The team database** (extension 0.0.53). The Matrix window, the AE menu
+and Suggested AEs read one record of the editorial team: names, MC account
+email addresses, roles, sections and columns, affiliations, expertise,
+notes, links and photos. You build it in the extension or load it from a
+file; the extension ships with none. It is kept in `chrome.storage.local` in
+that browser only, and uploaded photos are shrunk to 256 pixels first.
+Clear all data removes it.
+
 **The AE assignment menu's config** (extension 0.0.51). The extension can
 regroup, relabel and color MC's Assign Associate Editor pull-down by a
-config you keep in `chrome.storage.local` in that browser only. The config
-can hold a table of editors (names, sections and email addresses) that you
-type, paste or load from a file; the copy shipped with the extension has an
-empty table. It changes how the options are labeled, ordered and drawn,
-never what MC submits. A shared store on the notes server is planned but not
+config you keep in `chrome.storage.local` in that browser only. It names
+editors only if you type names into it; otherwise it draws on the team
+database. It changes how the options are labeled, ordered and drawn, never
+what MC submits. A shared store on the notes server is planned but not
 built, so nothing about it leaves the browser. Clear all data removes it.
 
 **Suggested AEs** (extension 0.0.43). On a manuscript page, the side panel
@@ -305,3 +312,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-28 | Suggested AEs: the manuscript is embedded on-device and not stored; AE profiles are built locally from public OpenAlex and DBLP data and kept in local storage only; Clear all data removes them (extension 0.0.43). |
 | 2026-11-03 | Split the planned note-access rules into their own section 5.2, after the current notes behavior in 5.1, and said that people whose assignment ended keep the notes they could see up to then, including those from before they were assigned. |
 | 2026-11-04 | The AE assignment menu's config, which can hold a table of editors' names, sections and emails, kept in local storage only (a server store is planned, not built); Clear all data removes it (extension 0.0.51). |
+| 2026-11-04 | The team database (names, MC emails, roles, links, photos) replaces the loaded roster and the AE menu's people table; local storage only; Clear all data removes it (extension 0.0.53). |

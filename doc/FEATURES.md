@@ -55,14 +55,19 @@ pitch to associate editors.
   how many manuscripts they have right now, as MC's Assign Associate Editor
   pull-down reports it. Search by name, column or expertise. 
   
+- **One team database, with its tree (now).** The EIC and Deputy EIC,
+  co-chairs, sections with their heads and AEs, and columns with their
+  columnists, shown as a tree of pills above the matrix and edited in its
+  own window. Every person's details, links and photo are editable, and
+  the matrix, the AE menu and Suggested AEs all use the same record.
 - **An AE menu you can read (now).** MC's Assign Associate Editor
   pull-down is one long alphabetical list of "Last, First". Electric MC
   regroups it under dividers (for the Opinions co-chair: column heads, then
-  Opinions AEs, then everyone else), relabels people from your own table
-  ("Example Column - Pat Editor" instead of "Editor, Pat"), and gives each
+  Opinions AEs, then everyone else), relabels people with their sections from the team
+  database ("Example Column - Pat Editor" instead of "Editor, Pat"), and gives each
   group its own color, weight and font, using Chrome's new customizable
-  select. What MC submits doesn't change. The table and layout are edited in
-  the extension's own editor window and saved as a file; no Python needed.
+  select. What MC submits doesn't change. The layout is edited in the
+  extension's own editor window and saved as a file; no Python needed.
   Shared configs on the server, which the admin publishes and everyone can
   download, are coming.
 - **Suggested AEs for each manuscript (in development).** Open a manuscript and the

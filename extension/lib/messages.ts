@@ -160,6 +160,8 @@ export const KEY = {
   lastPrune: 'lastPrune',
   /** AE workloads read from MC's assignment pull-down, by journal (lib/aeload.ts). */
   aeLoad: 'aeLoad',
+  /** The editorial team database (lib/team.ts); the roster below is derived from it. */
+  team: 'team',
   /** The Opinions roster the person loaded for the matrix (lib/roster.ts). */
   roster: 'roster',
   /** MC roles seen, per site (lib/roles.ts). */

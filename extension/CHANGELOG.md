@@ -2,6 +2,13 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.53 (2026-11-04)
+
+- **One team database** drives the Matrix, the AE menu and Suggested AEs. It holds the EIC and Deputy EIC, the co-chairs, sections with their heads and AEs (an AE can be in several sections, or none), and columns with their columnists (a column inside a section reports to its heads; one outside reports to the co-chairs as a group). Each person has one MC account email (shared accounts are marked), affiliations, expertise, notes, any number of labeled links, and a photo. It's kept in this browser's local storage; Clear all data removes it.
+- **Team window** (Matrix > Edit hierarchy…, or Settings): the team as a tree of pills, editable. Add and remove leaders, sections, heads, AEs, columns and columnists; move a column between sections; load and save the team as a JSON file (an older roster.json is converted).
+- **Matrix**: the tree of pills at the top (with each editor's current count), "+ person", and clicking a name opens that person's form: every field, a + for more links, and photo upload (shrunk to 256px).
+- **AE menu**: the people table is gone from the AE menu config; groups take parts of the team (EIC and co-chairs, section heads, AEs, columnists), optionally only some sections, and labels show all of a person's sections ("Education / Privacy - Pat Editor"). Older configs still load.
+
 ## 0.0.52 (2026-11-04)
 
 - An **AE menu** button at the top of the side panel opens the editor. Choosing an AE menu config in the Matrix window's Load roster… loads it as the AE menu config and opens the editor, instead of failing.

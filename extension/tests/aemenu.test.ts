@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
-// The AE-assignment menu regrouping (lib/aemenu.ts), on a synthetic MC
-// pull-down with made-up editors. Checks the order, the dividers, the styles,
-// that values and the selection survive, that a second run changes nothing,
-// and that clearing puts MC's menu back exactly.
+// The AE-assignment menu (lib/aemenu.ts), on a synthetic MC pull-down and a
+// synthetic team (lib/team.ts) with made-up editors. Checks the order, the
+// dividers, the labels and styles, that values, the selection and the load
+// counts survive, that a second run changes nothing, and that clearing puts
+// MC's menu back exactly.
 import { describe, expect, it } from 'vitest';
-import { applyAeMenu, clearAeMenu, defaultAeMenu, groupCounts, labelFor, parseAeMenu, parsePeopleTable, sameName, unmatchedPeople, type AeMenuConfig } from '../lib/aemenu';
+import { applyAeMenu, clearAeMenu, defaultAeMenu, groupCounts, labelFor, parseAeMenu, sameName, type AeMenuConfig } from '../lib/aemenu';
 import { readAeLoad } from '../lib/aeload';
+import { emptyTeam, type Team, type TeamPerson } from '../lib/team';
 import shipped from '../config/ae-menu.json';
-import type { Roster, RosterPerson } from '../lib/roster';
 
 const EDITORS: Array<[string, string]> = [
   ['101', 'Adams, Alex (2)'],
@@ -27,33 +28,31 @@ function page(selected = '104'): HTMLSelectElement {
   return document.getElementById('ae') as HTMLSelectElement;
 }
 
-const person = (id: string, name: string, group: RosterPerson['group']): RosterPerson => ({
-  id, name, group, roles: [], assignable: true, coheads: [], affiliations: [], expertise: '', initials: '',
-});
+const person = (id: string, given: string, family: string, more: Partial<TeamPerson> = {}): TeamPerson => ({ id, given, family, affiliations: [], expertise: '', links: [], ...more });
 
-const roster: Roster = {
-  format: 'electric-mc-roster',
-  version: 1,
-  section: 'Test Section',
-  researchedOn: '2026-01-01',
-  exportedAt: '2026-01-01',
-  people: [
-    person('p1', 'Casey Chen', 'column_heads'),
-    person('p2', 'Finley Ford', 'column_heads'),
-    person('p3', 'Blair Brown', 'associate_editors'),
-    person('p4', 'Emery Evans', 'associate_editors'),
+// Adams co-chairs; Chen heads Example Column, Ford heads Another Column and
+// is an AE in Example Column; Brown is an AE in Example Column; Evans is an
+// AE in no section; Diaz isn't on the team.
+const team: Team = {
+  ...emptyTeam('Test'),
+  people: [person('p0', 'Alex', 'Adams'), person('p1', 'Casey', 'Chen'), person('p2', 'Finley', 'Ford'), person('p3', 'Blair', 'Brown', { ae: true }), person('p4', 'Emery', 'Evans', { ae: true })],
+  leaders: [{ person: 'p0', role: 'co-chair' }],
+  sections: [
+    { id: 's1', name: 'Example Column', heads: ['p1'], aes: ['p3', 'p2'] },
+    { id: 's2', name: 'Another Column', heads: ['p2'], aes: [] },
   ],
 };
 
+const plain = (): AeMenuConfig => ({ ...defaultAeMenu(), label: '' });
 const texts = (s: HTMLSelectElement) => Array.from(s.options).map((o) => o.text);
 const shape = (s: HTMLSelectElement) =>
   Array.from(s.children).map((c) => (c.tagName === 'OPTGROUP' ? `[${(c as HTMLOptGroupElement).label}] ${Array.from(c.children).map((o) => (o as HTMLOptionElement).value).join(',')}` : (c as HTMLOptionElement).value || '(placeholder)'));
 
 describe('AE menu', () => {
-  it('groups column heads, then section AEs, then everyone else, under dividers', () => {
+  it('groups section heads, then AEs, then everyone else, under dividers', () => {
     const s = page();
-    expect(applyAeMenu(document, defaultAeMenu(), roster)).toBe(true);
-    expect(shape(s)).toEqual(['(placeholder)', '[Column heads] 103,106', '[Opinions AEs] 102,105', '[Other AEs] 101,104']);
+    expect(applyAeMenu(document, plain(), team)).toBe(true);
+    expect(shape(s)).toEqual(['(placeholder)', '[Section heads] 103,106', '[Opinions AEs] 102,105', '[Other AEs] 101,104']);
     // Values, text and the selection are MC's.
     expect(s.value).toBe('104');
     expect(texts(s).slice(1).sort()).toEqual(EDITORS.map(([, t]) => t).sort());
@@ -63,16 +62,28 @@ describe('AE menu', () => {
     expect(document.getElementById('emc-aemenu-style')!.textContent).toContain('appearance: base-select');
   });
 
-  it('changes nothing the second time, so the page observer cannot loop', () => {
-    const s = page();
-    applyAeMenu(document, defaultAeMenu(), roster);
+  it('labels team members with all their sections, keeps MC\'s count, and still reads MC\'s names and counts', () => {
+    const s = page('106');
+    applyAeMenu(document, defaultAeMenu(), team);
+    const text = (v: string) => s.querySelector<HTMLOptionElement>(`option[value="${v}"]`)!.text;
+    expect(text('103')).toBe('Example Column - Casey Chen (5)');
+    expect(text('106')).toBe('Another Column / Example Column - Finley Ford (4)');
+    expect(text('101')).toBe('Co-Chair - Alex Adams (2)');
+    expect(text('105')).toBe('Emery Evans (3)');
+    expect(text('104')).toBe('Diaz, Drew (1)');
+    expect(s.value).toBe('106');
+    expect(readAeLoad(document)!.find((e) => e.name === 'Chen, Casey')?.count).toBe(5);
+    // Idempotent with labels too.
     const seen: MutationRecord[] = [];
     const ob = new MutationObserver((r) => seen.push(...r));
-    ob.observe(s, { childList: true, subtree: true });
-    applyAeMenu(document, defaultAeMenu(), roster);
+    ob.observe(s, { childList: true, subtree: true, characterData: true });
+    applyAeMenu(document, defaultAeMenu(), team);
     seen.push(...ob.takeRecords());
     ob.disconnect();
     expect(seen).toHaveLength(0);
+    clearAeMenu(document);
+    expect(texts(s)).toEqual(['Select...', ...EDITORS.map(([, t]) => t)]);
+    expect(s.querySelector('[data-emc-text]')).toBeNull();
   });
 
   it('puts MC\'s menu back as it was, selection included', () => {
@@ -81,7 +92,7 @@ describe('AE menu', () => {
     // Only the whitespace between MC's options may move.
     const html = () => s.outerHTML.replace(/>\s+</g, '><');
     const before = html();
-    applyAeMenu(document, { ...defaultAeMenu(), fontSize: 15 }, roster);
+    applyAeMenu(document, { ...defaultAeMenu(), fontSize: 15 }, team);
     expect(s.style.fontSize).toBe('15px');
     clearAeMenu(document);
     expect(html()).toBe(before);
@@ -89,15 +100,20 @@ describe('AE menu', () => {
     expect(document.getElementById('emc-aemenu-style')).toBeNull();
   });
 
-  it('lets typed names win over roster sections, and sorts by load', () => {
+  it('takes some sections only, lets typed names win, and sorts by load', () => {
     const s = page();
-    const c: AeMenuConfig = { ...defaultAeMenu(), sort: 'load', groups: [{ label: 'Mine', names: ['Alex Adams', 'Ford, F.'] }, ...defaultAeMenu().groups] };
-    applyAeMenu(document, c, roster);
-    expect(shape(s)).toEqual(['(placeholder)', '[Mine] 101,106', '[Column heads] 103', '[Opinions AEs] 102,105', '[Other AEs] 104']);
-    expect(groupCounts(EDITORS.map(([, t]) => t.replace(/ \(\d+\)$/, '')), c, roster)).toEqual([2, 1, 2, 1]);
+    const base = plain();
+    const c: AeMenuConfig = {
+      ...base,
+      sort: 'load',
+      groups: [{ label: 'Mine', names: ['Drew Diaz'] }, { label: 'Leaders', take: ['leaders'] }, { label: 'Another', take: ['heads', 'aes'], sections: ['another column'] }, ...base.groups],
+    };
+    applyAeMenu(document, c, team);
+    expect(shape(s)).toEqual(['(placeholder)', '[Mine] 104', '[Leaders] 101', '[Another] 106', '[Section heads] 103', '[Opinions AEs] 102,105']);
+    expect(groupCounts(EDITORS.map(([, t]) => t.replace(/ \(\d+\)$/, '')), c, team)).toEqual([1, 1, 1, 1, 2, 0]);
   });
 
-  it('keeps one plain list when no group matches anyone', () => {
+  it('keeps one plain list without a team', () => {
     const s = page();
     applyAeMenu(document, defaultAeMenu(), null);
     expect(s.querySelector('optgroup')).toBeNull();
@@ -111,73 +127,23 @@ describe('AE menu', () => {
     og.appendChild(s.options[1]!);
     s.appendChild(og);
     const before = s.outerHTML;
-    expect(applyAeMenu(document, defaultAeMenu(), roster)).toBe(false);
+    expect(applyAeMenu(document, defaultAeMenu(), team)).toBe(false);
     expect(s.outerHTML).toBe(before);
   });
 
-  it('checks configs before using them', () => {
+  it('ships a config that names no one, and reads configs from before the team database', () => {
+    expect(JSON.stringify(shipped)).not.toMatch(/"names":\s*\[\s*"/);
     expect(parseAeMenu(JSON.parse(JSON.stringify(defaultAeMenu())))).toEqual(defaultAeMenu());
+    const old = parseAeMenu({ ...defaultAeMenu(), groups: [{ label: 'A', fromTable: true, rosterGroup: 'column_heads' }, { label: 'B', rosterGroup: 'associate_editors' }] });
+    expect(old.groups.map((g) => g.take)).toEqual([['heads'], ['aes']]);
+  });
+
+  it('checks configs before using them', () => {
     expect(() => parseAeMenu({ format: 'nope' })).toThrow(/not an Electric MC AE menu/);
     expect(() => parseAeMenu({ ...defaultAeMenu(), groups: [{ label: 'X', color: 'red; background: url(x)' }] })).toThrow(/color/);
-    expect(() => parseAeMenu({ ...defaultAeMenu(), groups: [{ label: 'X', rosterGroup: 'everyone' }] })).toThrow(/rosterGroup/);
+    expect(() => parseAeMenu({ ...defaultAeMenu(), groups: [{ label: 'X', take: ['everyone'] }] })).toThrow(/take/);
     expect(() => parseAeMenu({ ...defaultAeMenu(), fontSize: 99 })).toThrow(/fontSize/);
     expect(() => parseAeMenu({ ...defaultAeMenu(), fontFamily: 'x}{' })).toThrow(/fontFamily/);
-  });
-
-  it('matches names written either way', () => {
-    expect(sameName('Editor, Pat', 'Pat Editor')).toBe(true);
-    expect(sameName('Editor, P.', 'Pat Editor')).toBe(true);
-    expect(sameName('Editor, Pat', 'Robin Editor')).toBe(false);
-    expect(sameName('Editor, Pat', 'Pat Reviewer')).toBe(false);
-  });
-
-  it('ships a blank table', () => {
-    expect(shipped.people).toEqual([]);
-    expect(defaultAeMenu().people).toEqual([]);
-  });
-
-  it('relabels table people, keeps MC\'s count, and still reads MC\'s names and counts', () => {
-    const s = page('103');
-    const c: AeMenuConfig = {
-      ...defaultAeMenu(),
-      people: [
-        { given: 'Casey', family: 'Chen', section: 'Example Column' },
-        { given: 'Drew', family: 'Diaz', section: 'Another Column', email: 'drew@example.org' },
-      ],
-    };
-    applyAeMenu(document, c, roster);
-    // Both table people are column heads now, ahead of the roster's.
-    expect(shape(s)).toEqual(['(placeholder)', '[Column heads] 103,104,106', '[Opinions AEs] 102,105', '[Other AEs] 101']);
-    expect(s.querySelector<HTMLOptionElement>('option[value="103"]')!.text).toBe('Example Column - Casey Chen (5)');
-    expect(s.querySelector<HTMLOptionElement>('option[value="106"]')!.text).toBe('Ford, Finley (4)');
-    expect(s.value).toBe('103');
-    expect(readAeLoad(document)!.find((e) => e.name === 'Chen, Casey')?.count).toBe(5);
-    // Idempotent with labels too.
-    const seen: MutationRecord[] = [];
-    const ob = new MutationObserver((r) => seen.push(...r));
-    ob.observe(s, { childList: true, subtree: true, characterData: true });
-    applyAeMenu(document, c, roster);
-    seen.push(...ob.takeRecords());
-    ob.disconnect();
-    expect(seen).toHaveLength(0);
-    clearAeMenu(document);
-    expect(texts(s)).toEqual(['Select...', ...EDITORS.map(([, t]) => t)]);
-    expect(s.querySelector('[data-emc-text]')).toBeNull();
-  });
-
-  it('can take only some table sections into a group', () => {
-    const s = page();
-    const base = defaultAeMenu();
-    const c: AeMenuConfig = {
-      ...base,
-      label: '',
-      people: [{ given: 'Alex', family: 'Adams', section: 'Co-Chair' }, { given: 'Drew', family: 'Diaz', section: 'Privacy' }],
-      groups: [{ label: 'Chairs', fromTable: ['co-chair'] }, ...base.groups],
-    };
-    applyAeMenu(document, c, null);
-    // Diaz is in the table, so "Column heads" (everyone in the table) takes them.
-    expect(shape(s)).toEqual(['(placeholder)', '[Chairs] 101', '[Column heads] 104', '[Other AEs] 102,103,105,106']);
-    expect(s.querySelector<HTMLOptionElement>('option[value="101"]')!.text).toBe('Adams, Alex (2)');
   });
 
   it('fills labels and drops a separator a blank section would leave', () => {
@@ -187,25 +153,13 @@ describe('AE menu', () => {
     expect(labelFor(p, 'Editor, Pat', '{mc} [{nope}]')).toBe('Editor, Pat [{nope}]');
   });
 
-  it('reads pasted spreadsheet rows', () => {
-    const rows = parsePeopleTable('First (Given) Name\tLast (Family) Name\tSection\tEmail Address\nPat\tEditor\tExample Column\tpat@example.org\nRobin\tVan Reviewer\tOther\t\n\nbad-line\n');
-    expect(rows).toEqual([
-      { given: 'Pat', family: 'Editor', section: 'Example Column', email: 'pat@example.org' },
-      { given: 'Robin', family: 'Van Reviewer', section: 'Other' },
-    ]);
-    expect(parsePeopleTable('Pat, Editor, Example')).toEqual([{ given: 'Pat', family: 'Editor', section: 'Example' }]);
-  });
-
-  it('matches multi-word and accented names, and lists table people MC lacks', () => {
+  it('matches names written either way', () => {
+    expect(sameName('Editor, Pat', 'Pat Editor')).toBe(true);
+    expect(sameName('Editor, P.', 'Pat Editor')).toBe(true);
+    expect(sameName('Editor, Pat', 'Robin Editor')).toBe(false);
+    expect(sameName('Editor, Pat', 'Pat Reviewer')).toBe(false);
     expect(sameName('Van Reviewer, Robin', 'Robin Van Reviewer')).toBe(true);
     expect(sameName('Editor, Benjamin', 'Editor, R. Benjamin')).toBe(true);
     expect(sameName('Éditeur, Anne-Cécile', 'Editeur, Anne')).toBe(true);
-    const people = [{ given: 'Pat', family: 'Editor', section: '' }, { given: 'Sam', family: 'Missing', section: '' }];
-    expect(unmatchedPeople(['Editor, Pat'], people)).toEqual([people[1]]);
-  });
-
-  it('rejects bad table rows', () => {
-    expect(() => parseAeMenu({ ...defaultAeMenu(), people: [{ given: '', family: 'X', section: '' }] })).toThrow(/given/);
-    expect(() => parseAeMenu({ ...defaultAeMenu(), people: [{ given: 'A', family: 'B', section: '', email: 'nope' }] })).toThrow(/email/);
   });
 });

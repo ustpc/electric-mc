@@ -1,16 +1,23 @@
-// The Opinions editorial matrix, in its own window. One row per person in
-// four sections, from the roster the person loaded (lib/roster.ts), with each
-// editor's current assignment count read from MC's AE pull-down
-// (lib/aeload.ts). Nothing here leaves the browser.
+// The Opinions editorial matrix, in its own window. At the top, the team's
+// tree of pills (components/TeamTree.tsx); below, one row per person in four
+// sections, from the team database (lib/team.ts, through the roster derived
+// from it), with each editor's current assignment count read from MC's AE
+// pull-down (lib/aeload.ts). The matrix is for viewing: a person's name opens
+// their details form, + adds a person, and the hierarchy is edited in the
+// team window. Nothing here leaves the browser.
 
 import { render, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { AeLoad } from '../../lib/aeload';
 import { assignedLabel, joinLoads, latestJournal } from '../../lib/matrix';
 import { KEY } from '../../lib/messages';
-import { GROUPS, fold, matchesSearch, parseRoster, type Roster, type RosterPerson } from '../../lib/roster';
+import { GROUPS, fold, matchesSearch, type Roster, type RosterPerson } from '../../lib/roster';
 import { parseAeMenu, type AeMenuStore } from '../../lib/aemenu';
-import { openAeMenuEditor } from '../sidepanel/AeMenuSettings';
+import { openAeMenuEditor, openTeamEditor } from '../../lib/windows';
+import { newId, teamFromRoster, type Team, type TeamPerson } from '../../lib/team';
+import { currentTeam, storeTeam, teamFromFile } from '../../lib/teamStore';
+import { TeamTree } from '../../components/TeamTree';
+import { PersonForm } from '../../components/PersonForm';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -59,6 +66,8 @@ function App() {
   const [journal, setJournal] = useState<string | undefined>();
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const stored = useLocal<Team | null>(KEY.team, null);
+  const [editing, setEditing] = useState<{ person: TeamPerson; isNew: boolean } | null>(null);
 
   const journals = Object.keys(loads);
   const shown = journal && loads[journal] ? journal : latestJournal(loads);
@@ -80,12 +89,26 @@ function App() {
         await openAeMenuEditor();
         return;
       }
-      const r = parseRoster(json);
-      await chrome.storage.local.set({ [KEY.roster]: r });
+      await storeTeam(teamFromFile(json));
       setError(null);
     } catch (e) {
       setError(`Couldn't load ${file.name}: ${(e as Error).message}`);
     }
+  };
+
+  const team = useMemo(() => stored ?? (roster ? teamFromRoster(roster) : null), [stored, roster]);
+  const editPerson = async (id: string) => {
+    const t = await currentTeam();
+    const p = t.people.find((x) => x.id === id);
+    if (p) setEditing({ person: p, isNew: false });
+  };
+  const savePerson = async (p: TeamPerson) => {
+    const t = await currentTeam();
+    const isNew = editing?.isNew;
+    const next = { ...p, id: isNew ? newId('p', `${p.given} ${p.family}`, t.people.map((x) => x.id)) : p.id };
+    await storeTeam({ ...t, people: isNew ? [...t.people, next] : t.people.map((x) => (x.id === next.id ? next : x)) });
+    setEditing(null);
+    if (isNew) setError(`${next.given} ${next.family} is added. Place them on the tree with Edit hierarchy.`);
   };
 
   const countOf = (p: RosterPerson) => joined.counts.get(p.id);
@@ -112,7 +135,9 @@ function App() {
             </select>
           </label>
         )}
-        <label class="file">{roster ? 'Load a newer roster…' : 'Load roster…'}<input type="file" accept=".json,application/json" onChange={(e) => void loadFile((e.target as HTMLInputElement).files?.[0])} /></label>
+        <button onClick={() => setEditing({ person: { id: '', given: '', family: '', affiliations: [], expertise: '', links: [] }, isNew: true })} title="Add a person to the team">+ person</button>
+        <button onClick={() => void openTeamEditor()}>Edit hierarchy…</button>
+        <label class="file">{roster ? 'Load a team file…' : 'Load team or roster…'}<input type="file" accept=".json,application/json" onChange={(e) => void loadFile((e.target as HTMLInputElement).files?.[0])} /></label>
       </div>
       <p class="loads">
         {load
@@ -122,8 +147,15 @@ function App() {
       {error && <p class="error">{error}</p>}
       {!roster && (
         <div class="intro">
-          <p>Load the Opinions roster to see the full matrix. Press <b>Load roster…</b> and choose your <code>roster.json</code>. The roster stays in this browser only.</p>
+          <p>Load your team to see the full matrix: press <b>Load team or roster…</b> and choose a team file (or an older <code>roster.json</code>), or press <b>Edit hierarchy…</b> to build one. It stays in this browser only.</p>
         </div>
+      )}
+      {team && team.people.length > 0 && (
+        <TeamTree
+          team={team}
+          onPerson={(id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          extra={(id) => { const n = joined.counts.get(id); return n !== undefined ? <span class="load">{n}</span> : null; }}
+        />
       )}
       {roster && GROUPS.map((g) => {
         const members = people.filter((p) => p.group === g.id);
@@ -148,11 +180,12 @@ function App() {
                         <div class="identity">
                           {p.portrait ? <img class="portrait" src={p.portrait} alt={`Portrait of ${p.name}`} width={48} height={48} loading="lazy" /> : <div class="placeholder" aria-hidden="true">{p.initials}</div>}
                           <div>
-                            <p class="person-name">{hl(p.name, words)}{badge(p)}</p>
+                            <p class="person-name"><a class="edit-name" href="#" title="Edit their details" onClick={(e) => { e.preventDefault(); void editPerson(p.id); }}>{hl(p.name, words)}</a>{badge(p)}</p>
                             <div class="links">
                               {p.homepage && <a href={p.homepage} target="_blank" rel="noopener">Homepage</a>}
                               {p.acmDl && <a href={p.acmDl} target="_blank" rel="noopener">ACM DL</a>}
                               {p.linkedin && <a href={p.linkedin} target="_blank" rel="noopener">LinkedIn</a>}
+                              {(p.links ?? []).filter((l) => ![p.homepage, p.acmDl, p.linkedin].includes(l.url)).map((l) => <a href={l.url} target="_blank" rel="noopener">{l.label}</a>)}
                               {p.email && <a href={`mailto:${p.email}`} title={p.email}>Email</a>}
                             </div>
                           </div>
@@ -198,9 +231,12 @@ function App() {
       )}
       {roster && (
         <p class="muted">
-          Roster exported {roster.exportedAt ? when(roster.exportedAt) : 'at an unknown time'}.{' '}
+          Team updated {roster.exportedAt ? when(roster.exportedAt) : 'at an unknown time'}.{' '}
           {roster.mastheadSource && <a href={roster.mastheadSource} target="_blank" rel="noopener">Official CACM masthead</a>}
         </p>
+      )}
+      {editing && (
+        <PersonForm person={editing.person} isNew={editing.isNew} onClose={() => setEditing(null)} onSave={savePerson} />
       )}
     </div>
   );

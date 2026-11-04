@@ -1,4 +1,4 @@
-# AE menu config: local now, DynamoDB later
+# AE menu config and team database: local now, DynamoDB later
 
 Extension 0.0.51 groups, relabels and colors MC's Assign Associate Editor
 pull-down by a config (`extension/lib/aemenu.ts`). This note records how
@@ -98,3 +98,18 @@ or their own copy. "Copy the server's config here" copies it into
 emails. Editor names are already on the server as note authors, and only
 registered keys can read configs. The editor should still warn before the
 admin uploads a config with emails, and offer to leave them out.
+
+## Update (0.0.53): the team database
+
+The people table moved out of the AE menu config into the team database
+(`extension/lib/team.ts`, stored under `team`; the older `roster` is derived
+from it). AE menu groups now say which parts of the team they take
+(`take`: `leaders`, `heads`, `aes`, `columnists`, with optional `sections`),
+and `{section}` in a label is all of a person's sections. Configs written
+before this still load: `rosterGroup` and `fromTable` become `take`.
+
+The server store should hold team files the same way as AE menu configs:
+`sk = "team#<name>"`, the same list and get for any registered key, and the
+same owner-only put and delete. Photos make a team file large (about 15 KB
+per person when uploaded here); if it grows past DynamoDB's 400 KB item
+limit, keep photos in S3 and store only their keys in the item.

@@ -7,10 +7,9 @@
   "fontFamily": "",
   "sort": "mc",
   "label": "{section} - {given} {family}",
-  "people": [],
   "groups": [
-    { "label": "Column heads", "fromTable": true, "rosterGroup": "column_heads", "color": "#7a3e00", "bold": true, "names": [] },
-    { "label": "Opinions AEs", "rosterGroup": "associate_editors", "color": "#1d4ed8", "bold": false, "names": [] }
+    { "label": "Section heads", "take": ["heads"], "color": "#7a3e00", "bold": true },
+    { "label": "Opinions AEs", "take": ["aes"], "color": "#1d4ed8", "bold": false }
   ],
   "rest": { "label": "Other AEs", "color": "#6b7280", "italic": false }
 }

@@ -1,12 +1,12 @@
-// The AE menu config editor, in its own window (opened from the side panel's
-// Settings). It edits this browser's config (lib/aemenu.ts): the table of
-// people and how they're labeled, the groups and their styles, and the
-// menu's font and order. It loads and saves the config as a JSON file,
-// starts over from the blank config shipped with the extension, previews
-// the result on a copy of the last AE pull-down MC showed, and has the
-// planned server store's buttons (list, download, and for the admin save
-// and delete), which say they aren't built yet. Nothing here leaves the
-// browser.
+// The AE menu config editor, in its own window (opened from the side panel).
+// It edits this browser's AE menu config (lib/aemenu.ts): which parts of the
+// team database (lib/team.ts) each group takes, the dividers and their
+// styles, how people are labeled, and the menu's font and order. People and
+// the hierarchy are edited in the team window, not here. It loads and saves
+// the config as a JSON file, starts over from the config shipped with the
+// extension, previews the result on a copy of the last AE pull-down MC
+// showed, and has the planned server store's buttons (list, download, and
+// for the admin save and delete), which say they aren't built yet.
 
 import { render } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -19,19 +19,18 @@ import {
   labelFor,
   listServerConfigs,
   parseAeMenu,
-  parsePeopleTable,
-  personFor,
+  TEAM_PARTS,
   saveServerConfig,
   type AeMenuConfig,
   type AeMenuGroup,
   type AeMenuStore,
-  type AePerson,
   type ServerConfigInfo,
 } from '../../lib/aemenu';
 import type { AeLoad } from '../../lib/aeload';
 import { latestJournal } from '../../lib/matrix';
 import { KEY, getSettings } from '../../lib/messages';
-import { GROUPS, type Roster } from '../../lib/roster';
+import { placementOf, sectionLabel, unassignedAes, type Team } from '../../lib/team';
+import { openTeamEditor } from '../../lib/windows';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -60,11 +59,10 @@ function App() {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('');
-  const [paste, setPaste] = useState('');
   const [json, setJson] = useState<string | null>(null);
   const [server, setServer] = useState('');
   const [list, setList] = useState<ServerConfigInfo[] | null>(null);
-  const roster = useLocal<Roster | null>(KEY.roster, null);
+  const team = useLocal<Team | null>(KEY.team, null);
   const loads = useLocal<Record<string, AeLoad>>(KEY.aeLoad, {});
 
   const reload = async () => {
@@ -142,16 +140,6 @@ function App() {
     say('Started from the blank config. Save to use it.');
   };
 
-  // ---- Table ----
-  const setPerson = (i: number, p: Partial<AePerson>) => edit((c) => ({ ...c, people: c.people.map((x, j) => (j === i ? { ...x, ...p } : x)) }));
-  const addPasted = (replace: boolean) => {
-    const rows = parsePeopleTable(paste);
-    if (!rows.length) return setError('No rows found. Paste one person per line: given name, family name, section, email (tabs or commas).');
-    edit((c) => ({ ...c, people: replace ? rows : [...c.people, ...rows] }));
-    setPaste('');
-    say(`${replace ? 'Replaced the table with' : 'Added'} ${rows.length} people.`);
-  };
-
   // ---- Groups ----
   const setGroup = (i: number, g: Partial<AeMenuGroup>) => edit((c) => ({ ...c, groups: c.groups.map((x, j) => (j === i ? { ...x, ...g } : x)) }));
   const moveGroup = (i: number, d: number) =>
@@ -173,8 +161,7 @@ function App() {
       return e as Error;
     }
   }, [draft]);
-  const counts = !(valid instanceof Error) && names.length ? groupCounts(names, valid, roster) : null;
-  const inMc = (p: AePerson) => names.filter((n) => personFor(n, [p]) === p).length;
+  const counts = !(valid instanceof Error) && names.length ? groupCounts(names, valid, team) : null;
 
   const previewRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -191,8 +178,8 @@ function App() {
     entries.forEach((e, i) => select.add(new Option(`${e.name} (${e.count})`, String(i))));
     row.insertCell().appendChild(select);
     box.appendChild(table);
-    applyAeMenu(document, valid, roster);
-  }, [valid, roster, entries.length, journal]);
+    applyAeMenu(document, valid, team);
+  }, [valid, team, entries.length, journal]);
 
   // ---- Server (planned) ----
   const doServer = async (what: () => Promise<void>) => {
@@ -204,8 +191,9 @@ function App() {
   };
 
   if (!loaded) return <div class="wrap"><p class="muted">Loading…</p></div>;
-  const sections = [...new Set(draft.people.map((p) => p.section).filter(Boolean))];
-  const sample = draft.people[0];
+  const sections = (team?.sections ?? []).map((s) => s.name);
+  const samplePerson = team?.people.find((p) => placementOf(team, p.id).heads.length) ?? team?.people[0];
+  const sample = samplePerson && team ? { section: sectionLabel(team, samplePerson.id), given: samplePerson.given, family: samplePerson.family } : undefined;
 
   return (
     <div class="wrap">
@@ -227,65 +215,36 @@ function App() {
         <label><input type="checkbox" checked={draft.enabled} onChange={(e) => edit((c) => ({ ...c, enabled: checked(e) }))} /> Use it on MC pages</label>
       </div>
 
-      <h2>People ({draft.people.length})</h2>
-      <p class="muted">Everyone here can be relabeled and grouped by section. Names are matched to MC's "Family, Given" entries.{names.length ? ` Checked against the last pull-down seen (${names.length} editors).` : ' Open an Assign AE page once to check names against MC.'}</p>
-      <table>
-        <thead><tr><th>Given name</th><th>Family name</th><th>Section</th><th>Email</th><th>Shown as</th><th>In MC</th><th /></tr></thead>
-        <tbody>
-          {draft.people.map((p, i) => (
-            <tr key={i}>
-              <td><input value={p.given} onInput={(e) => setPerson(i, { given: val(e) })} /></td>
-              <td><input value={p.family} onInput={(e) => setPerson(i, { family: val(e) })} /></td>
-              <td><input value={p.section} list="sections" onInput={(e) => setPerson(i, { section: val(e) })} /></td>
-              <td><input value={p.email ?? ''} onInput={(e) => setPerson(i, { email: val(e) || undefined })} /></td>
-              <td class="muted">{draft.label ? labelFor(p, `${p.family}, ${p.given}`, draft.label) : '(MC\'s text)'}</td>
-              <td class="n">{names.length ? (inMc(p) === 1 ? '✓' : <span class="bad" title={inMc(p) ? 'More than one MC entry matches' : 'Not in the last pull-down seen'}>{inMc(p) ? 'twice' : 'no'}</span>) : ''}</td>
-              <td class="n"><button title="Remove" onClick={() => edit((c) => ({ ...c, people: c.people.filter((_, j) => j !== i) }))}>✕</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <datalist id="sections">{sections.map((s) => <option value={s} />)}</datalist>
-      <div class="row">
-        <button onClick={() => edit((c) => ({ ...c, people: [...c.people, { given: '', family: '', section: '' }] }))}>Add a person</button>
-        <button disabled={draft.people.length < 2} onClick={() => edit((c) => ({ ...c, people: [...c.people].sort((a, b) => a.section.localeCompare(b.section) || a.family.localeCompare(b.family)) }))}>Sort by section</button>
-      </div>
-      <p class="muted">Or paste rows from a spreadsheet: given name, family name, section, email, one person per line (a header row is skipped).</p>
-      <textarea value={paste} onInput={(e) => setPaste((e.target as HTMLTextAreaElement).value)} placeholder={'Pat\tEditor\tExample Column\tpat@example.org'} />
-      <div class="row">
-        <button disabled={!paste.trim()} onClick={() => addPasted(false)}>Add pasted rows</button>
-        <button disabled={!paste.trim()} onClick={() => addPasted(true)}>Replace the table with them</button>
-      </div>
+      <h2>People</h2>
+      <p class="muted">
+        {team ? <>The menu uses the team database ({team.people.length} people, {team.sections.length} sections{unassignedAes(team).length ? `, ${unassignedAes(team).length} AEs in no section` : ''}). </> : <>No team database yet, so only names typed into the JSON are grouped. </>}
+        <button onClick={() => void openTeamEditor()}>Edit the team…</button>
+      </p>
 
       <h2>Labels</h2>
       <div class="row">
-        <label style="flex:1">Show people in the table as{' '}
+        <label style="flex:1">Show people in the team as{' '}
           <input class="wide" value={draft.label} onInput={(e) => edit((c) => ({ ...c, label: val(e) }))} placeholder="(blank keeps MC's text)" />
         </label>
       </div>
-      <p class="muted">Use {'{section}'}, {'{given}'}, {'{family}'} and {'{mc}'} (MC's own name). MC's count stays at the end. {sample && draft.label ? <>Example: <b>{labelFor(sample, `${sample.family}, ${sample.given}`, draft.label)} (3)</b></> : ''}</p>
+      <p class="muted">Use {'{section}'} (all their sections, "Education / Privacy"), {'{given}'}, {'{family}'} and {'{mc}'} (MC's own name). MC's count stays at the end. {sample && draft.label ? <>Example: <b>{labelFor(sample, `${sample.family}, ${sample.given}`, draft.label)} (3)</b></> : ''}</p>
 
       <h2>Groups, in menu order</h2>
+      <datalist id="sections">{sections.map((s) => <option value={s} />)}</datalist>
       <table>
-        <thead><tr><th>Divider label</th><th>Table people</th><th>Roster section</th><th>Color</th><th>Bold</th><th>Italic</th><th>{counts ? 'In MC' : ''}</th><th /></tr></thead>
+        <thead><tr><th>Divider label</th><th>Takes</th><th>Only these sections</th><th>Color</th><th>Bold</th><th>Italic</th><th>{counts ? 'In MC' : ''}</th><th /></tr></thead>
         <tbody>
           {draft.groups.map((g, i) => (
             <tr key={i}>
               <td><input value={g.label} onInput={(e) => setGroup(i, { label: val(e) })} /></td>
               <td>
-                <select value={g.fromTable === true ? 'all' : Array.isArray(g.fromTable) ? 'some' : 'none'} onChange={(e) => setGroup(i, { fromTable: val(e) === 'all' ? true : val(e) === 'some' ? (sections.length ? [sections[0]!] : []) : undefined })}>
-                  <option value="none">none</option>
-                  <option value="all">everyone</option>
-                  <option value="some">these sections:</option>
-                </select>
-                {Array.isArray(g.fromTable) && <input value={g.fromTable.join(', ')} list="sections" placeholder="Privacy, Security" onInput={(e) => setGroup(i, { fromTable: val(e).split(',').map((s) => s.trim()).filter(Boolean) })} />}
+                {TEAM_PARTS.map((t) => (
+                  <label style="display:block;white-space:nowrap">
+                    <input type="checkbox" checked={!!g.take?.includes(t.id)} onChange={(e) => setGroup(i, { take: TEAM_PARTS.map((x) => x.id).filter((x) => (x === t.id ? checked(e) : !!g.take?.includes(x))) })} /> {t.title}
+                  </label>
+                ))}
               </td>
-              <td>
-                <select value={g.rosterGroup ?? ''} onChange={(e) => setGroup(i, { rosterGroup: (val(e) || undefined) as AeMenuGroup['rosterGroup'] })}>
-                  <option value="">none</option>
-                  {GROUPS.map((r) => <option value={r.id}>{r.title}</option>)}
-                </select>
-              </td>
+              <td><input value={(g.sections ?? []).join(', ')} list="sections" placeholder="every section" onInput={(e) => setGroup(i, { sections: val(e).split(',').map((s) => s.trim()).filter(Boolean) })} /></td>
               <td class="n"><input type="color" value={g.color && /^#[0-9a-f]{6}$/i.test(g.color) ? g.color : '#000000'} onInput={(e) => setGroup(i, { color: val(e) })} /></td>
               <td class="n"><input type="checkbox" checked={!!g.bold} onChange={(e) => setGroup(i, { bold: checked(e) })} /></td>
               <td class="n"><input type="checkbox" checked={!!g.italic} onChange={(e) => setGroup(i, { italic: checked(e) })} /></td>
@@ -309,9 +268,10 @@ function App() {
         </tbody>
       </table>
       <div class="row">
-        <button onClick={() => edit((c) => ({ ...c, groups: [...c.groups, { label: 'New group', names: [] }] }))}>Add a group</button>
-        <span class="muted">A person goes in the first group that claims them: names typed into the JSON first, then table sections, then roster sections.{!roster && draft.groups.some((g) => g.rosterGroup) ? ' No roster is loaded (Matrix window), so roster sections are empty.' : ''}</span>
+        <button onClick={() => edit((c) => ({ ...c, groups: [...c.groups, { label: 'New group', take: [] }] }))}>Add a group</button>
+        <span class="muted">A person goes in the first group that takes them; names typed into the JSON win.</span>
       </div>
+
 
       <h2>Menu</h2>
       <div class="row">

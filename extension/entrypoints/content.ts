@@ -20,7 +20,7 @@ import { watchRadioRows } from '../lib/radiorow';
 import { keepaliveDue, sendKeepalive } from '../lib/keepalive';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { activeAeMenu, applyAeMenu, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
-import type { Roster } from '../lib/roster';
+import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
 import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
@@ -53,12 +53,12 @@ async function start() {
   // Recommendations sent to the EIC, kept up to date from storage.
   let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
   // The AE-assignment menu's layout (lib/aemenu.ts) and the roster its groups draw on.
-  const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.roster]);
+  const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
   let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
-  let roster = (menuGot[KEY.roster] as Roster | undefined) ?? null;
+  let team = (menuGot[KEY.team] as Team | undefined) ?? null;
   const styleAeMenu = () => {
     const c = activeAeMenu(aeMenu);
-    if (c) applyAeMenu(document, c, roster);
+    if (c) applyAeMenu(document, c, team);
     else clearAeMenu(document);
   };
 
@@ -376,9 +376,9 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && (changes[KEY.aeMenu] || changes[KEY.roster])) {
+    if (area === 'local' && (changes[KEY.aeMenu] || changes[KEY.team])) {
       if (changes[KEY.aeMenu]) aeMenu = changes[KEY.aeMenu]!.newValue as AeMenuStore | undefined;
-      if (changes[KEY.roster]) roster = (changes[KEY.roster]!.newValue as Roster | undefined) ?? null;
+      if (changes[KEY.team]) team = (changes[KEY.team]!.newValue as Team | undefined) ?? null;
       if (enabled()) styleAeMenu();
       return;
     }
