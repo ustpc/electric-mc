@@ -122,7 +122,7 @@ function App() {
       {error && <p class="error">{error}</p>}
       {!roster && (
         <div class="intro">
-          <p>Load the Opinions roster to see the full matrix. In your electric-mc checkout, run <code>make roster</code> (it reads cacm-opn-dashboard's <code>team.yaml</code>), then press <b>Load roster…</b> and choose the <code>var/roster.json</code> it writes. The roster stays in this browser only.</p>
+          <p>Load the Opinions roster to see the full matrix. Press <b>Load roster…</b> and choose your <code>roster.json</code>. The roster stays in this browser only.</p>
         </div>
       )}
       {roster && GROUPS.map((g) => {

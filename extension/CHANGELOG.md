@@ -8,7 +8,7 @@ Newest first. Every version bump gets an entry here.
 - **AE menu editor**, in its own window (Settings > AE assignment menu > Edit…): edit the table, paste rows from a spreadsheet, set the label and groups, save to and load from a JSON file (loading saves it at once), start from the blank config shipped in `config/ae-menu.json`, and preview the result on a copy of the last pull-down MC showed. Rows MC's pull-down doesn't list are flagged.
 - Settings picks this browser's config or a downloaded server config, and copies the server's here for editing. The server store (list, download, admin save and delete, in DynamoDB, signed with the admin's key) is planned in `doc/planning/AE menu config.md`; its buttons say it isn't built yet. Configs stay in this browser's local storage; Clear all data removes them. No new permission. (0.0.49 and 0.0.50 are on open branches.)
 - An **AE menu** button at the top of the side panel opens the editor. Choosing an AE menu config in the Matrix window's Load roster… loads it as the AE menu config and opens the editor, instead of failing.
-- `make roster` writes `var/roster.json` from cacm-opn-dashboard's `data/team.yaml` (tools/roster-export); the `make export` the Matrix window mentioned never existed.
+- The Matrix window no longer tells people to run a `make export` that never existed; it just asks for a `roster.json`.
 
 ## 0.0.48 (2026-11-02)
 
