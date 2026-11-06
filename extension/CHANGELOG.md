@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.56 (2026-11-06)
+
+- Moving on to the next manuscript keeps you on the same task: if you were on Make Recommendation (or Make Immediate Decision, Make Decision, …), the next manuscript opens on that task too, when it has one. This works after a recommendation or decision and when you press MC's previous/next arrows. It follows the "go on to the next manuscript" setting.
+
 ## 0.0.55 (2026-11-06)
 
 - Going on to the next manuscript now also works after Commit Decision (a co-chair's immediate reject), not only after submitting a recommendation.

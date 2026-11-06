@@ -130,3 +130,60 @@ describe('after Submit', () => {
     expect(clicks).toEqual([]);
   });
 });
+
+describe('same task on the next manuscript', () => {
+  const PAGE = (task: string) => `${NAV(1, 3)}
+    <ul><li><a href="#" id="t-imm">Make Immediate Decision</a></li><li><a href="#" id="t-rec">Make Recommendation</a> (Due 25-Oct-2026)</li>
+    <li><a href="#" id="t-dec">Make Decision</a> (Due 13-Nov-2026)</li></ul>
+    <div class="tab">${task}</div><table><tr><td><b>Co-Chair ${task.replace('Make Immediate', 'Immediate')}</b></td></tr></table>
+    <div><b>Recommendations</b></div>`;
+
+  it('finds the task on screen, most specific first', async () => {
+    const { currentTask, taskName } = await import('../lib/advance');
+    expect(taskName('Make Recommendation (Due 25-Oct-2026)')).toBe('make recommendation');
+    expect(taskName('View Full Abstract')).toBeNull();
+    document.body.innerHTML = PAGE('Make Recommendation');
+    expect(currentTask(document)).toBe('make recommendation');
+    document.body.innerHTML = PAGE('Make Immediate Decision');
+    expect(currentTask(document)).toBe('make immediate decision');
+    document.body.innerHTML = NAV(1, 3) + '<a href="#">Make Recommendation</a><div>Manuscript Information</div>';
+    expect(currentTask(document)).toBeNull();
+  });
+
+  it('opens Make Recommendation on the next manuscript after an arrow press', async () => {
+    const { carryTask } = await import('../lib/advance');
+    document.body.innerHTML = PAGE('Make Recommendation');
+    const stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
+    track();
+    document.getElementById('next')!.click();
+    stop();
+    // The next manuscript opens on its default view.
+    document.body.innerHTML = NAV(2, 3) + '<ul><li><a href="#" id="t-imm">Make Immediate Decision</a></li><li><a href="#" id="t-rec">Make Recommendation</a></li></ul><div>Manuscript Information</div>';
+    track();
+    expect(carryTask(document, 'XYZJ-26-01-9101')).toBeNull(); // same manuscript: wait
+    expect(carryTask(document, 'XYZJ-26-01-9102')).toBe('make recommendation');
+    expect(clicks).toEqual(['t-rec']);
+    // Once per move.
+    expect(carryTask(document, 'XYZJ-26-01-9102')).toBeNull();
+  });
+
+  it('leaves a manuscript alone that already shows the task, or lacks it', async () => {
+    const { carryTask } = await import('../lib/advance');
+    document.body.innerHTML = PAGE('Make Recommendation');
+    let stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
+    document.getElementById('next')!.click();
+    stop();
+    document.body.innerHTML = PAGE('Make Recommendation');
+    track();
+    expect(carryTask(document, 'XYZJ-26-01-9102')).toBeNull();
+    expect(clicks).toEqual([]);
+    document.body.innerHTML = PAGE('Make Recommendation');
+    stop = watchRecommendations(document, () => 'XYZJ-26-01-9102', () => true);
+    document.getElementById('next')!.click();
+    stop();
+    document.body.innerHTML = NAV(3, 3) + '<a href="#" id="t-imm">Make Immediate Decision</a>';
+    track();
+    expect(carryTask(document, 'XYZJ-26-01-9103')).toBeNull();
+    expect(clicks).toEqual([]);
+  });
+});

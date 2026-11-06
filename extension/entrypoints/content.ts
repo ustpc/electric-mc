@@ -18,7 +18,7 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
-import { onPageLoad, watchRecommendations } from '../lib/advance';
+import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { activeAeMenu, applyAeMenu, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
@@ -104,6 +104,9 @@ async function start() {
       if (adv) {
         send({ type: 'log', level: 'info', event: 'auto-advance after recommendation', data: adv });
         if (adv.how === 'end') toast('E-MC: that was the last manuscript in this direction');
+      } else if (settings.autoAdvance) {
+        const task = carryTask(document, r.manuscript?.id);
+        if (task) send({ type: 'log', level: 'info', event: 'opened the same task on the next manuscript', data: { task } });
       }
     }
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {

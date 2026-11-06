@@ -15,6 +15,7 @@ const DIR_KEY = 'emc-nav-dir';
 const PENDING_KEY = 'emc-advance';
 const ORDER_KEY = 'emc-grid-order';
 const PENDING_MS = 3 * 60_000;
+const TASK_KEY = 'emc-carry-task';
 
 export type Dir = 1 | -1;
 
@@ -83,6 +84,81 @@ export function nextInGrid(current: string[], from: string, dir: Dir, before: st
   if (j < 0) return null;
   for (let k = j + dir; k >= 0 && k < before.length; k += dir) if (current.includes(before[k]!)) return before[k]!;
   return null;
+}
+
+/** A task link's name: "Make Recommendation (Due 25-Oct-2026)" is "make recommendation". */
+export function taskName(text: string): string | null {
+  const key = labelKey(text.replace(/\(due[^)]*\)/i, ''));
+  return /^(make|assign|invite|score)\b/.test(key) && key.length < 40 ? key : null;
+}
+
+/** The task links on a manuscript's page (MC's header list and tabs), by name. */
+export function taskLinks(doc: Document): Map<string, HTMLElement> {
+  const out = new Map<string, HTMLElement>();
+  for (const a of Array.from(doc.querySelectorAll<HTMLElement>('a'))) {
+    if (a.closest('[data-electric-mc]')) continue;
+    const name = taskName(textOf(a));
+    if (name && !out.has(name)) out.set(name, a);
+  }
+  return out;
+}
+
+/**
+ * The task on screen: a task whose name is a heading or tab that isn't a
+ * link ("Make Immediate Decision"), or ends one ("Co-Chair Make
+ * Recommendation"; "Co-Chair Immediate Decision" for Make Immediate
+ * Decision). The most specific match wins.
+ */
+export function currentTask(doc: Document): string | null {
+  const names = Array.from(taskLinks(doc).keys());
+  if (!names.length) return null;
+  const labels: string[] = [];
+  for (const e of Array.from(doc.querySelectorAll<HTMLElement>('th, td, div, span, b, strong, h1, h2, h3, h4, li, p'))) {
+    if (e.children.length > 2 || e.closest('a, [data-electric-mc]') || e.querySelector('a')) continue;
+    const t = textOf(e);
+    if (t && t.length < 60) labels.push(labelKey(t));
+  }
+  let best: string | null = null;
+  let score = 0;
+  for (const name of names) {
+    const core = name.replace(/^make /, '');
+    for (const l of labels) {
+      const s = l === name ? 1000 : l.endsWith(name) ? 500 + name.length : l.endsWith(core) && core.includes(' ') ? core.length : 0;
+      if (s > score) [best, score] = [name, s];
+    }
+  }
+  return best;
+}
+
+interface Carry {
+  task: string;
+  from: string;
+  at: number;
+}
+
+/**
+ * On a new manuscript after moving on from `from` while on a task, open the
+ * same task if this manuscript has it and isn't showing it. Once per move.
+ */
+export function carryTask(doc: Document, current: string | undefined): string | null {
+  const view = doc.defaultView!;
+  const carry = read<Carry>(view, TASK_KEY);
+  if (!carry || !current || current === carry.from) return null;
+  write(view, TASK_KEY, null);
+  if (Date.now() - carry.at > PENDING_MS) return null;
+  if (currentTask(doc) === carry.task) return null;
+  const link = taskLinks(doc).get(carry.task);
+  if (!link) return null;
+  pageClick(link);
+  return carry.task;
+}
+
+function rememberTask(view: Window, doc: Document, from: string | undefined) {
+  const task = currentTask(doc);
+  if (task && from) write(view, TASK_KEY, { task, from, at: Date.now() } satisfies Carry);
+  // Our own arrow press after a recommendation, on a page whose task is
+  // done: keep the task noted when the recommendation was sent.
+  else if (read<Carry>(view, TASK_KEY)?.from !== from) write(view, TASK_KEY, null);
 }
 
 interface Pending {
@@ -171,12 +247,18 @@ export function watchRecommendations(doc: Document, current: () => string | unde
     if (!enabled()) return;
     const bar = findNavBar(doc);
     const t = e.target instanceof Element ? e.target : null;
-    if (bar && t) {
-      if (bar.next?.contains(t)) write(view, DIR_KEY, 1);
-      else if (bar.prev?.contains(t)) write(view, DIR_KEY, -1);
-    }
     const from = current();
-    if (from && isRecommendationSubmit(e.target)) write(view, PENDING_KEY, { from, dir: read<Dir>(view, DIR_KEY) ?? 1, at: Date.now() } satisfies Pending);
+    if (bar && t) {
+      const arrow = bar.next?.contains(t) ? 1 : bar.prev?.contains(t) ? -1 : 0;
+      if (arrow) {
+        write(view, DIR_KEY, arrow);
+        rememberTask(view, doc, from);
+      }
+    }
+    if (from && isRecommendationSubmit(e.target)) {
+      write(view, PENDING_KEY, { from, dir: read<Dir>(view, DIR_KEY) ?? 1, at: Date.now() } satisfies Pending);
+      rememberTask(view, doc, from);
+    }
   };
   doc.addEventListener('click', listener, true);
   return () => doc.removeEventListener('click', listener, true);
