@@ -16,6 +16,8 @@ import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
+import { AeMenuSettings } from './AeMenuSettings';
+import { openAeMenuEditor, openMatrix } from '../../lib/windows';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -199,16 +201,6 @@ function App() {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
   };
-  // The Opinions editorial matrix, in its own window; one window only.
-  const openMatrix = async () => {
-    const url = chrome.runtime.getURL('matrix.html');
-    const [open] = await chrome.tabs.query({ url });
-    if (open?.windowId !== undefined) {
-      await chrome.windows.update(open.windowId, { focused: true });
-      return;
-    }
-    await chrome.windows.create({ url, type: 'popup', width: 1280, height: 900 });
-  };
   const popIn = async () => {
     const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
     if (win.id !== undefined) await chrome.sidePanel.open({ windowId: win.id });
@@ -222,6 +214,7 @@ function App() {
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
+          <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
           <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
@@ -244,7 +237,7 @@ function App() {
         {tab === 'eic' && coChair && <EicView tabId={tabId} url={url} flash={flash} />}
         {tab === 'notes' && <NotesView current={state?.result.manuscript?.baseId ?? state?.result.manuscriptIds[0]?.baseId} title={state?.result.manuscript?.title} site={state?.result.site} />}
         {tab === 'log' && dev && <LogView flash={flash} />}
-        {tab === 'settings' && <SettingsView />}
+        {tab === 'settings' && <SettingsView flash={flash} />}
       </main>
       {toast && <div class="toast">{toast}</div>}
     </>
@@ -742,13 +735,13 @@ function summary(d: unknown): string {
  * tabs whose side panel is switched off, which Chrome needs to put it back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster and the AE profiles? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database and the AE menu config? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu, KEY.team]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }
 
-function SettingsView() {
+function SettingsView({ flash }: { flash: (s: string) => void }) {
   const [s, setS] = useState<Settings>(DEFAULT_SETTINGS);
   useEffect(() => void getSettings().then(setS), []);
   // Changes made elsewhere (the toolbar menu, another window) show up here too.
@@ -793,6 +786,7 @@ function SettingsView() {
         Notes server (blank keeps notes in this browser)
         <input class="search" value={s.notesServer} placeholder="https://….lambda-url.us-east-2.on.aws/" onChange={(e) => update({ notesServer: (e.target as HTMLInputElement).value.trim() })} />
       </label>
+      <AeMenuSettings flash={flash} />
       <h2 style="margin-top:12px">Developer</h2>
       {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
       {s.developer && <label>

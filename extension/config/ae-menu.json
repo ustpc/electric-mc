@@ -1,0 +1,15 @@
+{
+  "format": "electric-mc-ae-menu",
+  "version": 1,
+  "profile": "Opinions co-chair",
+  "enabled": true,
+  "fontSize": 0,
+  "fontFamily": "",
+  "sort": "mc",
+  "label": "{section} - {given} {family}",
+  "groups": [
+    { "label": "Section heads", "take": ["heads"], "color": "#7a3e00", "bold": true },
+    { "label": "Opinions AEs", "take": ["aes"], "color": "#1d4ed8", "bold": false }
+  ],
+  "rest": { "label": "Other AEs", "color": "#6b7280", "italic": false }
+}

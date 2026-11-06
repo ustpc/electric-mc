@@ -1,0 +1,32 @@
+:root {
+  --ink: #18323b; --muted: #5b6c72; --paper: #f5f4ee; --line: #dbe2df; --card: #fff; --link: #23655c; --emc: #b45309; --bad: #b42328;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #eef2f1; --muted: #a3b1b4; --paper: #111827; --line: #374151; --card: #1a2230; --link: #7fd1c3; --emc: #f59e0b; --bad: #f87171; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); background: var(--paper); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+.wrap { max-width: 1200px; margin: auto; padding: 0 20px 40px; }
+h1 { font: normal 26px/1.2 Georgia, serif; margin: 18px 0 4px; }
+h2 { font: normal 19px/1.2 Georgia, serif; margin: 26px 0 8px; }
+.muted { color: var(--muted); font-size: 12px; }
+.bad { color: var(--bad); }
+.tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 2; background: var(--paper); padding: 10px 0; border-bottom: 1px solid var(--line); }
+button, .file { font: inherit; font-size: 12px; background: var(--card); color: var(--link); border: 1px solid var(--line); border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--link); color: var(--card); border-color: var(--link); }
+.file input { display: none; }
+input[type=text], input:not([type]), select, textarea { font: inherit; font-size: 13px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
+input.wide { width: 100%; }
+textarea { width: 100%; min-height: 120px; font: 12px/1.4 ui-monospace, monospace; }
+table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); }
+th { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--line); }
+td { padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td input:not([type=checkbox]):not([type=color]) { width: 100%; }
+td.n { width: 1%; white-space: nowrap; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+.status { margin-left: auto; font-size: 12px; color: var(--muted); }
+.error { margin: 10px 0; padding: 8px 12px; border-left: 3px solid var(--bad); background: var(--card); }
+.preview { padding: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 6px; }
+details summary { cursor: pointer; color: var(--link); margin: 20px 0 6px; }

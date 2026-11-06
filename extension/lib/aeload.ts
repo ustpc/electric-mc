@@ -22,7 +22,7 @@ export interface AeLoad {
 
 // "Editor, Pat (3)", "Editor, Pat [3]", "Editor, Pat - 3", "Editor, Pat (3 assigned)".
 const COUNTED = /^(.*?\S)\s*(?:\((\d+)(?:\s+[a-z ]+)?\)|\[(\d+)\]|[-–:]\s*(\d+)(?:\s+[a-z ]+)?)\s*$/i;
-const PLACEHOLDER = /^(?:-+|select\b.*|choose\b.*|--.*--|please\b.*|none|)$/i;
+export const PLACEHOLDER = /^(?:-+|select\b.*|choose\b.*|--.*--|please\b.*|none|)$/i;
 
 /** One option's name and count, or null when it doesn't end in a count. */
 export function parseOption(text: string): AeLoadEntry | null {
@@ -59,22 +59,35 @@ function contextOf(select: HTMLSelectElement): string {
 const EDITOR = /\b(?:associate\s+editor|editor|AE)s?\b/i;
 const REVIEWER = /\breviewers?\b/i;
 
+/** Where lib/aemenu.ts keeps MC's own text of an option it relabeled. */
+export const MC_TEXT = 'data-emc-text';
+
+/** An option's text as MC wrote it, even after lib/aemenu.ts relabeled it. */
+export function mcText(o: HTMLOptionElement): string {
+  return (o.getAttribute(MC_TEXT) ?? o.text).replace(/\s+/g, ' ').trim();
+}
+
 /**
- * The AE pull-down's entries on this page, or null when there isn't one.
+ * MC's AE-assignment pull-down on this page, or null when there isn't one.
  * Most non-placeholder options must end in a count (at least two of them),
  * and the text around the select must mention an editor and not reviewers.
  */
-export function readAeLoad(doc: Document): AeLoadEntry[] | null {
+export function findAeSelect(doc: Document): { select: HTMLSelectElement; entries: AeLoadEntry[] } | null {
   for (const select of Array.from(doc.querySelectorAll('select'))) {
-    const opts = Array.from(select.options).map((o) => o.text.replace(/\s+/g, ' ').trim()).filter((t) => !PLACEHOLDER.test(t));
+    const opts = Array.from(select.options).map((o) => mcText(o)).filter((t) => !PLACEHOLDER.test(t));
     if (opts.length < 2) continue;
     const entries = opts.map(parseOption).filter((e): e is AeLoadEntry => !!e);
     if (entries.length < 2 || entries.length < opts.length * 0.6) continue;
     const ctx = contextOf(select);
     if (!EDITOR.test(ctx) || (REVIEWER.test(ctx) && !/associate\s+editor/i.test(ctx))) continue;
-    return entries;
+    return { select, entries };
   }
   return null;
+}
+
+/** The AE pull-down's entries on this page, or null when there isn't one. */
+export function readAeLoad(doc: Document): AeLoadEntry[] | null {
+  return findAeSelect(doc)?.entries ?? null;
 }
 
 /** "host/first-path-segment" for an MC URL, so each journal keeps its own counts. */

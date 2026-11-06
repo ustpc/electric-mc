@@ -21,6 +21,8 @@ import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive'
 import { onPageLoad, watchRecommendations } from '../lib/advance';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
+import { activeAeMenu, applyAeMenu, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
+import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
 import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
@@ -52,6 +54,15 @@ async function start() {
   const enabled = () => isEnabledFor(settings, location.href);
   // Recommendations sent to the EIC, kept up to date from storage.
   let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+  // The AE-assignment menu's layout (lib/aemenu.ts) and the roster its groups draw on.
+  const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
+  let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
+  let team = (menuGot[KEY.team] as Team | undefined) ?? null;
+  const styleAeMenu = () => {
+    const c = activeAeMenu(aeMenu);
+    if (c) applyAeMenu(document, c, team);
+    else clearAeMenu(document);
+  };
 
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
@@ -82,6 +93,7 @@ async function start() {
     recordLetters(r);
     recordThisVersion(r);
     recordAeLoad();
+    styleAeMenu();
     recordRoles(r);
     recordIdentity(r);
     recordRecommendation(r);
@@ -297,6 +309,7 @@ async function start() {
     titles.restore();
     clearHighlights(document);
     clearRestyle(document);
+    clearAeMenu(document);
     hidePageHeader(document, false);
     enlargeNavArrows(document, false);
     enlargePagerArrows(document, false);
@@ -385,6 +398,12 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && (changes[KEY.aeMenu] || changes[KEY.team])) {
+      if (changes[KEY.aeMenu]) aeMenu = changes[KEY.aeMenu]!.newValue as AeMenuStore | undefined;
+      if (changes[KEY.team]) team = (changes[KEY.team]!.newValue as Team | undefined) ?? null;
+      if (enabled()) styleAeMenu();
+      return;
+    }
     if (area === 'local' && changes[KEY.eic]) {
       eicItems = (changes[KEY.eic]!.newValue as Record<string, EicItem> | undefined) ?? {};
       if (enabled() && last?.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
