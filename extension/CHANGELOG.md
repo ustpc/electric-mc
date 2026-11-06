@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.55 (2026-11-06)
+
+- Going on to the next manuscript now also works after Commit Decision (a co-chair's immediate reject), not only after submitting a recommendation.
+
 ## 0.0.54 (2026-11-06)
 
 - **One team database** drives the Matrix, the AE menu and Suggested AEs. It holds the EIC and Deputy EIC, the co-chairs, sections with their heads and AEs (an AE can be in several sections, or none), and columns with their columnists (a column inside a section reports to its heads; one outside reports to the co-chairs as a group). Each person has one MC account email (shared accounts are marked), affiliations, expertise, notes, any number of labeled links, and a photo. It's kept in this browser's local storage; Clear all data removes it.

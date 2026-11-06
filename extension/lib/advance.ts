@@ -1,4 +1,4 @@
-// Go on to the next manuscript after a recommendation. On a manuscript's
+// Go on to the next manuscript after a recommendation or decision. On a manuscript's
 // details page MC shows "7 / 8" between previous and next arrows. The
 // direction we're moving is remembered per tab: starting at the first one
 // means forward, at the last one backward, and pressing an arrow sets it.
@@ -54,19 +54,24 @@ export function directionAt(position: number, total: number, last: Dir): Dir {
   return last;
 }
 
-/** A Submit press in a Recommends table that has a choice made. */
+/**
+ * A press that sends a recommendation or a decision: Submit in a
+ * "… Recommends" table, or Commit Decision in a "… Decision" box (a
+ * co-chair's immediate reject), with a choice made on the page.
+ */
 export function isRecommendationSubmit(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   const control = target.closest('a, button, input[type=submit], input[type=button], input[type=image]');
   if (!control) return false;
   const label = labelKey(textOf(control) || control.getAttribute('value') || control.getAttribute('alt') || control.querySelector('img')?.getAttribute('alt') || '');
-  if (label !== 'submit') return false;
-  // A "… Recommends" section heading, and a choice made on the page.
+  const heading = label === 'submit' ? /recommends$/ : /^(commit|submit) decision$/.test(label) ? /(recommends|decision)$/ : null;
+  if (!heading) return false;
+  // A matching section heading, and a choice made on the page.
   const doc = control.ownerDocument;
-  const heading = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
-    (e) => e.children.length <= 2 && /recommends$/.test(labelKey(textOf(e))) && textOf(e).length < 60,
+  const found = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
+    (e) => e.children.length <= 2 && !control.contains(e) && !e.contains(control) && heading.test(labelKey(textOf(e))) && textOf(e).length < 60,
   );
-  return heading && !!doc.querySelector('input[type=radio]:checked');
+  return found && !!doc.querySelector('input[type=radio]:checked');
 }
 
 /** The manuscript to open next on a grid, by its order now or as it was. */
