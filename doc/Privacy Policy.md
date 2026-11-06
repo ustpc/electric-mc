@@ -15,7 +15,10 @@ profile. Page data and debug logs are stored in `chrome.storage.local`, in
 that browser only, and leave it only if you export a log yourself. Test
 builds can also append the log, in developer mode only, to a file on the
 same computer through a helper you install yourself (`make
-install-log-host`); nothing is sent anywhere else.
+install-log-host`); nothing is sent anywhere else. In developer mode the log
+also records a trace of each click (which control and its label) and each
+page load (address, MC's hidden form fields and page metadata); typed text is
+never recorded.
 Manuscripts you haven't viewed in 2 years are removed from that storage
 automatically, with your notes on them, and **Clear all data** in Settings
 removes all of it at once (extension 0.0.30).
@@ -295,3 +298,4 @@ staff will be switched on later, and this page will say so.
 | 2026-10-28 | Authored notes (section 5.1): the extension reads the logged-in person from MC's page metadata; with a notes server set, notes, a public key per browser and the person's MC details go to the server; titles never leave the browser, only a hash, which the server stores as an HMAC (extension 0.0.40). |
 | 2026-10-28 | Suggested AEs: the manuscript is embedded on-device and not stored; AE profiles are built locally from public OpenAlex and DBLP data and kept in local storage only; Clear all data removes them (extension 0.0.43). |
 | 2026-11-03 | Split the planned note-access rules into their own section 5.2, after the current notes behavior in 5.1, and said that people whose assignment ended keep the notes they could see up to then, including those from before they were assigned. |
+| 2026-11-04 | Developer mode also logs a trace of clicks and page loads (controls and labels, addresses, MC's hidden form fields and page metadata), never typed text, in local storage and the local log file only (extension 0.0.50). |

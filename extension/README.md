@@ -74,6 +74,11 @@ build instead.
   turn it off in Settings.
 - **Live log file** (test builds, developer mode): see "Live log file"
   below. The Log tab shows whether the file is being written.
+- **Developer trace** (developer mode). Every click (which control, its
+  label, the section it's in, what its link runs) and every page load (the
+  address, MC's action and hidden form fields, any JSON MC embeds) go into
+  the log and the live log file, so a session can be replayed. Typed text is
+  never recorded.
 - **Developer mode** (Settings, off by default). Turns on the on-page debug
   pill, the page type on the toolbar icon, full parse results in the log, the
   Log tab, capture and the raw JSON. With it off, the log holds only problems.
@@ -95,8 +100,14 @@ build instead.
   MC a small request. It stops after 48 idle hours, so an unattended computer
   is still logged out. **Ctrl+Shift+K** sends one at once and shows how many
   requests went to MC.
+- **Next manuscript after a recommendation** (Settings, on by default).
+  After you press Submit on a recommendation, the extension goes on to the
+  next manuscript in the list. It remembers the direction you're moving:
+  starting at the first one goes forward, starting at the last one goes
+  backward, and pressing MC's arrows sets it.
 - **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are
-  redrawn twice as big, as sharp round brown buttons.
+  redrawn twice as big, as sharp round brown buttons, and so are the grids'
+  page arrows beside "Manuscripts 11-12 of 12".
 - **Radio-button rows.** In MC's choice tables (Co-Chair Recommends and
   the like), click anywhere in a row to pick it.
 - **Clickable IDs.** On MC's grids, the manuscript ID is a link that does

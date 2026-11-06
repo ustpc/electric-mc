@@ -65,6 +65,8 @@ export interface Settings {
   autoAttach: boolean;
   /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). Off by default. */
   keepAlive: boolean;
+  /** After a recommendation is submitted, open the next manuscript in the list (lib/advance.ts). */
+  autoAdvance: boolean;
   /** The person's name on their notes; shown with MC's name in parentheses when the two differ. */
   displayName: string;
   /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
@@ -84,6 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hidePageHeader: false,
   autoAttach: true,
   keepAlive: false,
+  autoAdvance: true,
   displayName: '',
   notesServer: '',
 };

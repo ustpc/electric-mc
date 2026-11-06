@@ -6,6 +6,16 @@ Newest first. Every version bump gets an entry here.
 
 - The Version History box on a revision's page is easier to see: its heading is bold and everything in it, including the "View Review Details" links, is one point larger than the rest of the page's text. It follows the text-size setting.
 
+## 0.0.50 (2026-11-04)
+
+- Fixed: a keepalive could be due in a tab whose page has no "+ Search" bar (a popup, the login page); that tab took the turn and sent nothing. Now only a tab that can send takes it.
+- Developer mode now records a trace in the log: every click (control, label, section, what its link runs) and every page load (address, MC's action and hidden form fields, embedded JSON). Typed text is never recorded.
+
+## 0.0.49 (2026-11-03)
+
+- After you submit a recommendation, the extension goes on to the next manuscript in the list, in the direction you're moving (forward if you started at the first one, backward if at the last). A setting turns it off.
+- The grids' page arrows (beside "Manuscripts 11-12 of 12") are redrawn twice as big.
+
 ## 0.0.48 (2026-11-02)
 
 - The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).
