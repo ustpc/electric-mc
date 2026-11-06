@@ -64,3 +64,20 @@ function wrapId(doc: Document, cell: Element, id: string, action: HTMLElement): 
 export function unlinkIds(doc: Document): void {
   doc.querySelectorAll(`a[data-electric-mc="${MARK}"]`).forEach((a) => a.replaceWith(...Array.from(a.childNodes)));
 }
+
+/** Each ID on Take Action grids, in page order, with its row's Take Action control. */
+export function gridActions(doc: Document, idPattern?: string): Array<{ id: string; action: HTMLElement }> {
+  const out: Array<{ id: string; action: HTMLElement }> = [];
+  for (const table of Array.from(doc.querySelectorAll('table'))) {
+    const rows = Array.from(table.rows).filter((tr) => tr.closest('table') === table);
+    const header = rows.find((tr) => Array.from(tr.cells).some((c) => labelKey(textOf(c)) === 'take action'));
+    if (!header) continue;
+    const col = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'take action');
+    for (const tr of rows.slice(rows.indexOf(header) + 1)) {
+      const ref = tr.cells[0] && parseManuscriptId(textOf(tr.cells[0]), idPattern);
+      const action = ref && actionIn(tr, col);
+      if (ref && action && !out.some((x) => x.id === ref.id)) out.push({ id: ref.id, action });
+    }
+  }
+  return out;
+}

@@ -5,7 +5,7 @@
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle, enlargeNavArrows, hidePageHeader } from '../lib/restyle';
+import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { EMC_COLOR, EMC_STYLE, addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
@@ -17,8 +17,12 @@ import type { ParseResult } from '../parsers/types';
 import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
-import { keepaliveDue, sendKeepalive } from '../lib/keepalive';
+import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
+import { onPageLoad, watchRecommendations } from '../lib/advance';
+import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
+import { activeAeMenu, applyAeMenu, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
+import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
 import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
@@ -50,6 +54,15 @@ async function start() {
   const enabled = () => isEnabledFor(settings, location.href);
   // Recommendations sent to the EIC, kept up to date from storage.
   let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+  // The AE-assignment menu's layout (lib/aemenu.ts) and the roster its groups draw on.
+  const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
+  let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
+  let team = (menuGot[KEY.team] as Team | undefined) ?? null;
+  const styleAeMenu = () => {
+    const c = activeAeMenu(aeMenu);
+    if (c) applyAeMenu(document, c, team);
+    else clearAeMenu(document);
+  };
 
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
@@ -80,10 +93,19 @@ async function start() {
     recordLetters(r);
     recordThisVersion(r);
     recordAeLoad();
+    styleAeMenu();
     recordRoles(r);
     recordIdentity(r);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
+    if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
+    if (reason === 'load' || reason === 'bfcache') {
+      const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
+      if (adv) {
+        send({ type: 'log', level: 'info', event: 'auto-advance after recommendation', data: adv });
+        if (adv.how === 'end') toast('E-MC: that was the last manuscript in this direction');
+      }
+    }
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
       // MC sometimes redraws the section; put our rows back.
@@ -100,6 +122,8 @@ async function start() {
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     enlargeNavArrows(document, true);
+    enlargePagerArrows(document, true);
+    emphasizeVersionHistory(document, true, settings.fontSize, settings.idPattern);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
 
@@ -285,8 +309,11 @@ async function start() {
     titles.restore();
     clearHighlights(document);
     clearRestyle(document);
+    clearAeMenu(document);
     hidePageHeader(document, false);
     enlargeNavArrows(document, false);
+    enlargePagerArrows(document, false);
+    emphasizeVersionHistory(document, false);
     unlinkIds(document);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();
@@ -305,6 +332,12 @@ async function start() {
     () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
     (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
   );
+
+  // Developer trace: every click, for replaying a session from the log.
+  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
+
+  // After a recommendation, go on to the next manuscript (lib/advance.ts).
+  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);
 
   // Clicking anywhere in a radio-button row picks its radio button.
   watchRadioRows(document, () => !!chrome.runtime?.id && enabled());
@@ -330,7 +363,9 @@ async function start() {
     void chrome.storage.local.get([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
       const activity = (got[KEY.lastActivity] as number | undefined) ?? Date.now();
       const sent = (got[KEY.lastKeepalive] as number | undefined) ?? 0;
-      if (keepaliveDue(Date.now(), activity, sent)) void keepalive('idle');
+      // Only a tab whose page has the "+ Search" toggle sends; the others
+      // leave the turn to it rather than claiming it and sending nothing.
+      if (keepaliveDue(Date.now(), activity, sent) && findSearchToggle(document)) void keepalive('idle');
     });
   }, 60_000);
   window.addEventListener('keydown', (e) => {
@@ -363,6 +398,12 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && (changes[KEY.aeMenu] || changes[KEY.team])) {
+      if (changes[KEY.aeMenu]) aeMenu = changes[KEY.aeMenu]!.newValue as AeMenuStore | undefined;
+      if (changes[KEY.team]) team = (changes[KEY.team]!.newValue as Team | undefined) ?? null;
+      if (enabled()) styleAeMenu();
+      return;
+    }
     if (area === 'local' && changes[KEY.eic]) {
       eicItems = (changes[KEY.eic]!.newValue as Record<string, EicItem> | undefined) ?? {};
       if (enabled() && last?.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);

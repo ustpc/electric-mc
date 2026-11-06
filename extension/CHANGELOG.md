@@ -2,6 +2,39 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.54 (2026-11-06)
+
+- **One team database** drives the Matrix, the AE menu and Suggested AEs. It holds the EIC and Deputy EIC, the co-chairs, sections with their heads and AEs (an AE can be in several sections, or none), and columns with their columnists (a column inside a section reports to its heads; one outside reports to the co-chairs as a group). Each person has one MC account email (shared accounts are marked), affiliations, expertise, notes, any number of labeled links, and a photo. It's kept in this browser's local storage; Clear all data removes it.
+- **Team window** (Matrix > Edit hierarchy…, or Settings): the team as a tree of pills, editable. Add and remove leaders, sections, heads, AEs, columns and columnists; move a column between sections; load and save the team as a JSON file (an older roster.json is converted).
+- **Matrix**: the tree of pills at the top (with each editor's current count), "+ person", and clicking a name opens that person's form: every field, a + for more links, and photo upload (shrunk to 256px).
+- **AE menu**: the people table is gone from the AE menu config; groups take parts of the team (EIC and co-chairs, section heads, AEs, columnists), optionally only some sections, and labels show all of a person's sections ("Education / Privacy - Pat Editor"). Older configs still load.
+
+## 0.0.53 (2026-11-04)
+
+- The Version History box on a revision's page is easier to see: its heading is bold and everything in it, including the "View Review Details" links, is one point larger than the rest of the page's text. It follows the text-size setting.
+
+## 0.0.52 (2026-11-04)
+
+- An **AE menu** button at the top of the side panel opens the editor. Choosing an AE menu config in the Matrix window's Load roster… loads it as the AE menu config and opens the editor, instead of failing.
+- The Matrix window no longer tells people to run a `make export` that never existed; it just asks for a `roster.json`.
+- Loading a file in the AE menu editor saves it at once.
+
+## 0.0.51 (2026-11-04)
+
+- **Grouped, relabeled, colored AE menu.** MC's Assign Associate Editor pull-down can be regrouped under labeled dividers and styled per group (color, bold, italic, menu font and size). The config holds a table of people (given name, family name, section, email); people in it are relabeled, so "Editor, Pat (3)" can read "Example Column - Pat Editor (3)". The Opinions co-chair layout puts the table's people (column heads) first, then Opinions AEs from the roster loaded in the Matrix window, then other AEs. MC's option values and selection are unchanged, so assignment submits as before; workload counts still read MC's own text; turning it off puts MC's menu back. The open menu shows the styles in Chrome 135+ (`appearance: base-select`); older Chrome gets the order, labels and dividers.
+- **AE menu editor**, in its own window (Settings > AE assignment menu > Edit…): edit the table, paste rows from a spreadsheet, set the label and groups, save to and load from a JSON file, start from the blank config shipped in `config/ae-menu.json`, and preview the result on a copy of the last pull-down MC showed. Rows MC's pull-down doesn't list are flagged.
+- Settings picks this browser's config or a downloaded server config, and copies the server's here for editing. The server store (list, download, admin save and delete, in DynamoDB, signed with the admin's key) is planned in `doc/planning/AE menu config.md`; its buttons say it isn't built yet. Configs stay in this browser's local storage; Clear all data removes them. No new permission.
+
+## 0.0.50 (2026-11-04)
+
+- Fixed: a keepalive could be due in a tab whose page has no "+ Search" bar (a popup, the login page); that tab took the turn and sent nothing. Now only a tab that can send takes it.
+- Developer mode now records a trace in the log: every click (control, label, section, what its link runs) and every page load (address, MC's action and hidden form fields, embedded JSON). Typed text is never recorded.
+
+## 0.0.49 (2026-11-03)
+
+- After you submit a recommendation, the extension goes on to the next manuscript in the list, in the direction you're moving (forward if you started at the first one, backward if at the last). A setting turns it off.
+- The grids' page arrows (beside "Manuscripts 11-12 of 12") are redrawn twice as big.
+
 ## 0.0.48 (2026-11-02)
 
 - The bigger previous/next arrows are redrawn as sharp round brown buttons, instead of MC's small pictures scaled up (which looked blurry).

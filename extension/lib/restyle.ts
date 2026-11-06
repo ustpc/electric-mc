@@ -7,6 +7,7 @@
 // element that is fixed narrower than the window and centered, or given a
 // width in its markup, and holds the most text.
 
+import { findManuscriptIds } from './ids';
 import { textOf } from './text';
 import { EMC_COLOR } from './milestones';
 
@@ -130,6 +131,8 @@ function scaleFonts(doc: Document, px: number) {
   const plan: Array<[HTMLElement, number]> = [];
   for (const el of els) {
     if (el.closest('[data-electric-mc]') || /^(SCRIPT|STYLE|NOSCRIPT|BR|IMG)$/.test(el.tagName)) continue;
+    // The Version History box sizes its own text (emphasizeVersionHistory).
+    if (el.hasAttribute(VH)) continue;
     const saved = el.getAttribute(FONT);
     if (saved) {
       plan.push([el, Number(saved)]);
@@ -222,5 +225,135 @@ export function enlargeNavArrows(doc: Document, on: boolean): void {
     img.setAttribute('src', arrowImage(/prev/i.test(`${src} ${img.alt}`) ? 'prev' : 'next'));
     img.style.setProperty('width', `${size}px`);
     img.style.setProperty('height', `${size}px`);
+  }
+}
+
+const VH = 'data-emc-vh';
+const VH_HEAD = 'data-emc-vh-head';
+const POINT_PX = 4 / 3;
+
+/**
+ * The Version History box on a revision's page: its heading and the smallest
+ * box around it that holds a manuscript ID. MC draws it small, in the side
+ * column, though its "View Review Details" links are how editors see the
+ * earlier reviews.
+ */
+export function findVersionHistory(doc: Document, idPattern?: string): { box: HTMLElement; heading: HTMLElement } | null {
+  if (!doc.body) return null;
+  const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!/^\s*version history\s*$/i.test(n.textContent ?? '')) continue;
+    const heading = n.parentElement;
+    if (!heading || heading.closest('[data-electric-mc]')) continue;
+    let box: HTMLElement | null = heading;
+    for (let i = 0; box && i < 6; i++, box = box.parentElement) {
+      const text = textOf(box);
+      if (text.length > 3000) break;
+      if (findManuscriptIds(text, idPattern).length) return { box, heading };
+    }
+  }
+  return null;
+}
+
+/**
+ * Make the Version History box easier to see: its heading bold and every
+ * line in it one point larger than the rest of the page's text (after the
+ * text-size preference). Each element keeps its MC size so this never
+ * compounds; scaleFonts leaves these elements alone.
+ */
+export function emphasizeVersionHistory(doc: Document, on: boolean, fontSize = 0, idPattern?: string): void {
+  if (!on) {
+    doc.querySelectorAll<HTMLElement>(`[${VH}]`).forEach((el) => {
+      el.style.removeProperty('font-size');
+      el.removeAttribute(VH);
+    });
+    doc.querySelectorAll<HTMLElement>(`[${VH_HEAD}]`).forEach((el) => {
+      el.style.removeProperty('font-weight');
+      el.removeAttribute(VH_HEAD);
+    });
+    return;
+  }
+  const found = findVersionHistory(doc, idPattern);
+  const view = doc.defaultView;
+  if (!found || !view) return;
+  const ratio = fontSize && fontSize !== MC_FONT_PX ? fontSize / MC_FONT_PX : 1;
+  const els = [found.box, ...Array.from(found.box.querySelectorAll<HTMLElement>('*'))].filter((el) => !/^(SCRIPT|STYLE|NOSCRIPT|BR|IMG)$/.test(el.tagName) && !el.closest('[data-electric-mc]'));
+  // Read every MC size before writing any.
+  const plan: Array<[HTMLElement, number]> = [];
+  for (const el of els) {
+    const mine = el.getAttribute(VH);
+    if (mine) {
+      plan.push([el, Number(mine)]);
+      continue;
+    }
+    const saved = el.getAttribute(FONT);
+    const own = parseFloat(view.getComputedStyle(el).fontSize);
+    const parent = el.parentElement;
+    // Drawn later inside a box already enlarged: it inherits the parent's MC size.
+    if (!saved && parent?.hasAttribute(VH) && own === parseFloat(view.getComputedStyle(parent).fontSize)) plan.push([el, Number(parent.getAttribute(VH))]);
+    else if (saved) plan.push([el, Number(saved)]);
+    else if (own) plan.push([el, own / ratio]);
+  }
+  for (const [el, orig] of plan) {
+    el.removeAttribute(FONT);
+    el.setAttribute(VH, String(Math.round(orig * 100) / 100));
+    el.style.setProperty('font-size', `${Math.round((orig * ratio + POINT_PX) * 10) / 10}px`, 'important');
+  }
+  found.heading.setAttribute(VH_HEAD, '');
+  found.heading.style.setProperty('font-weight', 'bold', 'important');
+}
+
+const PAGER_ORIGINAL = 'data-emc-pager-src';
+const PAGER_TEXT = 'data-emc-pager';
+const PAGE_RANGE = /\bmanuscripts\b.*\d+\s*[-–]\s*\d+.*\bof\s+\d+/i;
+
+/** A plain arrowhead in E-MC brown, drawn as SVG. */
+export function pagerImage(dir: 'next' | 'prev'): string {
+  const tip = dir === 'next' ? 'M5 3 L13 8 L5 13 Z' : 'M11 3 L3 8 L11 13 Z';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="${tip}" fill="${EMC_COLOR}"/></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+/**
+ * The grids' page arrows beside "Manuscripts 11-12 of 12", redrawn twice as
+ * big: images become sharp brown arrowheads, text arrows (◂ ▸) get bigger
+ * type. Off puts MC's back.
+ */
+export function enlargePagerArrows(doc: Document, on: boolean): void {
+  if (!on) {
+    doc.querySelectorAll<HTMLImageElement>(`img[${PAGER_ORIGINAL}]`).forEach((img) => {
+      img.setAttribute('src', img.getAttribute(PAGER_ORIGINAL)!);
+      img.removeAttribute(PAGER_ORIGINAL);
+      img.style.removeProperty('width');
+      img.style.removeProperty('height');
+    });
+    doc.querySelectorAll<HTMLElement>(`[${PAGER_TEXT}]`).forEach((el) => {
+      el.style.removeProperty('font-size');
+      el.removeAttribute(PAGER_TEXT);
+    });
+    return;
+  }
+  // The smallest elements whose text is the page range.
+  const holders = Array.from(doc.querySelectorAll<HTMLElement>('td, th, div, span')).filter(
+    (el) => PAGE_RANGE.test(textOf(el)) && textOf(el).length < 80 && !Array.from(el.children).some((c) => PAGE_RANGE.test(textOf(c))),
+  );
+  for (const holder of holders) {
+    const links = Array.from(holder.querySelectorAll<HTMLElement>('a, [onclick]'));
+    links.forEach((link, i) => {
+      const img = link.querySelector<HTMLImageElement>('img');
+      const name = `${img?.getAttribute(PAGER_ORIGINAL) ?? img?.getAttribute('src') ?? ''} ${img?.alt ?? ''} ${link.title} ${textOf(link)}`;
+      const dir = /prev|left|back|◀|◂|‹|«/i.test(name) ? 'prev' : /next|right|forward|▶|▸|›|»/i.test(name) ? 'next' : i === 0 ? 'prev' : 'next';
+      if (img) {
+        if (img.hasAttribute(PAGER_ORIGINAL)) return;
+        const size = 2 * (img.naturalWidth || img.width || 8);
+        img.setAttribute(PAGER_ORIGINAL, img.getAttribute('src') ?? '');
+        img.setAttribute('src', pagerImage(dir));
+        img.style.setProperty('width', `${size}px`);
+        img.style.setProperty('height', `${size}px`);
+      } else if (/^[◀◂‹«▶▸›»<>]+$/.test(textOf(link)) && !link.hasAttribute(PAGER_TEXT)) {
+        link.setAttribute(PAGER_TEXT, '');
+        link.style.setProperty('font-size', '200%');
+      }
+    });
   }
 }
