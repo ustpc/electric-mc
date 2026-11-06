@@ -222,3 +222,6 @@ __marimo__/
 
 # Never commit PDFs: downloaded manuscripts are confidential MC data (tools/mc-watch).
 *.pdf
+*.xlsx
+*.csv
+*.docx
