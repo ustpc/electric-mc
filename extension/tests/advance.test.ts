@@ -45,6 +45,22 @@ describe('Submit on a recommendation', () => {
     expect(isRecommendationSubmit(submit)).toBe(true);
     expect(isRecommendationSubmit(document.getElementById('draft'))).toBe(false);
   });
+
+  it('counts Commit Decision in a Co-Chair Immediate Decision box', () => {
+    document.body.innerHTML = `<table><tr><td><b>Co-Chair Immediate Decision</b></td></tr><tr><td>Make a Decision</td></tr>
+      <tr><td><input type="radio" name="d" id="ir"> Immediate Reject</td></tr></table>
+      <a href="#" id="save"><img src="save.gif" alt="">Save</a> <a href="#" id="commit"><img src="commit.gif" alt="">Commit Decision</a>`;
+    const commit = document.getElementById('commit')!;
+    expect(isRecommendationSubmit(commit)).toBe(false);
+    (document.getElementById('ir') as HTMLInputElement).checked = true;
+    expect(isRecommendationSubmit(commit)).toBe(true);
+    expect(isRecommendationSubmit(document.getElementById('save'))).toBe(false);
+  });
+
+  it('does not count Commit Decision without a Decision heading', () => {
+    document.body.innerHTML = `<input type="radio" checked> <a href="#" id="commit">Commit Decision</a>`;
+    expect(isRecommendationSubmit(document.getElementById('commit'))).toBe(false);
+  });
 });
 
 describe('nextInGrid', () => {

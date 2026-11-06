@@ -775,7 +775,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
       {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
       {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
       {box('autoAttach', 'Press Attach as soon as I select a file')}
-      {box('autoAdvance', 'After I submit a recommendation, go on to the next manuscript in the list')}
+      {box('autoAdvance', 'After I submit a recommendation or commit a decision, go on to the next manuscript in the list')}
       {box('keepAlive', 'Send keepalives to prevent auto logout (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
       <h2 style="margin-top:12px">Notes</h2>
       <label>
