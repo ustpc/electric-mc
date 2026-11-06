@@ -37,7 +37,8 @@ pitch to associate editors.
   you've opened.
 - **On to the next manuscript (now).** After you submit a recommendation or
   commit a decision, the extension opens the next manuscript in the list, in
-  the direction you're moving. A switch turns it off.
+  the direction you're moving, on the same task you were on (Make
+  Recommendation, say). A switch turns it off.
 - **Signed notes per manuscript (now).** Each note shows who wrote it and
   when. Keep typing and it updates the same note; come back after an hour
   and you start a new one. You can edit or delete your own notes, and
