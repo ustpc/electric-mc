@@ -758,6 +758,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
   const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
+  const adv = s.showAdvanced;
   return (
     <section>
       <h2>Page layout</h2>
@@ -768,38 +769,42 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
           {FONT_CHOICES.map((n) => <option value={String(n)}>{n ? `${n}px` : `MC default (${MC_FONT_PX}px)`}</option>)}
         </select>
       </label>
-      <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Move the left-column page title ("View Manuscripts", "Search Results") to the top of the page and drop the space the column wastes</label>
+      <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
-      {box('lookupEarlierVersions', "On a revision, show earlier versions' AEs (from versions you've opened)")}
-      {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
-      {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
-      {box('autoAttach', 'Press Attach as soon as I select a file')}
       {box('autoAdvance', 'After I submit a recommendation or commit a decision, go on to the next manuscript in the list, on the same task')}
-      {canKeepBackPages() && box('backPages', 'Back shows the page as it was, instead of "Confirm Form Resubmission" (test builds; MC pages stay in Chrome\'s cache)')}
-      {box('keepAlive', 'Send keepalives to prevent auto logout (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
-      <h2 style="margin-top:12px">Notes</h2>
+      {box('keepAlive', 'Keep me logged in (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
       <label>
         Your name on notes (MC's name is shown with it when they differ)
         <input class="search" value={s.displayName} onChange={(e) => update({ displayName: (e.target as HTMLInputElement).value.trim() })} />
       </label>
-      <label>
-        Notes server (blank keeps notes in this browser)
-        <input class="search" value={s.notesServer} placeholder="https://….lambda-url.us-east-2.on.aws/" onChange={(e) => update({ notesServer: (e.target as HTMLInputElement).value.trim() })} />
-      </label>
-      <AeMenuSettings flash={flash} />
-      <h2 style="margin-top:12px">Developer</h2>
-      {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
-      {s.developer && <label>
-        Manuscript ID pattern (blank for default)
-        <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
-      </label>}
+      <AeMenuSettings flash={flash} advanced={adv} />
       {s.disabledHosts.length > 0 && <p>Off on: {s.disabledHosts.join(', ')}</p>}
-      <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version v{chrome.runtime.getManifest().version}</p>
+      <label class="chk" style="margin-top:12px"><input type="checkbox" checked={adv} onChange={(e) => update({ showAdvanced: (e.target as HTMLInputElement).checked })} />Show advanced settings</label>
+      {adv && <>
+        <h2 style="margin-top:12px">More features</h2>
+        {box('lookupEarlierVersions', "On a revision, show earlier versions' AEs (from versions you've opened)")}
+        {box('rewriteTitle', 'Rewrite page titles (history and Back menu)')}
+        {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
+        {box('autoAttach', 'Press Attach as soon as I select a file')}
+        {canKeepBackPages() && box('backPages', 'Back shows the page as it was, instead of "Confirm Form Resubmission" (test builds; MC pages stay in Chrome\'s cache)')}
+        <h2 style="margin-top:12px">Notes server</h2>
+        <label>
+          Notes server (blank keeps notes in this browser)
+          <input class="search" value={s.notesServer} placeholder="https://….lambda-url.us-east-2.on.aws/" onChange={(e) => update({ notesServer: (e.target as HTMLInputElement).value.trim() })} />
+        </label>
+        <h2 style="margin-top:12px">Developer</h2>
+        {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
+        {s.developer && <label>
+          Manuscript ID pattern (blank for default)
+          <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
+        </label>}
+      </>}
       <h2 style="margin-top:12px">Stored data</h2>
       <p>Manuscripts you haven't viewed in 2 years are removed automatically.</p>
       <button class="act" onClick={() => void clearAllData()}>Clear all data</button>
+      <p class="muted">Saved in your Chrome profile, so they follow you to any computer where you're signed in to Chrome. Version v{chrome.runtime.getManifest().version}</p>
     </section>
   );
 }

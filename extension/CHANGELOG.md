@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.61 (2026-11-07)
+
+- The Settings tab is simpler: it shows the everyday settings (layout, text size, page title, revisions, log in, next manuscript, keep me logged in, your name on notes, the AE menu switch, Clear all data). "Show advanced settings" reveals the rest: earlier versions' AEs, title rewriting, single-result Take Action, Attach, Back (test builds), the notes server, the AE menu's config source and editors, and developer mode.
+
 ## 0.0.60 (2026-11-07)
 
 - The left-column page title option now moves the title instead of hiding it: "Search Results", "View Manuscripts" and the like show as a bold E-MC heading at the top of the page's main column, and the empty left column goes. Titles drawn as images are turned into text ("view_mss_header.gif" becomes "View Manuscripts").

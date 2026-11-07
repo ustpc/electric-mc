@@ -32,7 +32,7 @@ async function saveStore(change: (s: AeMenuStore) => AeMenuStore): Promise<void>
 }
 
 
-export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
+export function AeMenuSettings({ flash, advanced }: { flash: (s: string) => void; advanced: boolean }) {
   const store = useLocal<AeMenuStore>(KEY.aeMenu, { source: 'local' });
   const local = store.local;
   const server = store.server;
@@ -55,11 +55,11 @@ export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
 
   return (
     <>
-      <h2 style="margin-top:12px">AE assignment menu</h2>
       <label class="chk">
         <input type="checkbox" checked={!!used?.enabled} onChange={(e) => toggle((e.target as HTMLInputElement).checked)} />
-        Group, relabel and color the Assign Associate Editor pull-down
+        Group and color the Assign Associate Editor pull-down (co-chairs and staff)
       </label>
+      {advanced && <>
       <label class="chk">
         <input type="radio" name="aemenu-source" checked={store.source !== 'server'} onChange={() => void saveStore((s) => ({ ...s, source: 'local' }))} />
         This browser's config {local ? `(${local.profile || 'unnamed'}, ${local.groups.length} groups)` : '(none yet)'}
@@ -73,7 +73,8 @@ export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
         <button class="act" onClick={() => void openTeamEditor()}>Edit the team…</button>
         <button class="act" disabled={!server} onClick={() => void copyServer()}>Copy the server's config here</button>
       </div>
-      <p class="muted">MC's choices and what it submits don't change. People and their sections come from the team database.</p>
+      </>}
+      {advanced && <p class="muted">MC's choices and what it submits don't change. People and their sections come from the team database.</p>}
     </>
   );
 }
