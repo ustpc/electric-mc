@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.62 (2026-11-07)
+
+- Fixed: the AE menu still wasn't styled on MC's Assign AE task. The extension didn't recognize the pull-down there: its row says only "Pick from a list", the "Associate Editor List" title is two rows up, and the "Select an AE" placeholder was being ignored. It now reads the table's title row and the placeholder too, so the pull-down is styled and its counts are read. If a page has a pull-down of counted names that still isn't recognized, the log now says so ("AE menu": not recognized).
+
 ## 0.0.61 (2026-11-07)
 
 - The Settings tab is simpler: it shows the everyday settings (layout, text size, page title, revisions, log in, next manuscript, keep me logged in, your name on notes, the AE menu switch, Clear all data). "Show advanced settings" reveals the rest: earlier versions' AEs, title rewriting, single-result Take Action, Attach, Back (test builds), the notes server, the AE menu's config source and editors, and developer mode.

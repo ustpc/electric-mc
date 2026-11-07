@@ -22,7 +22,7 @@ import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { activeAeMenu, aeMenuStatus, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
-import { findAeSelect } from '../lib/aeload';
+import { findAeSelect, parseOption } from '../lib/aeload';
 import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -70,7 +70,12 @@ async function start() {
       const cfg = aeMenu?.source === 'server' ? aeMenu.server : aeMenu?.local;
       status = !cfg ? `off: no ${aeMenu?.source === 'server' ? "server" : "browser"} config` : 'off: config not enabled';
     }
-    if (status === 'no AE pull-down' || (!c && !findAeSelect(document))) return;
+    if (status === 'no AE pull-down' || (!c && !findAeSelect(document))) {
+      // A pull-down full of "Name (3)" options that wasn't recognized: say so once.
+      const counted = Array.from(document.querySelectorAll('select')).some((sel) => Array.from(sel.options).filter((o) => parseOption(o.text)).length >= 5);
+      if (!counted) return;
+      status = 'not recognized as the AE pull-down';
+    }
     const key = `${location.href}|${status}`;
     if (key === aeMenuLogged) return;
     aeMenuLogged = key;
