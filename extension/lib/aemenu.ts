@@ -318,10 +318,17 @@ function keepSelection(select: HTMLSelectElement, change: () => void) {
  * already divides into its own optgroups is left alone.
  */
 export function applyAeMenu(doc: Document, config: AeMenuConfig, team: Team | null | undefined): boolean {
+  return aeMenuStatus(doc, config, team) === 'styled';
+}
+
+/** What applyAeMenu did, for the log: 'styled', or why not. */
+export type AeMenuResult = 'styled' | 'no AE pull-down' | "MC's own groups";
+
+export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | null | undefined): AeMenuResult {
   const found = findAeSelect(doc);
-  if (!found) return false;
+  if (!found) return 'no AE pull-down';
   const { select } = found;
-  if (!select.hasAttribute(MENU) && select.querySelector('optgroup')) return false;
+  if (!select.hasAttribute(MENU) && select.querySelector('optgroup')) return "MC's own groups";
   if (!doc.getElementById(STYLE_ID)) {
     const s = doc.createElement('style');
     s.id = STYLE_ID;
@@ -386,7 +393,7 @@ export function applyAeMenu(doc: Document, config: AeMenuConfig, team: Team | nu
   for (const i of all) setText(i.option, i.shown);
   for (const s of sections) for (const i of s.items) setStyle(i.option, s.style);
   if (plain) for (const i of rest) setStyle(i.option, config.rest);
-  return true;
+  return 'styled';
 }
 
 /** Put MC's AE pull-down back as MC drew it. */

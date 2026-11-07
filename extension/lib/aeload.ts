@@ -43,14 +43,24 @@ function contextOf(select: HTMLSelectElement): string {
     // The heading is often the row above ("Assign Associate Editor").
     const prev = row.previousElementSibling;
     if (prev) bits.push(prev.textContent ?? '');
+    // Or the table's title row, two rows up ("Associate Editor List").
+    const table = row.closest('table');
+    if (table) {
+      bits.push(table.caption?.textContent ?? '');
+      const first = table.rows[0];
+      if (first && first !== row && first !== prev) bits.push(first.textContent ?? '');
+    }
   }
+  // MC's placeholder option names no one and often says what the list is
+  // ("Select an AE (# Current Assignments)").
+  for (const o of Array.from(select.options)) if (PLACEHOLDER.test(mcText(o))) bits.push(mcText(o));
   let p: Element | null = select.parentElement;
   for (let i = 0; p && i < 3; i++, p = p.parentElement) {
     const own = Array.from(p.childNodes).filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ');
     bits.push(own);
   }
   // Without the select's own option text, which names people.
-  const optionText = Array.from(select.options).map((o) => o.text);
+  const optionText = Array.from(select.options).map((o) => o.text).filter((t) => !PLACEHOLDER.test(t.replace(/\s+/g, ' ').trim()));
   let s = bits.join(' ');
   for (const o of optionText) s = s.split(o).join(' ');
   return s;

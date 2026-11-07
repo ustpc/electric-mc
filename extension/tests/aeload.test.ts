@@ -52,6 +52,22 @@ describe('readAeLoad', () => {
     const html = `<label for="s">Editor</label><select id="s"><option>Editor, Pat (3)</option><option>Editor, Robin</option><option>Editor, Sam</option></select>`;
     expect(readAeLoad(doc(html))).toBeNull();
   });
+  it('finds the pull-down under an "Associate Editor List" title, with "Select an AE" as its placeholder', () => {
+    // Shaped like MC's Assign AE task (2026-11-07); names made up.
+    const html = `<table>
+      <tr><td colspan="5">Associate Editor List</td></tr>
+      <tr><td>Order</td><td>Name</td><td>Status</td><td>History</td><td>Remove</td></tr>
+      <tr><td colspan="5">Pick from a list <select name="x1">
+        <option value="">Select an AE (# Current Assignments)</option>
+        <option value="11">Editor, Pat (3)</option>
+        <option value="12">Example, Sam (0)</option>
+      </select> View Details Assign</td></tr>
+    </table>`;
+    expect(readAeLoad(doc(html))?.length).toBe(2);
+    // Without either clue it isn't taken for the AE pull-down.
+    const bare = html.replace('Associate Editor List', 'List').replace('Select an AE (# Current Assignments)', 'Select...');
+    expect(readAeLoad(doc(bare))).toBeNull();
+  });
   it('ignores ordinary selects', () => {
     expect(readAeLoad(doc('<select><option>Manuscript ID</option><option>Title</option></select>'))).toBeNull();
   });

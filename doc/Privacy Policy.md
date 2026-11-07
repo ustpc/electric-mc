@@ -293,6 +293,12 @@ staff will be switched on later, and this page will say so.
   Central password.
 - No advertising, analytics, or tracking services are used, and no data is
   sold or shared.
+- Test builds only (extension 0.0.59): so that Back works, the extension
+  replaces Manuscript Central's "Cache-Control: no-store" header on MC pages
+  with "private", so Chrome keeps those pages in its own cache on your
+  computer. Nothing is sent anywhere. After you log out, Back can still show
+  them until Chrome clears its cache. The setting "Back shows the page as it
+  was" turns this off. The Web Store build does not do this.
 
 ## 11. Your choices
 
@@ -317,3 +323,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-04 | Developer mode also logs a trace of clicks and page loads (controls and labels, addresses, MC's hidden form fields and page metadata), never typed text, in local storage and the local log file only (extension 0.0.50). |
 | 2026-11-04 | The AE assignment menu's config, which can hold a table of editors' names, sections and emails, kept in local storage only (a server store is planned, not built); Clear all data removes it (extension 0.0.51). |
 | 2026-11-04 | The team database (names, MC emails, roles, links, photos) replaces the loaded roster and the AE menu's people table; local storage only; Clear all data removes it (extension 0.0.54). |
+| 2026-11-07 | Test builds let Chrome cache MC pages (no-store replaced with private) so Back works; pages stay in Chrome's cache on the computer; a setting turns it off (extension 0.0.59). |

@@ -9,6 +9,7 @@ import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
 import { closeLiveLog, liveLog } from '../lib/livelog';
 import { makeQueue } from '../lib/queue';
+import { setBackPages } from '../lib/backcache';
 import { addRoles, type KnownRoles, type Role } from '../lib/roles';
 import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
@@ -56,8 +57,11 @@ export default defineBackground(() => {
   chrome.tabs.onUpdated.addListener((tabId, change) => {
     if (change.url || change.status === 'complete') void refreshTab(tabId);
   });
+  const syncBackPages = () => void getSettings().then((s) => setBackPages(s.backPages)).catch(() => {});
+  syncBackPages();
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area === SETTINGS_AREA && ch[KEY.settings]) {
+      syncBackPages();
       if (!(ch[KEY.settings]!.newValue as { developer?: boolean } | undefined)?.developer) closeLiveLog();
       void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
     }

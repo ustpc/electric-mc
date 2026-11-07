@@ -2,6 +2,24 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.62 (2026-11-07)
+
+- Fixed: the AE menu still wasn't styled on MC's Assign AE task. The extension didn't recognize the pull-down there: its row says only "Pick from a list", the "Associate Editor List" title is two rows up, and the "Select an AE" placeholder was being ignored. It now reads the table's title row and the placeholder too, so the pull-down is styled and its counts are read. If a page has a pull-down of counted names that still isn't recognized, the log now says so ("AE menu": not recognized).
+
+## 0.0.61 (2026-11-07)
+
+- The Settings tab is simpler: it shows the everyday settings (layout, text size, page title, revisions, log in, next manuscript, keep me logged in, your name on notes, the AE menu switch, Clear all data). "Show advanced settings" reveals the rest: earlier versions' AEs, title rewriting, single-result Take Action, Attach, Back (test builds), the notes server, the AE menu's config source and editors, and developer mode.
+
+## 0.0.60 (2026-11-07)
+
+- The left-column page title option now moves the title instead of hiding it: "Search Results", "View Manuscripts" and the like show as a bold E-MC heading at the top of the page's main column, and the empty left column goes. Titles drawn as images are turned into text ("view_mss_header.gif" becomes "View Manuscripts").
+- Fixed: the "Group, relabel and color the Assign Associate Editor pull-down" checkbox couldn't be ticked until a config existed, so the menu was never styled. Ticking it now starts this browser's config from the shipped one (section heads, then AEs, then everyone else).
+
+## 0.0.59 (2026-11-07)
+
+- Test builds: **Back works on MC.** MC sends every page with "Cache-Control: no-store", so Chrome kept no copy and Back showed "Confirm Form Resubmission". Test builds now replace that header on MC's own pages with "private, max-age=0", so Chrome keeps each page and Back shows it as it was. This adds the `declarativeNetRequestWithHostAccess` permission to test builds only; the Web Store build is unchanged. A setting turns it off. MC pages now stay in Chrome's cache on this computer.
+- The log records what the AE menu did on each page with an AE pull-down ("AE menu": styled, or why not), so a menu that isn't styled can be diagnosed.
+
 ## 0.0.58 (2026-11-07)
 
 - Fixed: the next manuscript still didn't open on Co-Chair Make Recommendation. The extension thought it was already there, because MC's default view can name the task without showing its form. Now it always opens the task's link, and if MC draws the link late it waits up to 10 seconds for it. The log records what happened ("same task on the next manuscript").

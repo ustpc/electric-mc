@@ -59,7 +59,7 @@ export interface Settings {
   fontSize: number;
   /** After any search that finds exactly one manuscript, press its Take Action. */
   autoTakeAction: boolean;
-  /** Hide MC's page-title image ("Search Results") and the empty column under it. */
+  /** Move MC's left-column page title ("Search Results") to the top of the page and drop the column. */
   hidePageHeader: boolean;
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
@@ -67,10 +67,14 @@ export interface Settings {
   keepAlive: boolean;
   /** After a recommendation is submitted, open the next manuscript in the list (lib/advance.ts). */
   autoAdvance: boolean;
+  /** Test builds: let Chrome keep MC's pages so Back shows them, not "Confirm Form Resubmission" (lib/backcache.ts). */
+  backPages: boolean;
   /** The person's name on their notes; shown with MC's name in parentheses when the two differ. */
   displayName: string;
   /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
   notesServer: string;
+  /** Show the advanced settings in the side panel's Settings tab. */
+  showAdvanced: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -87,8 +91,10 @@ export const DEFAULT_SETTINGS: Settings = {
   autoAttach: true,
   keepAlive: false,
   autoAdvance: true,
+  backPages: true,
   displayName: '',
   notesServer: '',
+  showAdvanced: false,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {

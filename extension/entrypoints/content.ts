@@ -21,7 +21,8 @@ import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive'
 import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
-import { activeAeMenu, applyAeMenu, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
+import { activeAeMenu, aeMenuStatus, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
+import { findAeSelect, parseOption } from '../lib/aeload';
 import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
@@ -58,10 +59,27 @@ async function start() {
   const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
   let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
   let team = (menuGot[KEY.team] as Team | undefined) ?? null;
+  // Logged once per page that has an AE pull-down: whether it was styled, or why not.
+  let aeMenuLogged = '';
   const styleAeMenu = () => {
     const c = activeAeMenu(aeMenu);
-    if (c) applyAeMenu(document, c, team);
-    else clearAeMenu(document);
+    let status: string;
+    if (c) status = aeMenuStatus(document, c, team);
+    else {
+      clearAeMenu(document);
+      const cfg = aeMenu?.source === 'server' ? aeMenu.server : aeMenu?.local;
+      status = !cfg ? `off: no ${aeMenu?.source === 'server' ? "server" : "browser"} config` : 'off: config not enabled';
+    }
+    if (status === 'no AE pull-down' || (!c && !findAeSelect(document))) {
+      // A pull-down full of "Name (3)" options that wasn't recognized: say so once.
+      const counted = Array.from(document.querySelectorAll('select')).some((sel) => Array.from(sel.options).filter((o) => parseOption(o.text)).length >= 5);
+      if (!counted) return;
+      status = 'not recognized as the AE pull-down';
+    }
+    const key = `${location.href}|${status}`;
+    if (key === aeMenuLogged) return;
+    aeMenuLogged = key;
+    send({ type: 'log', level: 'info', event: 'AE menu', data: { status, source: aeMenu?.source ?? 'none', groups: c?.groups.length ?? 0, teamPeople: team?.people.length ?? 0 } });
   };
 
   const run = (reason: string) => {

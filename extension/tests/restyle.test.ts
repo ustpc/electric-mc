@@ -101,6 +101,40 @@ describe('hide a text page title', () => {
   });
 });
 
+describe('page title on top', () => {
+  it('shows an image title as a heading at the top of the content, and takes it away when off', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    document.body.innerHTML = `<table width="760"><tr><td><table width="100%"><tr>
+        <td width="8%"><img src="/images/en_US/page_headers/search_results_header.gif"></td>
+        <td width="75%">&nbsp;</td></tr></table></td></tr>
+      <tr><td width="15%"></td><td width="85%"><p>${'Results table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    hidePageHeader(document, true);
+    const titles = document.querySelectorAll('[data-electric-mc="page-title"]');
+    expect(titles.length).toBe(1);
+    expect(titles[0]!.textContent).toBe('Search Results');
+    expect(titles[0]!.parentElement!.getAttribute('width')).toBe('85%');
+    hidePageHeader(document, false);
+    expect(document.querySelector('[data-electric-mc="page-title"]')).toBeNull();
+  });
+  it('moves a text title such as "View Manuscripts" above the content', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    document.body.innerHTML = `<table width="760"><tr><td width="15%">View Manuscripts</td>
+      <td width="85%"><p>${'Queue table text '.repeat(20)}</p></td></tr></table>`;
+    hidePageHeader(document, true);
+    const content = document.querySelector('td[width="85%"]')!;
+    expect(content.firstElementChild!.textContent).toBe('View Manuscripts');
+  });
+  it('uses the image alt text when MC gives one', async () => {
+    const { headerImageTitle } = await import('../lib/restyle');
+    const img = document.createElement('img');
+    img.src = '/images/en_US/page_headers/view_mss_header.gif';
+    expect(headerImageTitle(img)).toBe('View Manuscripts');
+    img.alt = 'Manuscripts Awaiting Decision';
+    expect(headerImageTitle(img)).toBe('Manuscripts Awaiting Decision');
+  });
+});
+
 describe('enlargeNavArrows', () => {
   it('redraws the previous/next document arrows twice as big, and puts MC\'s back when off', async () => {
     const { enlargeNavArrows, arrowImage } = await import('../lib/restyle');

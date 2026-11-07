@@ -26,7 +26,7 @@ change only with a new upload.
 - **Name:** `Electric MC`
 - **Summary** (manifest `description`, 132 characters at most):
 
-  > Makes ScholarOne Manuscripts easier for editors: readable tab titles, highlighted revisions, earlier-version AEs, and easier login.
+  > Makes ScholarOne Manuscripts easier for editors: readable titles, revisions, a grouped AE menu, notes, and on to the next paper.
 
 ## 2. Store listing tab
 
@@ -37,16 +37,29 @@ change only with a new upload.
 ```text
 Electric MC makes ScholarOne Manuscripts (Manuscript Central) easier to use for the editors and associate editors who run peer review.
 
-What it does today:
-• Readable tab titles. Each Manuscript Central tab is named for the manuscript or queue it shows, so your browser history and Back menu make sense.
-• Highlighted revisions. Revised manuscripts (.R1, .R2, …) stand out in your queues.
-• Earlier versions at a glance. On a revision's page, Electric MC shows who handled each earlier version, when it was submitted, and when its decision went out.
-• Easier login. It adds the hints password managers such as 1Password and Chrome's own need to fill the Manuscript Central login form.
-• Optional wider layout and larger text.
-• A side panel listing the manuscripts you have seen, with one-click navigation.
-• A per-site on/off switch.
+For everyone:
+• Easier login. Password managers such as 1Password and Chrome's own fill the Manuscript Central login form, and Electric MC can press Log In for you.
+• Readable tab titles. Each tab is named for the manuscript or queue it shows, so your history and Back menu make sense.
+• Choose a file and it's attached, with no separate Attach click.
+• Optional full-width layout and larger text.
+• Click a manuscript ID to open it; bigger previous/next arrows; click anywhere in a choice row to pick it.
+• Optional keepalives so Manuscript Central doesn't log you out while you read (stops after 48 idle hours).
+• A side panel with everything known about the manuscript on screen, which can pop out into its own window.
+• A per-site on/off switch. Everything Electric MC adds is bold brown, so you can tell it from Manuscript Central.
 
-Privacy: everything stays in your browser. Electric MC sends nothing to any server, uses no analytics, and runs no AI on your manuscripts. Settings sync through your Chrome profile; manuscript data stays on this computer.
+For editors and associate editors:
+• Revisions (.R1, .R2, …) stand out in your queues.
+• Earlier versions at a glance: on a revision, who handled each earlier version, when it was submitted and when its decision went out, and a clearer Version History box.
+• On to the next manuscript: after you submit a recommendation or commit a decision, Electric MC opens the next manuscript in the list, on the same task you were on.
+• Signed notes per manuscript, kept in your browser.
+
+For section editors (co-chairs):
+• A readable AE menu: the Assign Associate Editor pull-down regrouped under dividers, relabeled with each editor's section, and colored by group. What Manuscript Central submits doesn't change.
+• One team database and an editorial matrix with each editor's current load.
+• Suggested AEs: the side panel ranks your AEs by how close their published work is to the manuscript. The matching runs on your computer with a model bundled in the extension.
+• A To EIC list of the recommendations you've sent, marked in your queues until the EIC acts.
+
+Privacy: everything stays in your browser unless you set an optional notes server to share notes with your editors. Electric MC uses no analytics and sends nothing about your manuscripts to any AI service. Settings sync through your Chrome profile; manuscript data stays on this computer.
 
 Electric MC works with ScholarOne Manuscripts. It is an independent project and is not affiliated with or endorsed by Clarivate or Silverchair.
 
@@ -81,21 +94,23 @@ author and reviewer names are confidential.
 **Single purpose:**
 
 ```text
-Improves the ScholarOne Manuscripts (Manuscript Central) web pages for journal editors: clearer tab titles, highlighted revisions, information about earlier manuscript versions, and password-manager-friendly login.
+Improves the ScholarOne Manuscripts (Manuscript Central) web pages for journal editors: clearer tab titles and navigation, highlighted revisions, information about earlier manuscript versions, a readable AE assignment menu, per-manuscript notes, and password-manager-friendly login.
 ```
 
 **Permission justifications:**
 
 | Permission | Justification to paste |
 |------------|------------------------|
-| `storage` | Saves the user's settings (synced through their Chrome profile) and, locally, the list of manuscripts they have viewed and a debug log. Nothing is sent off the device. |
+| `storage` | Saves the user's settings (synced through their Chrome profile) and, locally, the manuscripts they have viewed, their notes, the team database and AE menu layout, AE profiles for suggestions, and a debug log. Nothing is sent off the device unless the user sets a notes server. |
 | `sidePanel` | The extension's interface is a side panel that shows what it found on the current Manuscript Central page, the manuscripts seen so far, and settings. |
-| `tabs` | The side panel follows the active tab, so it needs to know which tab is active and when its URL changes, and it can reload the tab after a setting changes. |
+| `tabs` | The side panel follows the active tab, so it needs to know which tab is active and when its URL changes, and it can reload the tab after a setting changes. It also opens the editorial matrix, team and AE-menu editors in their own windows. |
 | `downloads` | Lets the user save the extension's debug log to their Downloads folder so they can send it with a bug report. Only on an explicit button click. |
 | `contextMenus` | Adds "Turn off on this site" / "Turn on for this site" to the toolbar icon's right-click menu. |
 | Host permission `https://*.manuscriptcentral.com/*` | The extension only works on Manuscript Central. It reads those pages to find manuscript IDs, titles and assignments, and changes them (tab title, highlighting, extra rows). Journals each have their own subdomain, hence the wildcard. |
 
-**Remote code:** No, I am not using remote code. All JavaScript is in the package.
+**Remote code:** No, I am not using remote code. All JavaScript is in the package. The Suggested AEs model and its WebAssembly runtime are bundled too (hence `wasm-unsafe-eval` in the extension's content security policy); nothing is downloaded at run time.
+
+**Test builds only:** `nativeMessaging` (the live log file) and `declarativeNetRequestWithHostAccess` (so Back works on MC) are never in the store build; don't list them here.
 
 **Data usage.** The form asks what data the extension collects "now or in the
 future". Today nothing leaves the browser, but the planned backend will
