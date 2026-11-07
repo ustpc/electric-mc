@@ -4,7 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
-import { KEY, PANEL_PATH, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
+import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
 import { closeLiveLog, liveLog } from '../lib/livelog';
@@ -29,9 +29,9 @@ const BADGE: Record<string, string> = {
 
 export default defineBackground(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-  // One window-wide panel, so it follows the person across MC tabs;
-  // refreshTab switches it off for each non-MC tab, where Chrome hides it.
-  chrome.sidePanel.setOptions({ path: PANEL_PATH, enabled: true }).catch(() => {});
+  // No window-wide panel: refreshTab gives each MC tab its own, so other
+  // sites never show it.
+  chrome.sidePanel.setOptions({ enabled: false }).catch(() => {});
   // No alarms permission, so old data is pruned when the worker starts, at most daily.
   void pruneOld();
   void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
@@ -174,13 +174,9 @@ async function refreshTab(tabId: number) {
   const tab = await chrome.tabs.get(tabId).catch(() => undefined);
   if (!tab) return;
   const onMc = panelEnabledFor(tab.url);
-  // Non-MC tabs are switched off; see panelOptionsFor for MC tabs. Chrome
-  // is asked what the tab has now, rather than remembering which tabs we
-  // switched off: that record was lost when the extension reloaded, while
-  // Chrome kept the tab switched off, so the panel wouldn't open (0.0.35).
-  const now = await chrome.sidePanel.getOptions({ tabId }).catch(() => null);
-  const options = panelOptionsFor(tab.url, !!now && (!now.enabled || !now.path));
-  if (options) await chrome.sidePanel.setOptions({ tabId, ...options }).catch(() => {});
+  // Every tab is set each time, so nothing depends on remembering what was
+  // set before an extension reload (0.0.35).
+  await chrome.sidePanel.setOptions({ tabId, ...panelOptionsFor(tab.url) }).catch(() => {});
   const enabled = isEnabledFor(await getSettings(), tab.url);
   // setIcon reports a vanished tab through runtime.lastError even when its
   // promise is caught, so it gets a callback that reads the error.
