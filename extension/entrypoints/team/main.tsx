@@ -15,6 +15,7 @@ import { currentTeam, storeTeam, teamFromFile } from '../../lib/teamStore';
 import { openMatrix } from '../../lib/windows';
 import { TeamTree } from '../../components/TeamTree';
 import { PersonForm } from '../../components/PersonForm';
+import { installQuickTips } from '../../lib/quicktip';
 
 function App() {
   const [team, setTeam] = useState<Team | null>(null);
@@ -120,3 +121,4 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!);
+installQuickTips();

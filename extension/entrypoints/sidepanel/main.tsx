@@ -19,6 +19,7 @@ import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
 import { AeMenuSettings } from './AeMenuSettings';
 import { openAeMenuEditor, openMatrix } from '../../lib/windows';
+import { installQuickTips } from '../../lib/quicktip';
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
@@ -810,3 +811,4 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
 }
 
 render(<App />, document.getElementById('app')!);
+installQuickTips();

@@ -18,6 +18,7 @@ import { newId, teamFromRoster, type Team, type TeamPerson } from '../../lib/tea
 import { currentTeam, storeTeam, teamFromFile } from '../../lib/teamStore';
 import { TeamTree } from '../../components/TeamTree';
 import { PersonForm } from '../../components/PersonForm';
+import { installQuickTips } from '../../lib/quicktip';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -243,3 +244,4 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!);
+installQuickTips();

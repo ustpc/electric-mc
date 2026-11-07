@@ -31,6 +31,7 @@ import { latestJournal } from '../../lib/matrix';
 import { KEY, getSettings } from '../../lib/messages';
 import { placementOf, sectionLabel, unassignedAes, type Team } from '../../lib/team';
 import { openTeamEditor } from '../../lib/windows';
+import { installQuickTips } from '../../lib/quicktip';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -342,3 +343,4 @@ function App() {
 }
 
 render(<App />, document.getElementById('app')!);
+installQuickTips();
