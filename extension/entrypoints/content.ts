@@ -104,10 +104,11 @@ async function start() {
       if (adv) {
         send({ type: 'log', level: 'info', event: 'auto-advance after recommendation', data: adv });
         if (adv.how === 'end') toast('E-MC: that was the last manuscript in this direction');
-      } else if (settings.autoAdvance) {
-        const task = carryTask(document, r.manuscript?.id);
-        if (task) send({ type: 'log', level: 'info', event: 'opened the same task on the next manuscript', data: { task } });
       }
+    }
+    if (settings.autoAdvance) {
+      const carried = carryTask(document, r.manuscript?.id);
+      if (carried) send({ type: 'log', level: 'info', event: 'same task on the next manuscript', data: carried });
     }
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);

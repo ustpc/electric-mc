@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Going on to the next manuscript after a recommendation. Synthetic markup
 // shaped like MC's details-page navigator ("7 / 8") and queue grid.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { directionAt, findNavBar, isRecommendationSubmit, nextInGrid, onPageLoad, watchRecommendations } from '../lib/advance';
 
 const NAV = (k: number, n: number) => `<div><a href="#" id="prev"><img src="/images/en_US/icons/prev_mss.gif" alt="Previous Document"></a> ${k} / ${n}
@@ -161,29 +161,35 @@ describe('same task on the next manuscript', () => {
     document.body.innerHTML = NAV(2, 3) + '<ul><li><a href="#" id="t-imm">Make Immediate Decision</a></li><li><a href="#" id="t-rec">Make Recommendation</a></li></ul><div>Manuscript Information</div>';
     track();
     expect(carryTask(document, 'XYZJ-26-01-9101')).toBeNull(); // same manuscript: wait
-    expect(carryTask(document, 'XYZJ-26-01-9102')).toBe('make recommendation');
+    expect(carryTask(document, 'XYZJ-26-01-9102')).toEqual({ task: 'make recommendation', done: 'opened' });
     expect(clicks).toEqual(['t-rec']);
     // Once per move.
     expect(carryTask(document, 'XYZJ-26-01-9102')).toBeNull();
   });
 
-  it('leaves a manuscript alone that already shows the task, or lacks it', async () => {
+  it('opens the task even when a tab already names it, and logs a missing link', async () => {
     const { carryTask } = await import('../lib/advance');
     document.body.innerHTML = PAGE('Make Recommendation');
     let stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
     document.getElementById('next')!.click();
     stop();
+    // MC's default view can show the task's tab without its form.
     document.body.innerHTML = PAGE('Make Recommendation');
     track();
-    expect(carryTask(document, 'XYZJ-26-01-9102')).toBeNull();
-    expect(clicks).toEqual([]);
+    expect(carryTask(document, 'XYZJ-26-01-9102')?.done).toBe('opened');
+    expect(clicks).toEqual(['t-rec']);
     document.body.innerHTML = PAGE('Make Recommendation');
     stop = watchRecommendations(document, () => 'XYZJ-26-01-9102', () => true);
     document.getElementById('next')!.click();
     stop();
     document.body.innerHTML = NAV(3, 3) + '<a href="#" id="t-imm">Make Immediate Decision</a>';
     track();
+    // Not there yet: wait for MC to draw it, then give up.
     expect(carryTask(document, 'XYZJ-26-01-9103')).toBeNull();
+    const now = Date.now();
+    const spy = vi.spyOn(Date, 'now').mockReturnValue(now + 11_000);
+    expect(carryTask(document, 'XYZJ-26-01-9103')).toEqual({ task: 'make recommendation', done: 'no link', found: ['make immediate decision'] });
+    spy.mockRestore();
     expect(clicks).toEqual([]);
   });
 });
@@ -216,7 +222,7 @@ describe('carrying a task opened by its link', () => {
     stop();
     document.body.innerHTML = DETAILS(2);
     track();
-    expect(carryTask(document, 'XYZJ-26-01-9102')).toBe('co-chair make recommendation');
+    expect(carryTask(document, 'XYZJ-26-01-9102')).toEqual({ task: 'co-chair make recommendation', done: 'opened' });
     expect(clicks).toEqual(['t-cc']);
   });
 });

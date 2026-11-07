@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.58 (2026-11-07)
+
+- Fixed: the next manuscript still didn't open on Co-Chair Make Recommendation. The extension thought it was already there, because MC's default view can name the task without showing its form. Now it always opens the task's link, and if MC draws the link late it waits up to 10 seconds for it. The log records what happened ("same task on the next manuscript").
+
 ## 0.0.57 (2026-11-07)
 
 - Fixed: the same-task carry-over (0.0.56) missed "Co-Chair Make Recommendation". It didn't count role-prefixed task links, and it looked for the task on MC's recommendation form, which has no task links. Now it remembers the first task link you open on a manuscript and opens that link on the next one.
