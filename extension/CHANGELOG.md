@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.59 (2026-11-07)
+
+- Test builds: **Back works on MC.** MC sends every page with "Cache-Control: no-store", so Chrome kept no copy and Back showed "Confirm Form Resubmission". Test builds now replace that header on MC's own pages with "private, max-age=0", so Chrome keeps each page and Back shows it as it was. This adds the `declarativeNetRequestWithHostAccess` permission to test builds only; the Web Store build is unchanged. A setting turns it off. MC pages now stay in Chrome's cache on this computer.
+- The log records what the AE menu did on each page with an AE pull-down ("AE menu": styled, or why not), so a menu that isn't styled can be diagnosed.
+
 ## 0.0.58 (2026-11-07)
 
 - Fixed: the next manuscript still didn't open on Co-Chair Make Recommendation. The extension thought it was already there, because MC's default view can name the task without showing its form. Now it always opens the task's link, and if MC draws the link late it waits up to 10 seconds for it. The log records what happened ("same task on the next manuscript").

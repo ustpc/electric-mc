@@ -11,6 +11,8 @@ pitch to associate editors.
 - **Readable tab titles and history.** Every page gets a title that
   says what it is ("CACM-24-04-1000.R2 · This is a test!..."), so the Back
   menu, browser history and tab strip are finally useful.
+- **Back works (test builds, now).** Back shows the page you came from
+  instead of "Confirm Form Resubmission". A switch turns it off.
 - **Choose a file and it's attached.** No separate Attach click after
   choosing a file to upload.
 - **Use your whole screen.** MC's narrow fixed column can stretch to

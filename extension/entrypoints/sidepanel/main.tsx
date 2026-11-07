@@ -2,6 +2,7 @@
 // current Manuscript Central tab, the seen-manuscripts index, authored notes,
 // the debug log and its export, and capture of page HTML for the validator.
 
+import { canKeepBackPages } from '../../lib/backcache';
 import { render } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
@@ -754,7 +755,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   return (
@@ -776,6 +777,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
       {box('autoTakeAction', 'Always Take Action after a search that finds a single manuscript')}
       {box('autoAttach', 'Press Attach as soon as I select a file')}
       {box('autoAdvance', 'After I submit a recommendation or commit a decision, go on to the next manuscript in the list, on the same task')}
+      {canKeepBackPages() && box('backPages', 'Back shows the page as it was, instead of "Confirm Form Resubmission" (test builds; MC pages stay in Chrome\'s cache)')}
       {box('keepAlive', 'Send keepalives to prevent auto logout (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
       <h2 style="margin-top:12px">Notes</h2>
       <label>

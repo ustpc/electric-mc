@@ -67,6 +67,8 @@ export interface Settings {
   keepAlive: boolean;
   /** After a recommendation is submitted, open the next manuscript in the list (lib/advance.ts). */
   autoAdvance: boolean;
+  /** Test builds: let Chrome keep MC's pages so Back shows them, not "Confirm Form Resubmission" (lib/backcache.ts). */
+  backPages: boolean;
   /** The person's name on their notes; shown with MC's name in parentheses when the two differ. */
   displayName: string;
   /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
@@ -87,6 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoAttach: true,
   keepAlive: false,
   autoAdvance: true,
+  backPages: true,
   displayName: '',
   notesServer: '',
 };
