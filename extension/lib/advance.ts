@@ -135,23 +135,48 @@ interface Carry {
   task: string;
   from: string;
   at: number;
+  /** When the next manuscript first loaded without the task's link. */
+  waiting?: number;
+}
+
+const LINK_WAIT_MS = 10_000;
+
+/** What carryTask did on a new manuscript, for the log. */
+export interface CarryResult {
+  task: string;
+  done: 'opened' | 'no link' | 'expired';
+  /** The task links the page did have, when it lacked this one. */
+  found?: string[];
 }
 
 /**
  * On a new manuscript after moving on from `from` while on a task, open the
- * same task if this manuscript has it and isn't showing it. Once per move.
+ * same task's link if this manuscript has one. Once per move: the click
+ * reloads the same manuscript, and the note is gone by then. (MC's tabs can
+ * name a task the page isn't showing, so we don't try to tell.)
  */
-export function carryTask(doc: Document, current: string | undefined): string | null {
+export function carryTask(doc: Document, current: string | undefined): CarryResult | null {
   const view = doc.defaultView!;
   const carry = read<Carry>(view, TASK_KEY);
   if (!carry || !current || current === carry.from) return null;
-  write(view, TASK_KEY, null);
-  if (Date.now() - carry.at > PENDING_MS) return null;
-  if (currentTask(doc) === carry.task) return null;
+  if (Date.now() - carry.at > PENDING_MS) {
+    write(view, TASK_KEY, null);
+    return { task: carry.task, done: 'expired' };
+  }
   const link = taskLinks(doc).get(carry.task);
-  if (!link) return null;
+  if (!link) {
+    // MC may draw the header after the load; look again as the page changes.
+    const waiting = carry.waiting ?? Date.now();
+    if (Date.now() - waiting < LINK_WAIT_MS) {
+      write(view, TASK_KEY, { ...carry, waiting } satisfies Carry);
+      return null;
+    }
+    write(view, TASK_KEY, null);
+    return { task: carry.task, done: 'no link', found: Array.from(taskLinks(doc).keys()) };
+  }
+  write(view, TASK_KEY, null);
   pageClick(link);
-  return carry.task;
+  return { task: carry.task, done: 'opened' };
 }
 
 interface Opened {
