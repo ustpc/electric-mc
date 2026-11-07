@@ -18,6 +18,9 @@ pitch to associate editors.
 - **Use your whole screen.** MC's narrow fixed column can stretch to
   the window, half an inch from each edge, and its 11px text can be made
   bigger. Preferences follow your Chrome profile; no account needed.
+- **The page title on top.** MC's left-column title ("Search Results",
+  "View Manuscripts") can move to the top of the page, so the table gets
+  the column's width back.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the

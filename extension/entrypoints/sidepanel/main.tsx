@@ -768,7 +768,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
           {FONT_CHOICES.map((n) => <option value={String(n)}>{n ? `${n}px` : `MC default (${MC_FONT_PX}px)`}</option>)}
         </select>
       </label>
-      <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Hide the left-column page title ("View Manuscripts", "Search Results") and the space it wastes</label>
+      <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Move the left-column page title ("View Manuscripts", "Search Results") to the top of the page and drop the space the column wastes</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}

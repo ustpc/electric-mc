@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.60 (2026-11-07)
+
+- The left-column page title option now moves the title instead of hiding it: "Search Results", "View Manuscripts" and the like show as a bold E-MC heading at the top of the page's main column, and the empty left column goes. Titles drawn as images are turned into text ("view_mss_header.gif" becomes "View Manuscripts").
+- Fixed: the "Group, relabel and color the Assign Associate Editor pull-down" checkbox couldn't be ticked until a config existed, so the menu was never styled. Ticking it now starts this browser's config from the shipped one (section heads, then AEs, then everyone else).
+
 ## 0.0.59 (2026-11-07)
 
 - Test builds: **Back works on MC.** MC sends every page with "Cache-Control: no-store", so Chrome kept no copy and Back showed "Confirm Form Resubmission". Test builds now replace that header on MC's own pages with "private, max-age=0", so Chrome keeps each page and Back shows it as it was. This adds the `declarativeNetRequestWithHostAccess` permission to test builds only; the Web Store build is unchanged. A setting turns it off. MC pages now stay in Chrome's cache on this computer.

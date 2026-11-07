@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { KEY } from '../../lib/messages';
-import type { AeMenuStore } from '../../lib/aemenu';
+import { defaultAeMenu, type AeMenuStore } from '../../lib/aemenu';
 import { openAeMenuEditor, openTeamEditor } from '../../lib/windows';
 
 function useLocal<T>(key: string, fallback: T): T {
@@ -42,7 +42,9 @@ export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
     void saveStore((s) => {
       const key = s.source === 'server' ? 'server' : 'local';
       const c = s[key];
-      return c ? { ...s, [key]: { ...c, enabled: on } } : s;
+      if (c) return { ...s, [key]: { ...c, enabled: on } };
+      // No config yet: turning it on starts this browser's from the shipped one.
+      return on ? { ...s, source: 'local', local: { ...defaultAeMenu(), enabled: true } } : s;
     });
   const copyServer = async () => {
     if (!server) return;
@@ -55,7 +57,7 @@ export function AeMenuSettings({ flash }: { flash: (s: string) => void }) {
     <>
       <h2 style="margin-top:12px">AE assignment menu</h2>
       <label class="chk">
-        <input type="checkbox" checked={!!used?.enabled} disabled={!used} onChange={(e) => toggle((e.target as HTMLInputElement).checked)} />
+        <input type="checkbox" checked={!!used?.enabled} onChange={(e) => toggle((e.target as HTMLInputElement).checked)} />
         Group, relabel and color the Assign Associate Editor pull-down
       </label>
       <label class="chk">

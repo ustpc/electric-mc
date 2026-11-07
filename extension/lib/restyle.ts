@@ -157,8 +157,9 @@ const HIDE_STYLE_ID = 'emc-hide-style';
 /**
  * MC's page title on the left ("Search Results", "View Manuscripts"), an
  * image on some pages and plain text on others, and the empty column under
- * it that pushes the table right. Marked always;
- * the html attribute switches the hiding, so the setting applies at once.
+ * it that pushes the table right. Marked always; the html attribute switches
+ * the setting, so it applies at once. When on, the left column goes and the
+ * title is shown instead as a heading at the top of the page's main content.
  */
 export function hidePageHeader(doc: Document, on: boolean): void {
   if (!doc.getElementById(HIDE_STYLE_ID)) {
@@ -187,9 +188,67 @@ export function hidePageHeader(doc: Document, on: boolean): void {
     if (parseFloat(td.getAttribute('width')!) > 30 || !/%$/.test(next.getAttribute('width') ?? '')) continue;
     if (textOf(next).length < 200) continue;
     td.setAttribute(HIDE, title ? 'header' : 'spacer');
+    next.setAttribute(CONTENT, '');
   }
   if (on) doc.documentElement.setAttribute(HIDE_ON, '');
   else doc.documentElement.removeAttribute(HIDE_ON);
+  moveTitle(doc, on);
+}
+
+const CONTENT = 'data-emc-content';
+const TITLE_ATTR = 'page-title';
+
+/** MC's abbreviations in header image names. */
+const WORDS: Record<string, string> = { mss: 'Manuscripts', ms: 'Manuscript' };
+
+/** "search_results_header.gif" -> "Search Results", "view_mss_header.gif" -> "View Manuscripts". */
+export function headerImageTitle(img: HTMLImageElement): string {
+  const alt = (img.getAttribute('alt') ?? '').trim();
+  if (alt) return alt;
+  const file = (img.getAttribute('src') ?? '').split(/[/?#]/).filter(Boolean).find((p) => /\.(gif|png|jpe?g|svg)$/i.test(p)) ?? '';
+  return file
+    .replace(/\.[a-z]+$/i, '')
+    .replace(/[_-]?header$/i, '')
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((w) => WORDS[w.toLowerCase()] ?? w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/** The page title MC shows on the left, as text. */
+export function pageTitle(doc: Document): string {
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>(`[${HIDE}="header"]`))) {
+    const img = el.querySelector<HTMLImageElement>('img[src*="/page_headers/"]');
+    const t = img ? headerImageTitle(img) : textOf(el);
+    if (t) return t;
+  }
+  return '';
+}
+
+/** Show the title as a heading on top of the main content, or take it away. */
+function moveTitle(doc: Document, on: boolean): void {
+  const existing = doc.querySelector(`[data-electric-mc="${TITLE_ATTR}"]`);
+  const title = on ? pageTitle(doc) : '';
+  if (!title) {
+    existing?.remove();
+    return;
+  }
+  if (existing?.textContent === title) return;
+  existing?.remove();
+  const h = doc.createElement('div');
+  h.setAttribute('data-electric-mc', TITLE_ATTR);
+  h.textContent = title;
+  h.style.cssText = `font-weight:bold;color:${EMC_COLOR};font-size:1.5em;margin:0.2em 0 0.4em;`;
+  const content = doc.querySelector<HTMLElement>(`[${CONTENT}]`);
+  if (content) {
+    content.prepend(h);
+    return;
+  }
+  // No content cell beside it: put the heading where the title row was.
+  const header = doc.querySelector<HTMLElement>(`[${HIDE}="header"]`);
+  const table = header?.closest('table');
+  if (table?.parentNode) table.parentNode.insertBefore(h, table);
+  else doc.body?.prepend(h);
 }
 
 /** MC's previous/next document arrows ("7 / 8"), e.g. /images/en_US/icons/next_mss.gif. */
