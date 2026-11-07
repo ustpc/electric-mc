@@ -26,6 +26,11 @@ Reviewers get the parts that make MC itself less painful:
   history, the Back menu and the tab strip make sense.
 - MC can use the whole window width, with bigger text.
 - Choosing a file to upload attaches it, with no separate Attach click.
+- Bigger previous/next arrows, clickable manuscript IDs, and choice rows you
+  can click anywhere.
+- Optional keepalives so MC doesn't log you out while you read.
+- Test builds: Back shows the page you came from instead of "Confirm Form
+  Resubmission".
 - One switch per site turns Electric MC off.
 
 ## For AEs
@@ -35,7 +40,10 @@ Everything above, plus:
 - Revisions (.R1, .R2, …) stand out in your queues.
 - On a revision you see the earlier versions' dates, decisions and AEs, from
   the versions you've opened.
-- Click a manuscript ID to open it.
+- Version History on a revision is bold and one point larger.
+- After you submit a recommendation or commit a decision, the extension
+  opens the next manuscript in the list, on the same task (Make
+  Recommendation, say).
 - The side panel shows what MC knows about the manuscript on screen, with
   signed notes per manuscript. Notes stay in your browser unless a notes
   server is set.
@@ -49,8 +57,12 @@ Everything above, plus:
   current load. The matching runs on your computer. To set it up, build the
   AE profiles once from your roster:
   [extension/tools/ae-profiles/README.md](extension/tools/ae-profiles/README.md).
-- **The editorial matrix.** The whole section team, with roles,
-  institutions, expertise and how many manuscripts each editor has now.
+- **A readable AE menu.** MC's Assign Associate Editor pull-down
+  regrouped under dividers, relabeled with each editor's section and colored
+  by group. Set it up in Settings > AE assignment menu.
+- **One team database and the editorial matrix.** The whole section team,
+  with roles, institutions, expertise and how many manuscripts each editor
+  has now, edited in its own window.
 - **To EIC list.** The recommendations you sent the EIC are marked in the
   queues until the EIC acts. One click copies the list.
 - You can delete any note on a manuscript.

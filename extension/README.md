@@ -1,9 +1,11 @@
 # Electric MC test extension
 
-A Chrome extension for trying out the Manuscript Central page parsers. It
-parses every `*.manuscriptcentral.com` page you open, rewrites the page title
-so history and the Back menu make sense, highlights revisions, fills in what
-earlier versions of a revision looked like, and logs problems. Nothing leaves your machine: there is no backend yet.
+The Electric MC Chrome extension. It parses every `*.manuscriptcentral.com`
+page you open, rewrites the page title so history and the Back menu make
+sense, highlights revisions, fills in what earlier versions of a revision
+looked like, moves you on to the next manuscript, regroups the AE menu,
+keeps notes, and logs problems. Nothing leaves your machine unless you set a
+notes server. The full list is in [FEATURES.md](../doc/FEATURES.md).
 
 Design notes are in
 [Technical Stack and Architecture.md](../doc/planning/Technical%20Stack%20and%20Architecture.md#65-test-extension-built-2026-10-18).
@@ -101,10 +103,29 @@ build instead.
   is still logged out. **Ctrl+Shift+K** sends one at once and shows how many
   requests went to MC.
 - **Next manuscript after a recommendation** (Settings, on by default).
-  After you press Submit on a recommendation, the extension goes on to the
-  next manuscript in the list. It remembers the direction you're moving:
+  After you press Submit on a recommendation, or Commit Decision on a
+  co-chair's immediate decision, the extension goes on to the next
+  manuscript in the list. It remembers the direction you're moving:
   starting at the first one goes forward, starting at the last one goes
-  backward, and pressing MC's arrows sets it.
+  backward, and pressing MC's arrows sets it. It also opens the task you
+  were on: the first task link you opened on a manuscript (Co-Chair Make
+  Recommendation, say) is opened on the next one, if it has one. The log
+  says what happened ("same task on the next manuscript").
+- **Version History.** On a revision, the Version History box's heading is
+  bold and everything in it is one point larger than the page's text.
+- **Back** (test builds, Settings, on by default). MC sends every page with
+  `Cache-Control: no-store`, so Back showed "Confirm Form Resubmission". A
+  session rule (`lib/backcache.ts`, `declarativeNetRequestWithHostAccess`)
+  replaces that header on MC pages with `private, max-age=0`, so Chrome
+  keeps them and Back shows them as they were. MC pages then stay in
+  Chrome's cache on this computer.
+- **AE assignment menu** (Settings > AE assignment menu, co-chairs). MC's
+  Assign Associate Editor pull-down is regrouped, relabeled from the team
+  database and colored per group (`lib/aemenu.ts`). It stays as MC drew it
+  until a config is loaded and turned on; the shipped config is blank.
+  **Edit the team…** and **Edit the AE menu config…** open their editors in
+  their own windows. Each page with the pull-down logs an "AE menu" line
+  saying whether it was styled, or why not.
 - **Bigger arrows.** MC's previous/next manuscript arrows ("7 / 8") are
   redrawn twice as big, as sharp round brown buttons, and so are the grids'
   page arrows beside "Manuscripts 11-12 of 12".
