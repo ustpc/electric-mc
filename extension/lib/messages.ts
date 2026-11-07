@@ -124,15 +124,13 @@ export function panelEnabledFor(url: string | undefined): boolean {
 export const PANEL_PATH = 'sidepanel.html';
 
 /**
- * The side panel options to set for one tab, or null to leave the tab on the
- * window-wide panel (so it follows the person across MC tabs). Non-MC tabs
- * are switched off. An MC tab we switched off before gets its own panel back
- * with the path: Chrome can't drop a tab's override, and an override that is
- * enabled but has no path leaves nothing to open (0.0.27).
+ * The side panel options for one tab. The window-wide panel is switched off,
+ * so only MC tabs get a panel, each its own (0.0.64). Switching a non-MC tab
+ * off while a window-wide panel was open didn't hide it in Chrome, so the
+ * panel showed "Not an MC page" on every other site.
  */
-export function panelOptionsFor(url: string | undefined, wasDisabled: boolean): { enabled: boolean; path?: string } | null {
-  if (!panelEnabledFor(url)) return { enabled: false };
-  return wasDisabled ? { enabled: true, path: PANEL_PATH } : null;
+export function panelOptionsFor(url: string | undefined): { enabled: boolean; path?: string } {
+  return panelEnabledFor(url) ? { enabled: true, path: PANEL_PATH } : { enabled: false };
 }
 
 export async function setHostEnabled(host: string, enabled: boolean): Promise<void> {

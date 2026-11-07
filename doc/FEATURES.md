@@ -25,8 +25,9 @@ pitch to associate editors.
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the
   side panel, to turn Electric MC off for a site.
-- **A side panel that follows you.** Everything known about the
-  manuscript on screen, which pops out into its own window.
+- **A side panel only where it belongs.** Everything known about the
+  manuscript on screen, which pops out into its own window. It shows on
+  MC tabs only and stays out of the way on every other site.
 - **Click the ID to open a manuscript.** No more aiming for the
   little Take Action checkbox.
 

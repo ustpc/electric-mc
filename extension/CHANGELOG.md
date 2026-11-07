@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.64 (2026-11-07)
+
+- The side panel shows only on Manuscript Central tabs. It used to stay open on every other site with "Not an MC page". Each MC tab now has its own panel: it hides when you switch to another site and comes back when you return to that tab. In a new MC tab, click the toolbar icon to open it.
+
 ## 0.0.63 (2026-11-07)
 
 - Tooltips on the extension's own pages (the Matrix, the team editor, the AE menu editor and the side panel) now show after a fifth of a second instead of Chrome's usual second or so.
