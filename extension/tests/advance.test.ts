@@ -187,3 +187,36 @@ describe('same task on the next manuscript', () => {
     expect(clicks).toEqual([]);
   });
 });
+
+describe('carrying a task opened by its link', () => {
+  it('carries "Co-Chair Make Recommendation" from the recommendation form to the next manuscript', async () => {
+    const { carryTask, taskName } = await import('../lib/advance');
+    expect(taskName('Co-Chair Make Recommendation')).toBe('co-chair make recommendation');
+    const DETAILS = (k: number) => `${NAV(k, 3)}<ul><li><a href="#" id="t-imm">Make Immediate Decision</a></li>
+      <li><a href="#" id="t-cc">Co-Chair Make Recommendation</a> (Due 13-Nov-2026)</li></ul><div class="tab">Make Immediate Decision</div>`;
+    document.body.innerHTML = DETAILS(1);
+    let stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
+    document.getElementById('t-cc')!.click();
+    stop();
+    // The task's own page, then MC's form: no task links, a Recommends table.
+    document.body.innerHTML = `${NAV(1, 3)}<a href="#" id="form">Make Recommendation</a>`;
+    stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
+    document.getElementById('form')!.click();
+    stop();
+    document.body.innerHTML = RECOMMENDS;
+    stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
+    (document.getElementById('rej') as HTMLInputElement).checked = true;
+    document.getElementById('submit')!.click();
+    stop();
+    // Back on the details page: we press next, then the next manuscript loads.
+    document.body.innerHTML = DETAILS(1);
+    stop = watchRecommendations(document, () => 'XYZJ-26-01-9101', () => true);
+    track();
+    expect(onPageLoad(document, 'XYZJ-26-01-9101', true)?.how).toBe('arrow');
+    stop();
+    document.body.innerHTML = DETAILS(2);
+    track();
+    expect(carryTask(document, 'XYZJ-26-01-9102')).toBe('co-chair make recommendation');
+    expect(clicks).toEqual(['t-cc']);
+  });
+});

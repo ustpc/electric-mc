@@ -16,6 +16,7 @@ const PENDING_KEY = 'emc-advance';
 const ORDER_KEY = 'emc-grid-order';
 const PENDING_MS = 3 * 60_000;
 const TASK_KEY = 'emc-carry-task';
+const OPENED_KEY = 'emc-opened-task';
 
 export type Dir = 1 | -1;
 
@@ -89,7 +90,7 @@ export function nextInGrid(current: string[], from: string, dir: Dir, before: st
 /** A task link's name: "Make Recommendation (Due 25-Oct-2026)" is "make recommendation". */
 export function taskName(text: string): string | null {
   const key = labelKey(text.replace(/\(due[^)]*\)/i, ''));
-  return /^(make|assign|invite|score)\b/.test(key) && key.length < 40 ? key : null;
+  return /^((co-chair|ae|eic|adm|admin|associate editor|editor)\s+)?(make|assign|invite|score)\b/.test(key) && key.length < 40 ? key : null;
 }
 
 /** The task links on a manuscript's page (MC's header list and tabs), by name. */
@@ -153,8 +154,23 @@ export function carryTask(doc: Document, current: string | undefined): string | 
   return carry.task;
 }
 
+interface Opened {
+  from: string;
+  task: string;
+}
+
+/**
+ * The task the person opened on this manuscript ("Co-Chair Make
+ * Recommendation"), else the one on screen. MC's recommendation form has no
+ * task links, so the click is what tells.
+ */
+function taskOn(view: Window, doc: Document, from: string | undefined): string | null {
+  const opened = read<Opened>(view, OPENED_KEY);
+  return (opened && opened.from === from ? opened.task : null) ?? currentTask(doc);
+}
+
 function rememberTask(view: Window, doc: Document, from: string | undefined) {
-  const task = currentTask(doc);
+  const task = taskOn(view, doc, from);
   if (task && from) write(view, TASK_KEY, { task, from, at: Date.now() } satisfies Carry);
   // Our own arrow press after a recommendation, on a page whose task is
   // done: keep the task noted when the recommendation was sent.
@@ -248,6 +264,10 @@ export function watchRecommendations(doc: Document, current: () => string | unde
     const bar = findNavBar(doc);
     const t = e.target instanceof Element ? e.target : null;
     const from = current();
+    // The first task link opened on this manuscript is the one to carry.
+    const link = t?.closest('a');
+    const name = link && !link.closest('[data-electric-mc]') ? taskName(textOf(link)) : null;
+    if (name && from && read<Opened>(view, OPENED_KEY)?.from !== from) write(view, OPENED_KEY, { from, task: name } satisfies Opened);
     if (bar && t) {
       const arrow = bar.next?.contains(t) ? 1 : bar.prev?.contains(t) ? -1 : 0;
       if (arrow) {

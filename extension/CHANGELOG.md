@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.57 (2026-11-07)
+
+- Fixed: the same-task carry-over (0.0.56) missed "Co-Chair Make Recommendation". It didn't count role-prefixed task links, and it looked for the task on MC's recommendation form, which has no task links. Now it remembers the first task link you open on a manuscript and opens that link on the next one.
+
 ## 0.0.56 (2026-11-06)
 
 - Moving on to the next manuscript keeps you on the same task: if you were on Make Recommendation (or Make Immediate Decision, Make Decision, …), the next manuscript opens on that task too, when it has one. This works after a recommendation or decision and when you press MC's previous/next arrows. It follows the "go on to the next manuscript" setting.
