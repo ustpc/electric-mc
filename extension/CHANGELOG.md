@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.65 (2026-11-08)
+
+- Fixed: updating the extension could leave "Uncaught (in promise) Error: No SW" on its Errors page. Chrome raises it when a call the old background worker started is still running as the new one replaces it. Every background call now catches it, and anything else left over is still reported.
+- CI now loads the built extension into headless Chromium, opens a made-up MC page and another site, reloads the extension twice as an update does, and fails if Chrome records any error (`npm run test:load`).
+
 ## 0.0.64 (2026-11-07)
 
 - The side panel shows only on Manuscript Central tabs. It used to stay open on every other site with "Not an MC page". Each MC tab now has its own panel: it hides when you switch to another site and comes back when you return to that tab. In a new MC tab, click the toolbar icon to open it.

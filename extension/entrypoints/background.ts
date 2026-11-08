@@ -16,6 +16,7 @@ import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
 import type { McIdentity } from '../lib/identity';
 import { migrateNotes, needsMigration, nowS } from '../lib/notes';
+import { bg, isWorkerGone } from '../lib/worker';
 
 const BADGE: Record<string, string> = {
   login: 'LOG',
@@ -28,75 +29,79 @@ const BADGE: Record<string, string> = {
 };
 
 export default defineBackground(() => {
+  // Anything else left uncaught at an update: drop it the same way.
+  self.addEventListener('unhandledrejection', (e) => {
+    if (isWorkerGone(e.reason)) e.preventDefault();
+  });
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   // No window-wide panel: refreshTab gives each MC tab its own, so other
   // sites never show it.
   chrome.sidePanel.setOptions({ enabled: false }).catch(() => {});
   // No alarms permission, so old data is pruned when the worker starts, at most daily.
-  void pruneOld();
-  void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
+  bg(pruneOld());
+  bg(chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && bg(refreshTab(t.id)))));
 
   chrome.runtime.onInstalled.addListener((d) => {
-    void log({ level: 'info', source: 'background', event: 'installed', data: { reason: d.reason, version: chrome.runtime.getManifest().version } });
+    bg(log({ level: 'info', source: 'background', event: 'installed', data: { reason: d.reason, version: chrome.runtime.getManifest().version } }));
     // Right-click the toolbar icon to switch the extension off or on for this site.
     chrome.contextMenus.create({ id: MENU_TOGGLE, title: 'Turn off on this site', contexts: ['action'] }, () => void chrome.runtime.lastError);
   });
 
   chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId !== MENU_TOGGLE || !tab?.url) return;
-    void (async () => {
+    bg((async () => {
       const host = new URL(tab.url!).hostname;
       const enabled = isEnabledFor(await getSettings(), tab.url);
       await setHostEnabled(host, !enabled);
       await log({ level: 'info', source: 'background', event: enabled ? 'turned off for site' : 'turned on for site', data: host });
-    })();
+    })());
   });
 
   // Keep the icon (blue on, grey off) and the menu label in step with the current tab.
-  chrome.tabs.onActivated.addListener(({ tabId }) => void refreshTab(tabId));
+  chrome.tabs.onActivated.addListener(({ tabId }) => bg(refreshTab(tabId)));
   chrome.tabs.onUpdated.addListener((tabId, change) => {
-    if (change.url || change.status === 'complete') void refreshTab(tabId);
+    if (change.url || change.status === 'complete') bg(refreshTab(tabId));
   });
-  const syncBackPages = () => void getSettings().then((s) => setBackPages(s.backPages)).catch(() => {});
+  const syncBackPages = () => bg(getSettings().then((s) => setBackPages(s.backPages)).catch(() => {}));
   syncBackPages();
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area === SETTINGS_AREA && ch[KEY.settings]) {
       syncBackPages();
       if (!(ch[KEY.settings]!.newValue as { developer?: boolean } | undefined)?.developer) closeLiveLog();
-      void chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && void refreshTab(t.id)));
+      bg(chrome.tabs.query({}).then((tabs) => tabs.forEach((t) => t.id !== undefined && bg(refreshTab(t.id)))));
     }
   });
 
   chrome.runtime.onMessage.addListener((msg: Msg, sender) => {
     const tabId = sender.tab?.id;
     if (msg.type === 'parsed' && tabId !== undefined) {
-      void onParsed(tabId, msg.result, msg.reason, msg.title);
+      bg(onParsed(tabId, msg.result, msg.reason, msg.title));
     } else if (msg.type === 'roles') {
-      void rememberRoles(msg.site, msg.roles);
+      bg(rememberRoles(msg.site, msg.roles));
     } else if (msg.type === 'identity') {
-      void rememberIdentity(msg.site, msg.identity);
+      bg(rememberIdentity(msg.site, msg.identity));
     } else if (msg.type === 'eic') {
-      void updateEic(msg.set, msg.remove);
+      bg(updateEic(msg.set, msg.remove));
     } else if (msg.type === 'version-info') {
-      void rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info);
+      bg(rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info));
     } else if (msg.type === 'ae-load') {
-      void rememberAeLoad(msg.journal, msg.entries);
+      bg(rememberAeLoad(msg.journal, msg.entries));
     } else if (msg.type === 'disabled' && tabId !== undefined) {
-      void chrome.storage.session.remove(KEY.tab(tabId));
+      bg(chrome.storage.session.remove(KEY.tab(tabId)));
     } else if (msg.type === 'log') {
       if (msg.level === 'debug' || msg.level === 'info') {
-        void getSettings().then((s) => {
-          if (s.developer) void log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data });
-        });
+        bg(getSettings().then((s) => {
+          if (s.developer) bg(log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data }));
+        }));
         return false;
       }
-      void log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data });
+      bg(log({ level: msg.level, source: sender.tab ? 'content' : 'sidepanel', event: msg.event, tabId, data: msg.data }));
     }
     return false;
   });
 
   chrome.tabs.onRemoved.addListener((tabId) => {
-    void chrome.storage.session.remove(KEY.tab(tabId));
+    bg(chrome.storage.session.remove(KEY.tab(tabId)));
   });
 });
 

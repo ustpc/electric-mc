@@ -1,4 +1,4 @@
-# Typechecks, tests (with coverage) and builds the extension on every push
+# Typechecks, tests (with coverage), builds and load-tests the extension on every push
 # and pull request. The coverage table goes in the run summary and, on pull
 # requests, in a comment; the HTML report is the "coverage" artifact.
 name: CI
@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   extension:
-    runs-on: ubuntu-latest
+    # 24.04: Playwright 1.56 has no Chromium build for newer Ubuntu.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: extension
@@ -36,6 +37,10 @@ jobs:
       - run: npm run typecheck
       - run: npm run coverage
       - run: npm run build
+      # Load the built extension into headless Chromium, reload it twice (as
+      # an update does) and fail on any error Chrome records for it.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:load
 
       - uses: actions/upload-artifact@v4
         if: always()

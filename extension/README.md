@@ -13,7 +13,7 @@ Design notes are in
 ## Version
 
 
-Semantic versioning, set in `package.json` (now 0.0.64). The version shows
+Semantic versioning, set in `package.json` (now 0.0.65). The version shows
 in the extension's name, the toolbar tooltip and the side panel header.
 Bump it with every build you hand out. Every version bump gets an entry in
 [CHANGELOG.md](CHANGELOG.md).
@@ -198,6 +198,7 @@ other than the one the command prints, run
 npm test                 # fixtures + simulated template changes
 npm run typecheck
 npm run coverage         # tests plus a coverage report in coverage/index.html
+npm run test:load        # after a build: load it in headless Chromium, reload twice, fail on any error
 npm run validate -- ~/Downloads/electric-mc/captures --mutate
 ```
 
@@ -206,7 +207,7 @@ capture, and with `--mutate` reports any capture whose result changes under
 the simulated ScholarOne template changes in `tests/mutate.ts`. Add
 `--json --redact` for output you can share.
 
-GitHub runs the typecheck, the tests with coverage, and the build on every
+GitHub runs the typecheck, the tests with coverage, the build and the load test on every
 push and pull request (`.github/workflows/ci.yml`). Each run's summary shows
 the coverage table, pull requests get it as a comment, and the full HTML
 report is attached to the run as the `coverage` artifact.

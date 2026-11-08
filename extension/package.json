@@ -1,7 +1,7 @@
 {
   "name": "electric-mc-extension",
   "private": true,
-  "version": "0.0.64",
+  "version": "0.0.65",
   "description": "Electric MC test extension: page parsers, debug overlay, and logging for Manuscript Central",
   "type": "module",
   "scripts": {
@@ -15,6 +15,7 @@
     "postinstall": "wxt prepare",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:load": "node tools/e2e/load-check.mjs build/chrome-mv3",
     "validate": "tsx tools/validate.ts",
     "coverage": "vitest run --coverage",
     "ae-profiles": "tsx tools/ae-profiles/build.ts"
@@ -25,6 +26,7 @@
     "@types/jsdom": "^30.0.0",
     "@vitest/coverage-v8": "^5.0.5",
     "jsdom": "^29.1.1",
+    "playwright": "1.56.1",
     "preact": "^11.0.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
