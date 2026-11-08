@@ -21,7 +21,8 @@ import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive'
 import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
-import { activeAeMenu, aeMenuStatus, clearAeMenu, type AeMenuStore } from '../lib/aemenu';
+import { activeAeMenu, aeMenuStatus, clearAeMenu, plainAeMenu, type AeMenuStore, type FirstGroup } from '../lib/aemenu';
+import { earlierIds, markAeList, type EarlierAe } from '../lib/earlierae';
 import { findAeSelect, parseOption } from '../lib/aeload';
 import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
@@ -61,10 +62,41 @@ async function start() {
   let team = (menuGot[KEY.team] as Team | undefined) ?? null;
   // Logged once per page that has an AE pull-down: whether it was styled, or why not.
   let aeMenuLogged = '';
+  // The AEs of this revision's earlier versions, for the Assign AE page.
+  let earlier: { on: string; list: EarlierAe[] } | null = null;
+  const loadEarlier = async (r: ParseResult) => {
+    const m = r.manuscript;
+    if (!m || m.revision < 1 || !settings.lookupEarlierVersions) {
+      earlier = null;
+      return;
+    }
+    if (earlier?.on === m.id) return;
+    earlier = { on: m.id, list: [] };
+    const got = await chrome.storage.local.get(KEY.seen);
+    const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
+    const fromBackend = await askBackend(m.baseId);
+    const list = earlierIds(m.baseId, m.revision).map((id) => ({ id, ae: fromBackend?.[id] ?? known?.versionInfo?.[id]?.ae ?? known?.aeByVersion?.[id] }));
+    if (earlier?.on !== m.id) return;
+    earlier = { on: m.id, list };
+    markAeList(document, list);
+    styleAeMenu();
+  };
+  const firstGroup = (): FirstGroup | undefined => {
+    if (!earlier || earlier.on !== last?.manuscript?.id) return undefined;
+    const names = [...new Set(earlier.list.map((v) => v.ae).filter((n): n is string => !!n))];
+    if (!names.length) return undefined;
+    return { label: names.length === 1 && earlier.list.length === 1 ? 'Original AE' : 'Earlier AEs', names };
+  };
+
   const styleAeMenu = () => {
     const c = activeAeMenu(aeMenu);
+    const first = firstGroup();
     let status: string;
-    if (c) status = aeMenuStatus(document, c, team);
+    if (c) status = aeMenuStatus(document, c, team, first);
+    else if (first) {
+      status = aeMenuStatus(document, plainAeMenu(), team, first);
+      if (status === 'styled') status = 'styled (earlier AE only)';
+    }
     else {
       clearAeMenu(document);
       const cfg = aeMenu?.source === 'server' ? aeMenu.server : aeMenu?.local;
@@ -79,7 +111,7 @@ async function start() {
     const key = `${location.href}|${status}`;
     if (key === aeMenuLogged) return;
     aeMenuLogged = key;
-    send({ type: 'log', level: 'info', event: 'AE menu', data: { status, source: aeMenu?.source ?? 'none', groups: c?.groups.length ?? 0, teamPeople: team?.people.length ?? 0 } });
+    send({ type: 'log', level: 'info', event: 'AE menu', data: { status, source: aeMenu?.source ?? 'none', groups: c?.groups.length ?? 0, teamPeople: team?.people.length ?? 0, earlierAes: first?.names.length ?? 0 } });
   };
 
   const run = (reason: string) => {
@@ -111,6 +143,9 @@ async function start() {
     recordLetters(r);
     recordThisVersion(r);
     recordAeLoad();
+    void loadEarlier(r);
+    if (earlier?.on === r.manuscript?.id) markAeList(document, earlier?.list ?? []);
+    else markAeList(document, []);
     styleAeMenu();
     recordRoles(r);
     recordIdentity(r);
@@ -144,7 +179,12 @@ async function start() {
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     enlargeNavArrows(document, true);
-    enlargePagerArrows(document, true);
+    const pager = enlargePagerArrows(document, true);
+    const pagerKey = `${location.href}|${pager.holders}|${pager.arrows}`;
+    if (pager.holders && pagerKey !== pagerLogged) {
+      pagerLogged = pagerKey;
+      send({ type: 'log', level: pager.arrows ? 'debug' : 'warn', event: 'pager arrows', data: pager });
+    }
     emphasizeVersionHistory(document, true, settings.fontSize, settings.idPattern);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
@@ -261,6 +301,7 @@ async function start() {
     show('AE: open this version once to record it');
   };
   let noLinksLogged = false;
+  let pagerLogged = '';
 
   // Any Audit Trail on screen tells us when decisions were sent; keep them.
   const recordLetters = (r: ParseResult) => {

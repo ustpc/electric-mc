@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.66 (2026-11-08)
+
+- On a revision's Assign AE task, the Associate Editor List now says who handled the earlier versions ("Original Associate Editor: …"), and those AEs go to the top of the pull-down under "Original AE" in bold brown. This works even when the AE menu's grouping is off. As in Peer Review Milestones, an earlier AE is known once you have opened that version in this browser.
+- Fixed: the page arrows beside "Manuscripts 1-10 of 19" on MC's lists weren't enlarged. The extension only handled arrows drawn as images or as text characters; arrows drawn with an icon font or CSS now get the same large brown arrowheads. The arrows may also sit in the cell next to the range. In developer mode the log says what it found ("pager arrows").
+
 ## 0.0.65 (2026-11-08)
 
 - Fixed: updating the extension could leave "Uncaught (in promise) Error: No SW" on its Errors page. Chrome raises it when a call the old background worker started is still running as the new one replaces it. Every background call now catches it, and anything else left over is still reported.
