@@ -40,7 +40,9 @@ pitch to associate editors.
   extension adds the previous version's submission and decision dates, the
   days it took, and its AE and co-chair to Peer Review Milestones, and puts
   each earlier version's AE next to it in Version History, from the versions
-  you've opened.
+  you've opened. On the Assign AE task it names the original AE in the
+  Associate Editor List and puts them at the top of the pull-down, so a
+  revision is easy to send back to them.
 - **On to the next manuscript (now).** After you submit a recommendation or
   commit a decision, the extension opens the next manuscript in the list, in
   the direction you're moving, on the same task you were on (Make

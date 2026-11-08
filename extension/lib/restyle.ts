@@ -373,14 +373,34 @@ export function pagerImage(dir: 'next' | 'prev'): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
+/** What enlargePagerArrows found, for the developer log (shapes only, no page text). */
+export interface PagerReport {
+  holders: number;
+  arrows: number;
+  /** Each arrow's shape, such as "a>img" or "a>i.fa.fa-caret-left". */
+  shapes: string[];
+}
+
+const PAGER_ICON = 'data-emc-pager-icon';
+const PAGER_HIDDEN = 'data-emc-pager-hid';
+
+function shapeOf(el: Element): string {
+  const one = (e: Element) => `${e.tagName.toLowerCase()}${Array.from(e.classList).slice(0, 3).map((c) => `.${c}`).join('')}`;
+  const kid = el.firstElementChild;
+  return kid ? `${one(el)}>${one(kid)}` : one(el);
+}
+
 /**
  * The grids' page arrows beside "Manuscripts 11-12 of 12", redrawn twice as
  * big: images become sharp brown arrowheads, text arrows (◂ ▸) get bigger
- * type. Off puts MC's back.
+ * type, and icon-font or CSS-drawn arrows get our arrowhead drawn in their
+ * place. The arrows may sit in the same cell as the range or in the next one.
+ * Off puts MC's back.
  */
-export function enlargePagerArrows(doc: Document, on: boolean): void {
+export function enlargePagerArrows(doc: Document, on: boolean): PagerReport {
+  const report: PagerReport = { holders: 0, arrows: 0, shapes: [] };
   if (!on) {
-    doc.querySelectorAll<HTMLImageElement>(`img[${PAGER_ORIGINAL}]`).forEach((img) => {
+    doc.querySelectorAll<HTMLImageElement>(`[${PAGER_ORIGINAL}]`).forEach((img) => {
       img.setAttribute('src', img.getAttribute(PAGER_ORIGINAL)!);
       img.removeAttribute(PAGER_ORIGINAL);
       img.style.removeProperty('width');
@@ -390,29 +410,71 @@ export function enlargePagerArrows(doc: Document, on: boolean): void {
       el.style.removeProperty('font-size');
       el.removeAttribute(PAGER_TEXT);
     });
-    return;
+    doc.querySelectorAll<HTMLElement>(`[${PAGER_ICON}]`).forEach((el) => {
+      el.querySelectorAll('[data-electric-mc="pager"]').forEach((n) => n.remove());
+      el.querySelectorAll<HTMLElement>(`[${PAGER_HIDDEN}]`).forEach((n) => {
+        n.style.removeProperty('display');
+        n.removeAttribute(PAGER_HIDDEN);
+      });
+      el.style.removeProperty('background-image');
+      el.removeAttribute(PAGER_ICON);
+    });
+    return report;
   }
   // The smallest elements whose text is the page range.
   const holders = Array.from(doc.querySelectorAll<HTMLElement>('td, th, div, span')).filter(
     (el) => PAGE_RANGE.test(textOf(el)) && textOf(el).length < 80 && !Array.from(el.children).some((c) => PAGE_RANGE.test(textOf(c))),
   );
+  report.holders = holders.length;
+  const ARROWS = 'a, [onclick], input[type=image], button';
   for (const holder of holders) {
-    const links = Array.from(holder.querySelectorAll<HTMLElement>('a, [onclick]'));
+    let links = Array.from(holder.querySelectorAll<HTMLElement>(ARROWS));
+    // No arrows in the range's own cell: look in the rest of its row.
+    if (!links.length && holder.parentElement) links = Array.from(holder.parentElement.querySelectorAll<HTMLElement>(ARROWS)).filter((l) => !l.contains(holder));
+    links = links.filter((l) => !l.closest('select') && !links.some((o) => o !== l && o.contains(l)));
     links.forEach((link, i) => {
-      const img = link.querySelector<HTMLImageElement>('img');
-      const name = `${img?.getAttribute(PAGER_ORIGINAL) ?? img?.getAttribute('src') ?? ''} ${img?.alt ?? ''} ${link.title} ${textOf(link)}`;
+      if (link.closest('[data-electric-mc]')) return;
+      const img = link.matches('img, input[type=image]') ? (link as HTMLImageElement) : link.querySelector<HTMLImageElement>('img:not([data-electric-mc])');
+      const icon = link.querySelector('i, span[class], svg');
+      const name = `${img?.getAttribute(PAGER_ORIGINAL) ?? img?.getAttribute('src') ?? ''} ${img?.getAttribute('alt') ?? ''} ${link.title} ${link.className} ${icon?.getAttribute('class') ?? ''} ${textOf(link)}`;
       const dir = /prev|left|back|◀|◂|‹|«/i.test(name) ? 'prev' : /next|right|forward|▶|▸|›|»/i.test(name) ? 'next' : i === 0 ? 'prev' : 'next';
+      const text = textOf(link);
       if (img) {
+        report.arrows++;
+        report.shapes.push(shapeOf(link));
         if (img.hasAttribute(PAGER_ORIGINAL)) return;
         const size = 2 * (img.naturalWidth || img.width || 8);
         img.setAttribute(PAGER_ORIGINAL, img.getAttribute('src') ?? '');
         img.setAttribute('src', pagerImage(dir));
         img.style.setProperty('width', `${size}px`);
         img.style.setProperty('height', `${size}px`);
-      } else if (/^[◀◂‹«▶▸›»<>]+$/.test(textOf(link)) && !link.hasAttribute(PAGER_TEXT)) {
+      } else if (/^[◀◂‹«▶▸›»<>]+$/.test(text)) {
+        report.arrows++;
+        report.shapes.push(shapeOf(link));
+        if (link.hasAttribute(PAGER_TEXT)) return;
         link.setAttribute(PAGER_TEXT, '');
         link.style.setProperty('font-size', '200%');
+      } else if (!text) {
+        // An icon font (<i class="fa fa-caret-left">) or a CSS background: draw ours instead.
+        report.arrows++;
+        report.shapes.push(shapeOf(link));
+        if (link.hasAttribute(PAGER_ICON)) return;
+        link.setAttribute(PAGER_ICON, '');
+        for (const kid of Array.from(link.children) as HTMLElement[]) {
+          kid.setAttribute(PAGER_HIDDEN, '');
+          kid.style.setProperty('display', 'none');
+        }
+        const ours = doc.createElement('img');
+        ours.setAttribute('data-electric-mc', 'pager');
+        ours.alt = dir === 'prev' ? 'Previous' : 'Next';
+        ours.src = pagerImage(dir);
+        ours.style.cssText = 'width:16px;height:16px;vertical-align:middle;border:0';
+        link.appendChild(ours);
+        // A CSS-drawn arrow is the link's own background; hide it under ours.
+        const bgi = doc.defaultView?.getComputedStyle(link).backgroundImage;
+        if (bgi && bgi !== 'none') link.style.setProperty('background-image', 'none');
       }
     });
   }
+  return report;
 }

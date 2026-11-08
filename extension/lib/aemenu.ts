@@ -317,14 +317,33 @@ function keepSelection(select: HTMLSelectElement, change: () => void) {
  * nothing, so the page's mutation observer doesn't loop. A select MC
  * already divides into its own optgroups is left alone.
  */
-export function applyAeMenu(doc: Document, config: AeMenuConfig, team: Team | null | undefined): boolean {
-  return aeMenuStatus(doc, config, team) === 'styled';
+export function applyAeMenu(doc: Document, config: AeMenuConfig, team: Team | null | undefined, first?: FirstGroup): boolean {
+  return aeMenuStatus(doc, config, team, first) === 'styled';
 }
+
+/**
+ * Editors who go above every group, in this order: the AEs of the
+ * manuscript's earlier versions, so a revision usually goes back to them.
+ */
+export interface FirstGroup {
+  label: string;
+  names: string[];
+}
+
+/** The style of the first group: bold E-MC brown, like everything else E-MC adds. */
+export const FIRST_STYLE: AeMenuStyle = { color: '#b45309', bold: true };
+
+/** A config that only puts the first group on top and leaves the rest as MC drew it. */
+export function plainAeMenu(): AeMenuConfig {
+  return { ...defaultAeMenu(), enabled: true, fontSize: 0, fontFamily: '', sort: 'mc', label: '', groups: [], rest: { label: 'All AEs' } };
+}
+
+const sameEditor = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase() || sameName(a, b);
 
 /** What applyAeMenu did, for the log: 'styled', or why not. */
 export type AeMenuResult = 'styled' | 'no AE pull-down' | "MC's own groups";
 
-export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | null | undefined): AeMenuResult {
+export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | null | undefined, first?: FirstGroup): AeMenuResult {
   const found = findAeSelect(doc);
   if (!found) return 'no AE pull-down';
   const { select } = found;
@@ -344,6 +363,8 @@ export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | n
   const top: HTMLOptionElement[] = [];
   const buckets: Item[][] = config.groups.map(() => []);
   const rest: Item[] = [];
+  const firstNames = first?.names ?? [];
+  const firsts: Array<Item & { rank: number }> = [];
   options.forEach((option, mcIndex) => {
     const mc = mcText(option);
     if (PLACEHOLDER.test(mc) || !option.value) return void top.push(option);
@@ -353,6 +374,8 @@ export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | n
     // MC's count ("(3)") stays after the new label.
     const shown = who ? `${labelFor({ section: sectionLabel(team!, who.id), given: who.given, family: who.family }, name, config.label)}${mc.slice(name.length)}` : mc;
     const item: Item = { option, name, count: parsed?.count ?? 0, mcIndex, shown };
+    const rank = firstNames.findIndex((n) => sameEditor(n, name));
+    if (rank >= 0) return void firsts.push({ ...item, rank });
     const g = groupOf(name, config, team);
     (g < 0 ? rest : buckets[g]!).push(item);
   });
@@ -365,6 +388,7 @@ export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | n
   const sections: Array<{ label: string; style: AeMenuStyle; items: Item[] }> = config.groups
     .map((g, i) => ({ label: g.label, style: g, items: order(buckets[i]!) }))
     .filter((s) => s.items.length);
+  if (firsts.length) sections.unshift({ label: first!.label, style: FIRST_STYLE, items: firsts.sort((a, b) => a.rank - b.rank) });
   // With no group used, the menu keeps MC's single list (styled as the rest).
   if (sections.length && rest.length) sections.push({ label: config.rest.label, style: config.rest, items: order(rest) });
   const plain = !sections.length;

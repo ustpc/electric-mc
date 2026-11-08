@@ -210,4 +210,21 @@ describe('enlargePagerArrows', () => {
     enlargePagerArrows(document, false);
     expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe('/images/en_US/icons/arrow_right.gif');
   });
+
+  it('draws arrowheads over icon-font arrows, in the same cell or the next one', async () => {
+    const { enlargePagerArrows, pagerImage } = await import('../lib/restyle');
+    document.body.innerHTML = `<table><tr><td>Manuscripts <select><option>1-10</option><option>11-19</option></select> of 19</td>
+      <td><a href="#" id="back"><i class="fa fa-caret-left"></i></a><a href="#" id="fwd"><i class="fa fa-caret-right"></i></a></td></tr></table>`;
+    const r = enlargePagerArrows(document, true);
+    enlargePagerArrows(document, true);
+    expect(r).toMatchObject({ holders: 1, arrows: 2 });
+    expect(r.shapes[0]).toBe('a>i.fa.fa-caret-left');
+    expect(document.querySelectorAll('#back img').length).toBe(1);
+    expect(document.querySelector('#back img')!.getAttribute('src')).toBe(pagerImage('prev'));
+    expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe(pagerImage('next'));
+    expect((document.querySelector('#fwd i') as HTMLElement).style.display).toBe('none');
+    enlargePagerArrows(document, false);
+    expect(document.querySelector('#fwd img')).toBeNull();
+    expect((document.querySelector('#fwd i') as HTMLElement).style.display).toBe('');
+  });
 });
