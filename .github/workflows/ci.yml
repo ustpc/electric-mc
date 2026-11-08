@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   extension:
-    runs-on: ubuntu-latest
+    # 24.04: Playwright 1.56 has no Chromium build for newer Ubuntu.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: extension
