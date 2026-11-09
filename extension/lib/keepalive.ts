@@ -34,7 +34,16 @@ export function findSearchToggle(doc: Document): HTMLElement | null {
  * Press the toggle twice, 1.5 s apart, and report how many requests to MC's
  * server followed within 3 s (from the page's resource timing).
  */
-export async function sendKeepalive(doc: Document): Promise<{ found: boolean; requests: number }> {
+export interface KeepaliveResult {
+  found: boolean;
+  requests: number;
+  /** HTTP status of each request, where the browser reports it (0 = not reported). */
+  statuses?: number[];
+  /** Bytes received for each request; a sudden change can mean MC answered with a login page. */
+  sizes?: number[];
+}
+
+export async function sendKeepalive(doc: Document): Promise<KeepaliveResult> {
   const toggle = findSearchToggle(doc);
   if (!toggle) return { found: false, requests: 0 };
   const view = doc.defaultView!;
@@ -43,8 +52,14 @@ export async function sendKeepalive(doc: Document): Promise<{ found: boolean; re
   await new Promise((r) => view.setTimeout(r, 1500));
   pageClick(toggle);
   await new Promise((r) => view.setTimeout(r, 1500));
-  const requests = view.performance
-    .getEntriesByType('resource')
-    .filter((e) => e.startTime >= start && /scholaroneAJAXServlet/i.test(e.name)).length;
-  return { found: true, requests };
+  const entries = (view.performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter(
+    (e) => e.startTime >= start && /scholaroneAJAXServlet/i.test(e.name),
+  );
+  if (!entries.length) return { found: true, requests: 0 };
+  return {
+    found: true,
+    requests: entries.length,
+    statuses: entries.map((e) => (e as PerformanceResourceTiming & { responseStatus?: number }).responseStatus ?? 0),
+    sizes: entries.map((e) => e.transferSize ?? 0),
+  };
 }
