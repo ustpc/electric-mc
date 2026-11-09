@@ -46,6 +46,10 @@ pitch to associate editors.
   you've opened. On the Assign AE task it names the original AE in the
   Associate Editor List and puts them at the top of the pull-down, so a
   revision is easy to send back to them.
+- **No decision without a word to the author (now).** When you submit an
+  accept, revise or reject recommendation or commit such a decision and the
+  "Comments to the Author" box is empty, the extension asks before it goes
+  out. Cancel takes you to the box.
 - **On to the next manuscript (now).** After you submit a recommendation or
   commit a decision, the extension opens the next manuscript in the list, in
   the direction you're moving, on the same task you were on (Make
