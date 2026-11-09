@@ -31,6 +31,15 @@ describe('watchRadioRows', () => {
     expect([checked('a'), checked('b')]).toEqual([false, true]);
   });
 
+  it('works when the label sits in a table nested in the second cell, as on AE Recommends', () => {
+    document.body.innerHTML = `<table>
+      <tr><td><input type="radio" name="d" id="rej"></td><td><table><tr><td><p class="pagecontents" id="rej-label">Reject</p></td></tr></table></td></tr>
+    </table>`;
+    stop = watchRadioRows(document, () => true);
+    click('rej-label');
+    expect(checked('rej')).toBe(true);
+  });
+
   it('leaves links, disabled choices and rows with two radio buttons alone', () => {
     document.body.innerHTML = TABLE;
     stop = watchRadioRows(document, () => true);
