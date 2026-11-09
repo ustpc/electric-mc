@@ -18,6 +18,7 @@ export type Msg =
   | { type: 'roles'; site: string; roles: Role[] }
   | { type: 'eic'; set?: EicItem; remove?: string }
   | { type: 'identity'; site: string; identity: McIdentity }
+  | { type: 'pdf-opened' }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -75,6 +76,8 @@ export interface Settings {
   notesServer: string;
   /** Show the advanced settings in the side panel's Settings tab. */
   showAdvanced: boolean;
+  /** Zoom for PDFs opened from MC, in percent; 0 leaves Chrome's own fit-to-width. */
+  pdfZoom: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -95,6 +98,7 @@ export const DEFAULT_SETTINGS: Settings = {
   displayName: '',
   notesServer: '',
   showAdvanced: false,
+  pdfZoom: 0,
 };
 
 export function isEnabledFor(s: Settings, url: string | undefined): boolean {

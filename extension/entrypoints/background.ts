@@ -4,6 +4,7 @@
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
+import { PdfZoom } from '../lib/pdfzoom';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
@@ -72,6 +73,9 @@ export default defineBackground(() => {
     }
   });
 
+  const pdfZoom = new PdfZoom({ setZoom: (id, f) => chrome.tabs.setZoom(id, f), getZoomSettings: (id) => chrome.tabs.getZoomSettings(id) });
+  chrome.tabs.onZoomChange.addListener((z) => pdfZoom.changed(z));
+  chrome.tabs.onRemoved.addListener((id) => pdfZoom.closed(id));
   chrome.runtime.onMessage.addListener((msg: Msg, sender) => {
     const tabId = sender.tab?.id;
     if (msg.type === 'parsed' && tabId !== undefined) {
@@ -86,6 +90,8 @@ export default defineBackground(() => {
       bg(rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info));
     } else if (msg.type === 'ae-load') {
       bg(rememberAeLoad(msg.journal, msg.entries));
+    } else if (msg.type === 'pdf-opened' && tabId !== undefined) {
+      bg(getSettings().then((s) => pdfZoom.opened(tabId, s.pdfZoom)));
     } else if (msg.type === 'disabled' && tabId !== undefined) {
       bg(chrome.storage.session.remove(KEY.tab(tabId)));
     } else if (msg.type === 'log') {

@@ -770,6 +770,12 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
           {FONT_CHOICES.map((n) => <option value={String(n)}>{n ? `${n}px` : `MC default (${MC_FONT_PX}px)`}</option>)}
         </select>
       </label>
+      <label class="chk">
+        Open PDFs at
+        <select value={String(s.pdfZoom)} onChange={(e) => update({ pdfZoom: Number((e.target as HTMLSelectElement).value) })}>
+          {[0, 125, 150, 175, 200].map((n) => <option value={String(n)}>{n ? `${n}%` : "Chrome's fit to width"}</option>)}
+        </select>
+      </label>
       <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}

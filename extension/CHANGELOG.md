@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.68 (2026-11-09)
+
+- New setting "Open PDFs at" (Settings → Page layout): PDFs opened from MC (the PDF button, proofs) open in Chrome's viewer at 125, 150, 175 or 200% instead of fit to width. The extension sets that tab's zoom just after the viewer's own fit, for the first few seconds only, so your own zooming afterwards is left alone. Only the PDF's tab is zoomed, never every MC page. Off (Chrome's fit to width) by default. No new permissions.
+
 ## 0.0.67 (2026-11-09)
 
 - Fixed: the page arrows beside "Manuscripts 1-10 of 19" still weren't enlarged. On those lists the range text is spread over several cells, so the extension never found the arrows next to it. It now also finds MC's own arrow images (icons/left_arrow.gif and right_arrow.gif) directly and replaces them with brown SVG arrowheads twice their size.
