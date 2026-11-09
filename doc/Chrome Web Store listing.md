@@ -41,7 +41,7 @@ For everyone:
 • Easier login. Password managers such as 1Password and Chrome's own fill the Manuscript Central login form, and Electric MC can press Log In for you.
 • Readable tab titles. Each tab is named for the manuscript or queue it shows, so your history and Back menu make sense.
 • Choose a file and it's attached, with no separate Attach click.
-• Optional full-width layout and larger text.
+• Optional full-width layout and larger text, and PDFs that open at the zoom you choose.
 • Click a manuscript ID to open it; bigger previous/next arrows; click anywhere in a choice row to pick it.
 • Optional keepalives so Manuscript Central doesn't log you out while you read (stops after 48 idle hours).
 • A side panel with everything known about the manuscript on screen, which can pop out into its own window.
@@ -54,7 +54,8 @@ For editors and associate editors:
 • Signed notes per manuscript, kept in your browser.
 
 For section editors (co-chairs):
-• A readable AE menu: the Assign Associate Editor pull-down regrouped under dividers, relabeled with each editor's section, and colored by group. What Manuscript Central submits doesn't change.
+• A readable AE menu: the Assign Associate Editor pull-down regrouped under dividers, relabeled with each editor's section, and colored by group, with role accounts you choose pinned at the top. What Manuscript Central submits doesn't change.
+• On a revision's Assign AE task, the earlier version's AE is named in the Associate Editor List and listed first, so the revision can go back to them.
 • One team database and an editorial matrix with each editor's current load.
 • Suggested AEs: the side panel ranks your AEs by how close their published work is to the manuscript. The matching runs on your computer with a model bundled in the extension.
 • A To EIC list of the recommendations you've sent, marked in your queues until the EIC acts.
