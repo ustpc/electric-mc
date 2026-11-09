@@ -69,6 +69,14 @@ export function PersonForm({ person, isNew, onSave, onDelete, onClose }: {
             <label><input type="checkbox" checked={!!p.shared} onChange={(e) => set({ shared: (e.target as HTMLInputElement).checked || undefined })} /> Shared account (such as the co-chairs')</label>{' '}
             <label><input type="checkbox" checked={!!p.ae} onChange={(e) => set({ ae: (e.target as HTMLInputElement).checked || undefined })} /> Takes AE assignments</label>
           </div>
+          <label>Name in MC, if not theirs</label>
+          <input value={p.mcName ?? ''} placeholder='a role account, such as "Co-Chair, Opinions"' onInput={(e) => set({ mcName: val(e) || undefined })} />
+          <label>Title in the AE menu</label>
+          <input value={p.menuTitle ?? ''} placeholder="blank: their sections" onInput={(e) => set({ menuTitle: val(e) || undefined })} />
+          <label />
+          <div>
+            <label><input type="checkbox" checked={!!p.menuTop} onChange={(e) => set({ menuTop: (e.target as HTMLInputElement).checked || undefined })} /> Always at the top of the AE menu</label>
+          </div>
           <label>Photo</label>
           <div class="form-photo">
             {p.portrait ? <img src={p.portrait} alt="" /> : <div class="placeholder">{(p.given[0] ?? '') + (p.family[0] ?? '')}</div>}

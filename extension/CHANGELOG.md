@@ -2,6 +2,15 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.69 (2026-11-09)
+
+- The team database can describe a role account. A person can now have an MC name that isn't their own ("Co-Chair, Opinions"), a title for the AE menu ("Opinion Co-Chair") and "Always at the top of the AE menu"; all three are in the team editor's person form. The AE menu matches such an account only by its MC name, labels it with the person's name ("Opinion Co-Chair - Pat Editor (4)") and puts it above every group. Assigning to the co-chair account is how a co-chair takes a paper to reject it, so it belongs on top.
+- The log now records each PDF that opens and what the zoom setting did ("PDF opened", "PDF zoom set").
+
+## 0.0.68 (2026-11-09)
+
+- New setting "Open PDFs at" (Settings → Page layout): PDFs opened from MC (the PDF button, proofs) open in Chrome's viewer at 125, 150, 175 or 200% instead of fit to width. The extension sets that tab's zoom just after the viewer's own fit, for the first few seconds only, so your own zooming afterwards is left alone. Only the PDF's tab is zoomed, never every MC page. Off (Chrome's fit to width) by default. No new permissions.
+
 ## 0.0.67 (2026-11-09)
 
 - Fixed: the page arrows beside "Manuscripts 1-10 of 19" still weren't enlarged. On those lists the range text is spread over several cells, so the extension never found the arrows next to it. It now also finds MC's own arrow images (icons/left_arrow.gif and right_arrow.gif) directly and replaces them with brown SVG arrowheads twice their size.

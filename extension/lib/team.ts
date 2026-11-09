@@ -30,6 +30,16 @@ export interface TeamPerson {
   shared?: boolean;
   /** Takes AE assignments; shown as an unassigned AE when in no section. */
   ae?: boolean;
+  /**
+   * The name MC shows for this account when it isn't the person's own, such
+   * as a role account ("Co-Chair, Opinions"). The AE menu then matches only
+   * this name, and shows the person's own name in its place.
+   */
+  mcName?: string;
+  /** What the AE menu shows before the name instead of their sections ("Opinion Co-Chair"). */
+  menuTitle?: string;
+  /** Always at the top of the AE menu. */
+  menuTop?: boolean;
   affiliations: string[];
   mastheadAffiliation?: string;
   expertise: string;
@@ -142,6 +152,11 @@ export function parseTeam(json: unknown): Team {
     }
     if (p.shared === true) out.shared = true;
     if (p.ae === true) out.ae = true;
+    const mcName = opt(p.mcName, `${at}.mcName`, 200);
+    if (mcName) out.mcName = mcName;
+    const menuTitle = opt(p.menuTitle, `${at}.menuTitle`, 100);
+    if (menuTitle) out.menuTitle = menuTitle;
+    if (p.menuTop === true) out.menuTop = true;
     const masthead = opt(p.mastheadAffiliation, `${at}.mastheadAffiliation`, 300);
     if (masthead) out.mastheadAffiliation = masthead;
     const notes = opt(p.notes, `${at}.notes`, 4000);

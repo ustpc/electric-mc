@@ -45,6 +45,11 @@ export default defineContentScript({
 const MARK = 'data-electric-mc';
 
 async function start() {
+  // A PDF from MC opens in Chrome's viewer; the background sets its zoom.
+  if (document.contentType === 'application/pdf') {
+    chrome.runtime.sendMessage({ type: 'pdf-opened' } satisfies Msg).catch(() => {});
+    return;
+  }
   let settings: Settings = await getSettings();
   const titles = new TitleKeeper(document, (from, to) => send({ type: 'log', level: 'debug', event: 'title reapplied', data: { from, to } }));
   let last: ParseResult | null = null;

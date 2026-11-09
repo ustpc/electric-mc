@@ -36,6 +36,9 @@ pitch to associate editors.
 - **Revisions stand out (now).** Queue rows for revised manuscripts (.R1,
   .R2, …) are bold on light yellow, so the papers coming back to you are easy
   to spot. A switch turns it off.
+- **PDFs at a readable size (now).** Manuscript PDFs open in Chrome's
+  viewer at the zoom you pick in Settings (125 to 200%) instead of fit to
+  width; only that tab is zoomed.
 - **The history of a revision at a glance (now).** On a revision, the
   extension adds the previous version's submission and decision dates, the
   days it took, and its AE and co-chair to Peer Review Milestones, and puts
