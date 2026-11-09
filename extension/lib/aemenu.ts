@@ -199,7 +199,11 @@ export function sameName(a: string, b: string): boolean {
 
 /** The team member an editor MC names, if exactly one fits. */
 export function personFor(mcName: string, team: Team | null | undefined): TeamPerson | undefined {
-  const all = (team?.people ?? []).filter((p) => sameName(`${p.family}, ${p.given}`, mcName));
+  const people = team?.people ?? [];
+  // A role account ("Co-Chair, Opinions") is matched by the name MC gives it, and only by that.
+  const byMc = people.filter((p) => p.mcName && sameEditor(p.mcName, mcName));
+  if (byMc.length) return byMc.length === 1 ? byMc[0] : undefined;
+  const all = people.filter((p) => !p.mcName && sameName(`${p.family}, ${p.given}`, mcName));
   // A person's own account wins over a shared one with the same name.
   const own = all.filter((p) => !p.shared);
   return own.length === 1 ? own[0] : all.length === 1 ? all[0] : undefined;
@@ -338,7 +342,10 @@ export function plainAeMenu(): AeMenuConfig {
   return { ...defaultAeMenu(), enabled: true, fontSize: 0, fontFamily: '', sort: 'mc', label: '', groups: [], rest: { label: 'All AEs' } };
 }
 
-const sameEditor = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase() || sameName(a, b);
+function sameEditor(a: string, b: string): boolean {
+  const norm = (x: string) => x.replace(/\s+/g, ' ').trim().toLowerCase();
+  return norm(a) === norm(b) || sameName(a, b);
+}
 
 /** What applyAeMenu did, for the log: 'styled', or why not. */
 export type AeMenuResult = 'styled' | 'no AE pull-down' | "MC's own groups";
@@ -365,15 +372,22 @@ export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | n
   const rest: Item[] = [];
   const firstNames = first?.names ?? [];
   const firsts: Array<Item & { rank: number }> = [];
+  const pinned: Item[] = [];
+  const pinnedTitles = new Set<string>();
   options.forEach((option, mcIndex) => {
     const mc = mcText(option);
     if (PLACEHOLDER.test(mc) || !option.value) return void top.push(option);
     const parsed = parseOption(mc);
     const name = parsed?.name ?? mc;
-    const who = config.label && team ? personFor(name, team) : undefined;
+    const person = team ? personFor(name, team) : undefined;
+    const who = config.label ? person : undefined;
     // MC's count ("(3)") stays after the new label.
-    const shown = who ? `${labelFor({ section: sectionLabel(team!, who.id), given: who.given, family: who.family }, name, config.label)}${mc.slice(name.length)}` : mc;
+    const shown = who ? `${labelFor({ section: who.menuTitle ?? sectionLabel(team!, who.id), given: who.given, family: who.family }, name, config.label)}${mc.slice(name.length)}` : mc;
     const item: Item = { option, name, count: parsed?.count ?? 0, mcIndex, shown };
+    if (person?.menuTop) {
+      pinnedTitles.add(person.menuTitle ?? 'Pinned');
+      return void pinned.push(item);
+    }
     const rank = firstNames.findIndex((n) => sameEditor(n, name));
     if (rank >= 0) return void firsts.push({ ...item, rank });
     const g = groupOf(name, config, team);
@@ -389,6 +403,8 @@ export function aeMenuStatus(doc: Document, config: AeMenuConfig, team: Team | n
     .map((g, i) => ({ label: g.label, style: g, items: order(buckets[i]!) }))
     .filter((s) => s.items.length);
   if (firsts.length) sections.unshift({ label: first!.label, style: FIRST_STYLE, items: firsts.sort((a, b) => a.rank - b.rank) });
+  // People the team marks "always at the top" go above everything, in MC's order.
+  if (pinned.length) sections.unshift({ label: pinnedTitles.size === 1 ? [...pinnedTitles][0]! : 'Pinned', style: FIRST_STYLE, items: pinned });
   // With no group used, the menu keeps MC's single list (styled as the rest).
   if (sections.length && rest.length) sections.push({ label: config.rest.label, style: config.rest, items: order(rest) });
   const plain = !sections.length;

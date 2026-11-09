@@ -49,3 +49,28 @@ describe('earlier AEs on the Assign AE page', () => {
     expect(sel.value).toBe('');
   });
 });
+
+describe('a role account pinned to the top', () => {
+  it('matches "Co-Chair, Opinions" by its MC name, shows the person, and puts it first', async () => {
+    const { parseTeam } = await import('../lib/team');
+    const { defaultAeMenu, personFor } = await import('../lib/aemenu');
+    const team = parseTeam({
+      format: 'electric-mc-team', version: 1, name: 'Opinions', updatedAt: '', leaders: [{ person: 'pat', role: 'co-chair' }], sections: [], columns: [],
+      people: [
+        { id: 'pat', given: 'Pat', family: 'Editor', affiliations: [], expertise: '', links: [] },
+        { id: 'role', given: 'Pat', family: 'Editor', mcName: 'Co-Chair, Opinions', menuTitle: 'Opinion Co-Chair', menuTop: true, shared: true, affiliations: [], expertise: '', links: [] },
+      ],
+    });
+    expect(personFor('Editor, Pat', team)?.id).toBe('pat');
+    expect(personFor('Co-Chair, Opinions', team)?.id).toBe('role');
+    document.body.innerHTML = `<table><tr><td>Associate Editor List</td></tr><tr><td>Pick from a list: <select id="ae">
+      <option value="">Select an AE (# Current Assignments)</option><option value="1">Adams, Alex (0)</option>
+      <option value="2">Co-Chair, Opinions (4)</option><option value="3">Editor, Pat (0)</option></select></td></tr></table>`;
+    const sel = document.getElementById('ae') as HTMLSelectElement;
+    expect(aeMenuStatus(document, defaultAeMenu(), team)).toBe('styled');
+    expect(Array.from(sel.options).map((o) => o.value)).toEqual(['', '2', '1', '3']);
+    expect(sel.options[1]!.text).toBe('Opinion Co-Chair - Pat Editor (4)');
+    expect(sel.querySelector('optgroup')!.label).toBe('Opinion Co-Chair');
+    expect(sel.options[3]!.text).toBe('Co-Chair - Pat Editor (0)');
+  });
+});

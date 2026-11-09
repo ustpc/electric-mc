@@ -73,7 +73,11 @@ export default defineBackground(() => {
     }
   });
 
-  const pdfZoom = new PdfZoom({ setZoom: (id, f) => chrome.tabs.setZoom(id, f), getZoomSettings: (id) => chrome.tabs.getZoomSettings(id) });
+  const pdfZoom = new PdfZoom(
+    { setZoom: (id, f) => chrome.tabs.setZoom(id, f), getZoomSettings: (id) => chrome.tabs.getZoomSettings(id) },
+    Date.now,
+    (event, data) => bg(log({ level: 'info', source: 'background', event, data })),
+  );
   chrome.tabs.onZoomChange.addListener((z) => pdfZoom.changed(z));
   chrome.tabs.onRemoved.addListener((id) => pdfZoom.closed(id));
   chrome.runtime.onMessage.addListener((msg: Msg, sender) => {

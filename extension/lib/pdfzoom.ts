@@ -18,15 +18,20 @@ const perTab = (s: chrome.tabs.ZoomSettings | undefined) => s?.mode === 'manual'
 
 export class PdfZoom {
   private until = new Map<number, { at: number; factor: number }>();
-  constructor(private api: ZoomApi, private now: () => number = Date.now) {}
+  constructor(
+    private api: ZoomApi,
+    private now: () => number = Date.now,
+    private note: (event: string, data: unknown) => void = () => {},
+  ) {}
 
   /** A PDF opened in this tab; percent is the zoom wanted (0: leave Chrome's). */
   async opened(tabId: number, percent: number): Promise<void> {
-    if (!percent) return;
+    if (!percent) return this.note('PDF opened', { pdfZoom: 0 });
     const factor = percent / 100;
     this.until.set(tabId, { at: this.now() + PDF_ZOOM_WINDOW_MS, factor });
     const s = await this.api.getZoomSettings(tabId).catch(() => undefined);
-    if (perTab(s)) await this.api.setZoom(tabId, factor).catch(() => {});
+    const set = perTab(s) ? await this.api.setZoom(tabId, factor).then(() => 'set', (e: unknown) => String(e)) : 'waiting for the viewer';
+    this.note('PDF opened', { pdfZoom: percent, mode: s?.mode, scope: s?.scope, set });
   }
 
   /** chrome.tabs.onZoomChange. */
@@ -38,7 +43,10 @@ export class PdfZoom {
       return;
     }
     if (!perTab(z.zoomSettings) || Math.abs(z.newZoomFactor - want.factor) < 0.005) return;
-    void this.api.setZoom(z.tabId, want.factor).catch(() => {});
+    void this.api.setZoom(z.tabId, want.factor).then(
+      () => this.note('PDF zoom set', { from: Math.round(z.newZoomFactor * 100), to: Math.round(want.factor * 100) }),
+      (e: unknown) => this.note('PDF zoom failed', String(e)),
+    );
   }
 
   closed(tabId: number): void {
