@@ -181,7 +181,7 @@ async function start() {
     enlargeNavArrows(document, true);
     const pager = enlargePagerArrows(document, true);
     const pagerKey = `${location.href}|${pager.holders}|${pager.arrows}`;
-    if (pager.holders && pagerKey !== pagerLogged) {
+    if ((pager.holders || pager.arrows) && pagerKey !== pagerLogged) {
       pagerLogged = pagerKey;
       send({ type: 'log', level: pager.arrows ? 'debug' : 'warn', event: 'pager arrows', data: pager });
     }
