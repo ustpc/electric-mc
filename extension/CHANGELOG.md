@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.72 (2026-11-09)
+
+- The log's keepalive lines now give the HTTP status and size of each request MC answered, the minutes since you last used MC, and how long the page has been open. MC still logs people out now and then with keepalives running; these numbers should show whether MC was already refusing the keepalives before it did.
+
 ## 0.0.71 (2026-11-09)
 
 - Fixed: clicking a choice's label on AE Recommends still didn't pick it in 0.0.70. The row-click check gave up whenever anything around the click had an onclick, and MC puts onclick on whole tables and cells. Now only links, buttons, fields and small clickable items inside the row count, and the click is caught before MC's own handlers can stop it.

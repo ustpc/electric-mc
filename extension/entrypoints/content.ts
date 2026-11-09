@@ -423,7 +423,13 @@ async function start() {
   const keepalive = async (trigger: 'idle' | 'hotkey') => {
     await chrome.storage.local.set({ [KEY.lastKeepalive]: Date.now() });
     const r = await sendKeepalive(document);
-    send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r } });
+    const got = await chrome.storage.local.get(KEY.lastActivity).catch(() => ({}) as Record<string, unknown>);
+    const activity = got[KEY.lastActivity] as number | undefined;
+    // Minutes since the person last used MC and since this page loaded, to
+    // compare with when MC logs them out.
+    const idleMin = activity ? Math.round((Date.now() - activity) / 60_000) : undefined;
+    const pageMin = Math.round(performance.now() / 60_000);
+    send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r, idleMin, pageMin } });
     if (trigger === 'hotkey') toast(r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
   };
   window.setInterval(() => {
