@@ -101,6 +101,6 @@ export function watchAuthorComments(
 
 function boxesFocus(doc: Document): void {
   const box = authorBoxes(doc)[0];
-  box?.scrollIntoView({ block: 'center' });
+  box?.scrollIntoView?.({ block: 'center' });
   box?.focus();
 }
