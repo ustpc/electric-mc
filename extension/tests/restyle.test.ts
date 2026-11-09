@@ -211,6 +211,20 @@ describe('enlargePagerArrows', () => {
     expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe('/images/en_US/icons/arrow_right.gif');
   });
 
+  it("enlarges MC's left_arrow.gif and right_arrow.gif even when the range is spread over cells", async () => {
+    const { enlargePagerArrows, pagerImage } = await import('../lib/restyle');
+    document.body.innerHTML = `<table><tr><td>Manuscripts</td><td><select><option>1-10</option></select></td><td>of 19</td>
+      <td><a href="#" id="back"><img src="https://mc.example.org/images/en_US/icons/left_arrow.gif" width="5" height="9"></a></td>
+      <td><a href="#" id="fwd"><img src="/images/en_US/icons/right_arrow.gif" width="5" height="9"></a></td></tr></table>`;
+    const r = enlargePagerArrows(document, true);
+    expect(r.arrows).toBe(2);
+    expect(document.querySelector('#back img')!.getAttribute('src')).toBe(pagerImage('prev'));
+    expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe(pagerImage('next'));
+    expect((document.querySelector('#fwd img') as HTMLElement).style.height).toBe('18px');
+    enlargePagerArrows(document, false);
+    expect(document.querySelector('#fwd img')!.getAttribute('src')).toBe('/images/en_US/icons/right_arrow.gif');
+  });
+
   it('draws arrowheads over icon-font arrows, in the same cell or the next one', async () => {
     const { enlargePagerArrows, pagerImage } = await import('../lib/restyle');
     document.body.innerHTML = `<table><tr><td>Manuscripts <select><option>1-10</option><option>11-19</option></select> of 19</td>

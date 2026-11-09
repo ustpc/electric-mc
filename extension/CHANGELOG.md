@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.67 (2026-11-09)
+
+- Fixed: the page arrows beside "Manuscripts 1-10 of 19" still weren't enlarged. On those lists the range text is spread over several cells, so the extension never found the arrows next to it. It now also finds MC's own arrow images (icons/left_arrow.gif and right_arrow.gif) directly and replaces them with brown SVG arrowheads twice their size.
+
 ## 0.0.66 (2026-11-08)
 
 - On a revision's Assign AE task, the Associate Editor List now says who handled the earlier versions ("Original Associate Editor: …"), and those AEs go to the top of the pull-down under "Original AE" in bold brown. This works even when the AE menu's grouping is off. As in Peer Review Milestones, an earlier AE is known once you have opened that version in this browser.

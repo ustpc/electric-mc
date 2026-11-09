@@ -382,6 +382,7 @@ export interface PagerReport {
 }
 
 const PAGER_ICON = 'data-emc-pager-icon';
+const MC_PAGER_GIF = /\/icons\/(left|right)_arrow\.gif(\?|$)/i;
 const PAGER_HIDDEN = 'data-emc-pager-hid';
 
 function shapeOf(el: Element): string {
@@ -427,12 +428,24 @@ export function enlargePagerArrows(doc: Document, on: boolean): PagerReport {
   );
   report.holders = holders.length;
   const ARROWS = 'a, [onclick], input[type=image], button';
+  const found: Array<[HTMLElement, number]> = [];
   for (const holder of holders) {
     let links = Array.from(holder.querySelectorAll<HTMLElement>(ARROWS));
     // No arrows in the range's own cell: look in the rest of its row.
     if (!links.length && holder.parentElement) links = Array.from(holder.parentElement.querySelectorAll<HTMLElement>(ARROWS)).filter((l) => !l.contains(holder));
     links = links.filter((l) => !l.closest('select') && !links.some((o) => o !== l && o.contains(l)));
-    links.forEach((link, i) => {
+    links.forEach((l, i) => found.push([l, i]));
+  }
+  // MC's own pager arrows (icons/left_arrow.gif, right_arrow.gif), wherever
+  // the range text is: on some lists it is spread over several cells.
+  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>('img'))) {
+    const src = img.getAttribute(PAGER_ORIGINAL) ?? img.getAttribute('src') ?? '';
+    if (!MC_PAGER_GIF.test(src) || found.some(([l]) => l === img || l.contains(img))) continue;
+    const link = img.closest<HTMLElement>(ARROWS) ?? img;
+    found.push([link, /left/i.test(src) ? 0 : 1]);
+  }
+  {
+    found.forEach(([link, i]) => {
       if (link.closest('[data-electric-mc]')) return;
       const img = link.matches('img, input[type=image]') ? (link as HTMLImageElement) : link.querySelector<HTMLImageElement>('img:not([data-electric-mc])');
       const icon = link.querySelector('i, span[class], svg');
@@ -443,7 +456,7 @@ export function enlargePagerArrows(doc: Document, on: boolean): PagerReport {
         report.arrows++;
         report.shapes.push(shapeOf(link));
         if (img.hasAttribute(PAGER_ORIGINAL)) return;
-        const size = 2 * (img.naturalWidth || img.width || 8);
+        const size = 2 * Math.max(img.naturalWidth || img.width || 8, img.naturalHeight || img.height || 0);
         img.setAttribute(PAGER_ORIGINAL, img.getAttribute('src') ?? '');
         img.setAttribute('src', pagerImage(dir));
         img.style.setProperty('width', `${size}px`);
