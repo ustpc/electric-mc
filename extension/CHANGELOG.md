@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.70 (2026-11-09)
+
+- Fixed: on AE Recommends (and other choice lists drawn the same way), clicking a choice's label showed the hand cursor but didn't pick it. MC puts each label in a small table of its own inside the row, so the click landed in a row with no radio button. The click now goes to the enclosing row's radio button.
+
 ## 0.0.69 (2026-11-09)
 
 - The team database can describe a role account. A person can now have an MC name that isn't their own ("Co-Chair, Opinions"), a title for the AE menu ("Opinion Co-Chair") and "Always at the top of the AE menu"; all three are in the team editor's person form. The AE menu matches such an account only by its MC name, labels it with the person's name ("Opinion Co-Chair - Pat Editor (4)") and puts it above every group. Assigning to the co-chair account is how a co-chair takes a paper to reject it, so it belongs on top.

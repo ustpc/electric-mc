@@ -16,13 +16,17 @@ const CSS = 'tr:has(> td > input[type=radio]) { cursor: pointer; }';
 /** The one radio button in the row a click landed in, or null. */
 export function radioForClick(target: EventTarget | null): HTMLInputElement | null {
   if (!(target instanceof Element) || target.closest(INTERACTIVE)) return null;
-  const tr = target.closest('tr');
-  if (!tr) return null;
-  // Only this row's own cells, not radio buttons in a table nested inside it.
-  const radios = Array.from(tr.querySelectorAll<HTMLInputElement>('input[type=radio]')).filter((r) => r.closest('tr') === tr);
-  if (radios.length !== 1) return null;
-  const radio = radios[0]!;
-  return radio.disabled ? null : radio;
+  // MC often puts the label in a table of its own inside the row's second
+  // cell, so walk out through enclosing rows until one has a radio button.
+  for (let tr = target.closest('tr'); tr; tr = tr.parentElement?.closest('tr') ?? null) {
+    // Only this row's own cells, not radio buttons in a table nested inside it.
+    const radios = Array.from(tr.querySelectorAll<HTMLInputElement>('input[type=radio]')).filter((r) => r.closest('tr') === tr);
+    if (!radios.length) continue;
+    if (radios.length !== 1) return null;
+    const radio = radios[0]!;
+    return radio.disabled ? null : radio;
+  }
+  return null;
 }
 
 /**
