@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.71 (2026-11-09)
+
+- Fixed: clicking a choice's label on AE Recommends still didn't pick it in 0.0.70. The row-click check gave up whenever anything around the click had an onclick, and MC puts onclick on whole tables and cells. Now only links, buttons, fields and small clickable items inside the row count, and the click is caught before MC's own handlers can stop it.
+- The log records each row click that picks a choice, and why a click in a choice row didn't ("radio row").
+
 ## 0.0.70 (2026-11-09)
 
 - Fixed: on AE Recommends (and other choice lists drawn the same way), clicking a choice's label showed the hand cursor but didn't pick it. MC puts each label in a small table of its own inside the row, so the click landed in a row with no radio button. The click now goes to the enclosing row's radio button.

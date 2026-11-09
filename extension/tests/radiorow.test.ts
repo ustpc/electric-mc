@@ -40,6 +40,18 @@ describe('watchRadioRows', () => {
     expect(checked('rej')).toBe(true);
   });
 
+  it('works when MC puts onclick on the table and the page stops the click', () => {
+    document.body.innerHTML = `<table onclick="void 0" id="outer">
+      <tr><td><input type="radio" name="d" id="rej"></td><td onclick="void 0"><table><tr><td><p class="pagecontents" id="rej-label">Reject</p></td></tr></table></td></tr>
+    </table>`;
+    document.getElementById('outer')!.addEventListener('click', (e) => e.stopPropagation());
+    const lines: Record<string, unknown>[] = [];
+    stop = watchRadioRows(document, () => true, (d) => lines.push(d));
+    click('rej-label');
+    expect(checked('rej')).toBe(true);
+    expect(lines).toEqual([{ picked: true, value: 'on' }]);
+  });
+
   it('leaves links, disabled choices and rows with two radio buttons alone', () => {
     document.body.innerHTML = TABLE;
     stop = watchRadioRows(document, () => true);

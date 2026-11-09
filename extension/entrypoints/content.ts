@@ -408,7 +408,7 @@ async function start() {
   watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);
 
   // Clicking anywhere in a radio-button row picks its radio button.
-  watchRadioRows(document, () => !!chrome.runtime?.id && enabled());
+  watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }));
 
   // Keepalives (lib/keepalive.ts). Activity is shared through storage, at
   // most once a minute; our own clicks fire no mousedown, so they don't count.
