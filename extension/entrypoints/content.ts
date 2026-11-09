@@ -19,6 +19,7 @@ import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
 import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
+import { watchAuthorComments } from '../lib/authorcomment';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { activeAeMenu, aeMenuStatus, clearAeMenu, plainAeMenu, type AeMenuStore, type FirstGroup } from '../lib/aemenu';
@@ -403,6 +404,13 @@ async function start() {
 
   // Developer trace: every click, for replaying a session from the log.
   watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
+
+  // Ask before a decision or recommendation goes out with no comment to the
+  // author (lib/authorcomment.ts). First, so a cancelled press doesn't count
+  // as a recommendation for auto-advance.
+  watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
+    send({ type: 'log', level: 'info', event: 'no comment to author', data }),
+  );
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
   watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);

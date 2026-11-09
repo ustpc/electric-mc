@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.73 (2026-11-09)
+
+- New: a warning before a decision or recommendation goes out with no comment to the author. Pressing Submit in a Recommends table, or Commit Decision in a Decision box, with an accept, revise or reject choice and an empty "Comments to the Author" box now asks "Send it anyway?". Cancel stops the press (auto-advance doesn't count it) and puts the cursor in the box. Other choices, and pages without such a box, aren't affected. The log records each warning and the answer ("no comment to author").
+
 ## 0.0.72 (2026-11-09)
 
 - The log's keepalive lines now give the HTTP status and size of each request MC answered, the minutes since you last used MC, and how long the page has been open. MC still logs people out now and then with keepalives running; these numbers should show whether MC was already refusing the keepalives before it did.
