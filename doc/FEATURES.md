@@ -8,6 +8,9 @@ pitch to associate editors.
 - **Your password manager works on the login page .** 1Password and
   Chrome's own password manager recognize MC's login form, fill it, and the
   extension can press Log In for you (optional). No more copying passwords by hand!
+- **Straight to the Co-Chair Center (now).** If you're both an AE and a
+  co-chair, logging in takes you to the Co-Chair Center instead of making
+  you pick a center. A switch in Settings turns it off.
 - **Readable tab titles and history.** Every page gets a title that
   says what it is ("CACM-24-04-1000.R2 · This is a test!..."), so the Back
   menu, browser history and tab strip are finally useful.
@@ -72,7 +75,9 @@ pitch to associate editors.
   whole section team (column heads, columnists and associate editors) with
   photos, roles, institutions and expertise, and shows next to each editor
   how many manuscripts they have right now, as MC's Assign Associate Editor
-  pull-down reports it. Search by name, column or expertise. 
+  pull-down reports it. Search by name, column or expertise. "Hide
+  columnists" leaves only the people who take assignments: the column
+  heads and the AEs.
   
 - **One team database, with its tree (now).** The EIC and Deputy EIC,
   co-chairs, sections with their heads and AEs, and columns with their

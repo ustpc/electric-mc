@@ -50,6 +50,8 @@ export interface Settings {
    * default; that value is dropped so everyone starts with it off.)
    */
   autoLogin: boolean;
+  /** After logging in, go on to the Co-Chair Center when the person also has the AE Center (lib/landing.ts). */
+  loginToCoChair: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
   /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
@@ -85,6 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
   rewriteTitle: true,
   disabledHosts: [],
   autoLogin: false,
+  loginToCoChair: true,
   highlightRevisions: true,
   lookupEarlierVersions: true,
   fullWidth: false,
@@ -188,6 +191,8 @@ export const KEY = {
   aeMenu: 'aeMenu',
   /** Who is logged in to MC, per site (lib/identity.ts). */
   identity: 'identity',
+  /** The matrix's "Hide columnists" checkbox. */
+  matrixHideColumnists: 'matrixHideColumnists',
   tab: (id: number) => `tab:${id}`,
 } as const;
 

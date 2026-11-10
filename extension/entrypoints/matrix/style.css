@@ -17,6 +17,7 @@ h1 { font: normal 28px/1.2 Georgia, serif; margin: 0; }
 input[type="search"] { flex: 1; min-width: 160px; max-width: 560px; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 7px 11px; }
 button, .file { font: inherit; font-size: 12px; background: var(--card); color: var(--link); border: 1px solid var(--line); border-radius: 5px; padding: 7px 12px; cursor: pointer; }
 .file input { display: none; }
+.chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 select { font: inherit; font-size: 12px; }
 .loads { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 .error { margin: 10px 0; padding: 10px 14px; border-left: 3px solid #b42328; background: var(--card); }

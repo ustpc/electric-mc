@@ -68,6 +68,7 @@ function App() {
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const stored = useLocal<Team | null>(KEY.team, null);
+  const hideColumnists = useLocal<boolean>(KEY.matrixHideColumnists, false);
   const [editing, setEditing] = useState<{ person: TeamPerson; isNew: boolean } | null>(null);
 
   const journals = Object.keys(loads);
@@ -129,6 +130,10 @@ function App() {
       <div class="tools">
         <input type="search" placeholder="Name, institution, role, column, or expertise…" value={query} onInput={(e) => setQuery((e.target as HTMLInputElement).value)} onKeyDown={(e) => e.key === 'Escape' && setQuery('')} />
         <button onClick={() => setQuery('')} disabled={!query}>Clear</button>
+        <label class="chk" title="Columnists take no assignments. Columnists who are also heads or AEs stay.">
+          <input type="checkbox" checked={hideColumnists} onChange={(e) => void chrome.storage.local.set({ [KEY.matrixHideColumnists]: (e.target as HTMLInputElement).checked })} />
+          Hide columnists
+        </label>
         {journals.length > 1 && (
           <label class="muted">Counts from{' '}
             <select value={shown} onChange={(e) => setJournal((e.target as HTMLSelectElement).value)}>
@@ -156,9 +161,10 @@ function App() {
           team={team}
           onPerson={(id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
           extra={(id) => { const n = joined.counts.get(id); return n !== undefined ? <span class="load">{n}</span> : null; }}
+          hideColumns={hideColumnists}
         />
       )}
-      {roster && GROUPS.map((g) => {
+      {roster && GROUPS.filter((g) => !(hideColumnists && g.id === 'columnists')).map((g) => {
         const members = people.filter((p) => p.group === g.id);
         const visible = members.filter((p) => matchesSearch(p, query, countOf(p) !== undefined ? assignedLabel(countOf(p)!) : ''));
         if (!members.length) return null;
