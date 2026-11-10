@@ -756,7 +756,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   const adv = s.showAdvanced;
@@ -780,6 +780,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
+      {box('loginToCoChair', 'After I log in, go to the Co-Chair Center (when I could also pick the AE Center)')}
       {box('autoAdvance', 'After I submit a recommendation or commit a decision, go on to the next manuscript in the list, on the same task')}
       {box('keepAlive', 'Keep me logged in (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
       <label>

@@ -8,6 +8,7 @@ import { clearHighlights, highlightRevisions } from '../lib/highlight';
 import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
+import { coChairLanding, watchLoginSubmit } from '../lib/landing';
 import { EMC_COLOR, EMC_STYLE, addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
 import { annotateVersionRow, findVersionLinks } from '../lib/versions';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
@@ -157,6 +158,7 @@ async function start() {
     recordIdentity(r);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
+    if (reason === 'load') landAfterLogin();
     if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
     if (reason === 'load' || reason === 'bfcache') {
       const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
@@ -352,9 +354,22 @@ async function start() {
     annotateLogin(f);
     const pictured = pictureAccountLinks(document);
     send({ type: 'log', level: 'info', event: 'login form annotated for password managers', data: { submit: !!f.submit, pageType: last?.pageType, pictured } });
-    stopLogin = settings.autoLogin
+    const stopSubmit = watchLoginSubmit(f.password, f.submit);
+    const stopAutofill = settings.autoLogin
       ? watchForAutofill(f, (how) => send({ type: 'log', level: 'info', event: 'auto-submitted login', data: how }))
       : () => {};
+    stopLogin = () => {
+      stopSubmit();
+      stopAutofill();
+    };
+  };
+
+  // The first page after a login goes on to the Co-Chair Center (lib/landing.ts).
+  const landAfterLogin = () => {
+    const link = coChairLanding(document);
+    if (!link || !settings.loginToCoChair) return;
+    send({ type: 'log', level: 'info', event: 'to the Co-Chair Center after login' });
+    pageClick(link);
   };
 
   const turnOn = () => {

@@ -18,10 +18,13 @@ interface Props {
   onChange?: (team: Team) => void;
   /** Bold brown text after a pill, such as a current assignment count. */
   extra?: (id: string) => ComponentChildren;
+  /** Viewing only: leave out the columns and their columnists (they take no assignments). */
+  hideColumns?: boolean;
 }
 
-export function TeamTree({ team, onPerson, onChange, extra }: Props) {
+export function TeamTree({ team, onPerson, onChange, extra, hideColumns }: Props) {
   const edit = !!onChange;
+  const columns = edit || !hideColumns;
   const byId = new Map(team.people.map((p) => [p.id, p]));
   const people = [...team.people].sort((a, b) => a.family.localeCompare(b.family) || a.given.localeCompare(b.given));
   const change = (f: (t: Team) => Team) => onChange?.(f(structuredClone(team)));
@@ -116,7 +119,7 @@ export function TeamTree({ team, onPerson, onChange, extra }: Props) {
               {!s.aes.length && !edit && <span class="tree-empty">none yet</span>}
               {adder(s.aes, (id) => change((t) => ({ ...t, sections: t.sections.map((x) => (x.id === s.id ? { ...x, aes: [...x.aes, id] } : x)), people: t.people.map((x) => (x.id === id ? { ...x, ae: true } : x)) })), '+ AE')}
             </div>
-            {team.columns.filter((c) => c.section === s.id).map(column)}
+            {columns && team.columns.filter((c) => c.section === s.id).map(column)}
             {edit && <div><button onClick={() => addColumn(s.id)}>+ column in {s.name}</button></div>}
           </div>
         ))}
@@ -127,7 +130,7 @@ export function TeamTree({ team, onPerson, onChange, extra }: Props) {
         )}
       </div>
 
-      {(loose.length > 0 || edit) && (
+      {columns && (loose.length > 0 || edit) && (
         <div class="tree-card">
           <h3>Columns that report to the co-chairs</h3>
           {loose.map(column)}

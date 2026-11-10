@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.74 (2026-11-10)
+
+- New: a "Hide columnists" checkbox at the top of the editorial matrix. It hides the columns in the tree and the Columnists section of the table, so only the people who take assignments are left: the EIC and co-chairs, the column heads and the AEs. A columnist who is also a head or an AE stays. The box remembers its setting.
+- New setting "After I log in, go to the Co-Chair Center" (Settings → Features, on by default). On the first page after you log in, if you could pick either the AE Center or the Co-Chair Center, the extension opens the Co-Chair Center for you. It does this only right after a login in that tab (not when you go back to the welcome page later), waits through MC's emailed-code check, and does nothing for people without both centers. The log records it ("to the Co-Chair Center after login").
+
 ## 0.0.73 (2026-11-09)
 
 - New: a warning before a decision or recommendation goes out with no comment to the author. Pressing Submit in a Recommends table, or Commit Decision in a Decision box, with an accept, revise or reject choice and an empty "Comments to the Author" box now asks "Send it anyway?". Cancel stops the press (auto-advance doesn't count it) and puts the cursor in the box. Other choices, and pages without such a box, aren't affected. The log records each warning and the answer ("no comment to author").
