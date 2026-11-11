@@ -33,7 +33,13 @@ jobs:
           cache: npm
           cache-dependency-path: extension/package-lock.json
 
+      # onnxruntime-node (a dependency of Transformers.js, used only by
+      # `make ae-profiles` on a Mac) downloads its optional CUDA binaries from
+      # api.nuget.org on install; a timeout there failed CI on main after
+      # PR #75. Nothing here needs them.
       - run: npm ci
+        env:
+          ONNXRUNTIME_NODE_INSTALL: skip
       - run: npm run typecheck
       - run: npm run coverage
       - run: npm run build
