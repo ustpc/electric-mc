@@ -1,7 +1,7 @@
 {
   "name": "electric-mc-extension",
   "private": true,
-  "version": "0.0.74",
+  "version": "0.0.75",
   "description": "Electric MC test extension: page parsers, debug overlay, and logging for Manuscript Central",
   "type": "module",
   "scripts": {
@@ -34,6 +34,7 @@
     "wxt": "^0.21.4"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.2"
+    "@huggingface/transformers": "^4.3.2",
+    "pdfjs-dist": "6.4.299"
   }
 }

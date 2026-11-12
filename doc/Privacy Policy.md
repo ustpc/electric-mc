@@ -76,6 +76,14 @@ turn it off for a site, it:
   keyboard, focus, Chrome idle state). It never records keystrokes, page
   content, or screenshots.
 
+**Word counts on PDFs** (extension 0.0.75). When a manuscript PDF from MC
+opens, the extension fetches the same PDF from MC again and reads its text
+with pdf.js, bundled in the extension and run in that tab, to count the
+body's words. The text and the count are kept only in that tab while it is
+open: they are not stored, sent anywhere, or given to any AI model. The log
+records only the numbers (words, pages, line numbers dropped). A setting
+turns it off.
+
 **Debug logs** stay on your computer. The side panel can export them to your
 Downloads folder. The *redacted* export replaces manuscript IDs with hashes
 and drops names, titles, email addresses and URL query strings, so it is
@@ -324,3 +332,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-04 | The AE assignment menu's config, which can hold a table of editors' names, sections and emails, kept in local storage only (a server store is planned, not built); Clear all data removes it (extension 0.0.51). |
 | 2026-11-04 | The team database (names, MC emails, roles, links, photos) replaces the loaded roster and the AE menu's people table; local storage only; Clear all data removes it (extension 0.0.54). |
 | 2026-11-07 | Test builds let Chrome cache MC pages (no-store replaced with private) so Back works; pages stay in Chrome's cache on the computer; a setting turns it off (extension 0.0.59). |
+| 2026-11-12 | Word counts on PDFs: the extension fetches the PDF again and reads its text on-device with pdf.js; text and count stay in the tab, the log keeps numbers only (extension 0.0.75). |

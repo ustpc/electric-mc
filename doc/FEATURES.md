@@ -42,6 +42,10 @@ pitch to associate editors.
 - **PDFs at a readable size (now).** Manuscript PDFs open in Chrome's
   viewer at the zoom you pick in Settings (125 to 200%) instead of fit to
   width; only that tab is zoomed.
+- **Word counts on PDFs (now).** A manuscript PDF shows its body's word
+  count in a box over the viewer: no cover page, line numbers, headers or
+  references. A PDF with two copies of the article (clean and marked up) is
+  counted once. Counted in the browser; nothing is sent.
 - **The history of a revision at a glance (now).** On a revision, the
   extension adds the previous version's submission and decision dates, the
   days it took, and its AE and co-chair to Peer Review Milestones, and puts

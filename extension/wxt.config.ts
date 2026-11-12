@@ -26,6 +26,10 @@ export default defineConfig({
       default_icon: { 16: 'icon/16.png', 32: 'icon/32.png', 48: 'icon/48.png', 128: 'icon/128.png' },
     },
     side_panel: { default_path: 'sidepanel.html' },
+    // pdf.js, which the content script imports on PDF pages only, for the
+    // word count (lib/pdfcount.ts). Not a permission: it lets MC's pages
+    // load these two files from the extension.
+    web_accessible_resources: [{ resources: ['pdfjs/pdf.min.mjs', 'pdfjs/pdf.worker.min.mjs'], matches: ['https://*.manuscriptcentral.com/*'] }],
     // The side panel runs the bundled embedding model in WebAssembly for AE
     // suggestions (lib/embed.ts). Only the extension's own files can run.
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';" },
