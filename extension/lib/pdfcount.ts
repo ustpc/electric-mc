@@ -22,7 +22,7 @@ export function describeCount(r: WordCount): { head: string; detail: string } {
   const n = (x: number) => x.toLocaleString('en-US');
   const range = v.from === v.to ? `page ${v.from}` : `pages ${v.from}-${v.to}`;
   let detail = v.endsAt
-    ? `Body text on ${range}, up to "${v.endsAt.heading}" on page ${v.endsAt.page}; ${n(v.allWords)} with it. (Cover page and marginal line numbers excluded from count.)`
+    ? `Body text on ${range}, up to "${v.endsAt.heading}" on page ${v.endsAt.page}; ${n(v.allWords)} including references. (Cover page and marginal line numbers excluded from count.)`
     : `All text on ${range} (no references heading found). (Cover page and marginal line numbers excluded from count.)`;
   if (r.versions.length > 1) {
     const others = r.versions.slice(1).map((o) => `pages ${o.from}-${o.to}: ${n(o.words)}`).join('; ');

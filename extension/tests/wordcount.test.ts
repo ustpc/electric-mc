@@ -81,6 +81,7 @@ describe('describeCount', () => {
     const d = describeCount({ words: 2898, pages: 6, lineNumbers: 280, emptyPages: 0, versions: [{ from: 2, to: 6, words: 2898, allWords: 3285, endsAt: { page: 6, heading: 'references' } }] });
     expect(d.head).toBe('2,898 words');
     expect(d.detail).toContain('up to "references" on page 6');
+    expect(d.detail).toContain('3,285 including references.');
     expect(d.detail).toContain('(Cover page and marginal line numbers excluded from count.)');
   });
   it('mentions a second copy', () => {
