@@ -1,0 +1,72 @@
+// Don't let a recommendation or decision go out with no choice made. MC
+// accepts Submit in a "… Recommends" table (and Commit Decision in a
+// "… Decision" box) with none of the radio buttons picked, and records an
+// empty recommendation. When such a press comes with choices on the page and
+// none picked, we stop it and say so in the E-MC color next to the choices.
+
+import { recommendationSubmitControl } from './advance';
+import { EMC_COLOR } from './milestones';
+
+export const NEED_CHOICE_ID = 'electric-mc-need-choice';
+
+/** The page's own radio buttons (not ours). */
+function choices(doc: Document): HTMLInputElement[] {
+  return Array.from(doc.querySelectorAll<HTMLInputElement>('input[type=radio]')).filter((r) => !r.closest('[data-electric-mc]'));
+}
+
+/**
+ * Whether a press sends a recommendation or decision while the page offers
+ * choices and none is picked. A page with no radio buttons isn't stopped:
+ * we can't tell what the choice would be.
+ */
+export function missingChoice(target: EventTarget | null): boolean {
+  const control = recommendationSubmitControl(target);
+  if (!control) return false;
+  const radios = choices(control.ownerDocument);
+  return radios.length > 0 && !radios.some((r) => r.checked);
+}
+
+/** Show the message just above the choices, once, and bring it into view. */
+export function showNeedChoice(doc: Document): HTMLElement | null {
+  const first = choices(doc)[0];
+  if (!first) return null;
+  let note = doc.getElementById(NEED_CHOICE_ID);
+  if (!note) {
+    note = doc.createElement('div');
+    note.id = NEED_CHOICE_ID;
+    note.setAttribute('data-electric-mc', '');
+    note.setAttribute('role', 'alert');
+    note.style.cssText = `color:${EMC_COLOR} !important;font-weight:700 !important;border:2px solid ${EMC_COLOR};padding:6px 10px;margin:6px 0;background:#fff;`;
+    note.textContent = 'Electric MC: pick one of the choices below before you submit. Nothing was sent.';
+    const anchor = first.closest('table') ?? first.parentElement;
+    anchor?.parentElement?.insertBefore(note, anchor);
+  }
+  note.scrollIntoView?.({ block: 'center' });
+  return note;
+}
+
+/**
+ * Watch for such presses and stop them. Register before every other capture
+ * listener on the document (the no-comment warning, auto-advance) so a
+ * stopped press reaches none of them. Picking a choice removes the message.
+ * Returns a function that stops watching.
+ */
+export function watchMissingChoice(doc: Document, enabled: () => boolean, log?: (data: Record<string, unknown>) => void): () => void {
+  const onClick = (e: MouseEvent) => {
+    if (!enabled() || !missingChoice(e.target)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    showNeedChoice(doc);
+    log?.({ choices: choices(doc).length });
+  };
+  const onChange = (e: Event) => {
+    const t = e.target as HTMLInputElement | null;
+    if (t?.type === 'radio' && t.checked) doc.getElementById(NEED_CHOICE_ID)?.remove();
+  };
+  doc.addEventListener('click', onClick, true);
+  doc.addEventListener('change', onChange, true);
+  return () => {
+    doc.removeEventListener('click', onClick, true);
+    doc.removeEventListener('change', onChange, true);
+  };
+}

@@ -20,6 +20,7 @@ import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
 import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
+import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
 import { describePage, watchClicks } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
@@ -428,6 +429,12 @@ async function start() {
 
   // Developer trace: every click, for replaying a session from the log.
   watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
+
+  // Stop a recommendation or decision that has no choice picked
+  // (lib/needchoice.ts). First of all, so a stopped press reaches nothing else.
+  watchMissingChoice(document, () => !!chrome.runtime?.id && enabled(), (data) =>
+    send({ type: 'log', level: 'info', event: 'no recommendation picked', data }),
+  );
 
   // Ask before a decision or recommendation goes out with no comment to the
   // author (lib/authorcomment.ts). First, so a cancelled press doesn't count

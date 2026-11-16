@@ -62,18 +62,28 @@ export function directionAt(position: number, total: number, last: Dir): Dir {
  * co-chair's immediate reject), with a choice made on the page.
  */
 export function isRecommendationSubmit(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
+  const control = recommendationSubmitControl(target);
+  return !!control && !!control.ownerDocument.querySelector('input[type=radio]:checked');
+}
+
+/**
+ * The Submit or Commit Decision control a press is on, when the page has a
+ * matching "… Recommends" or "… Decision" heading, whether or not a choice
+ * is made yet; otherwise null.
+ */
+export function recommendationSubmitControl(target: EventTarget | null): Element | null {
+  if (!(target instanceof Element)) return null;
   const control = target.closest('a, button, input[type=submit], input[type=button], input[type=image]');
-  if (!control) return false;
+  if (!control) return null;
   const label = labelKey(textOf(control) || control.getAttribute('value') || control.getAttribute('alt') || control.querySelector('img')?.getAttribute('alt') || '');
   const heading = label === 'submit' ? /recommends$/ : /^(commit|submit) decision$/.test(label) ? /(recommends|decision)$/ : null;
-  if (!heading) return false;
-  // A matching section heading, and a choice made on the page.
+  if (!heading) return null;
+  // A matching section heading on the page.
   const doc = control.ownerDocument;
   const found = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
     (e) => e.children.length <= 2 && !control.contains(e) && !e.contains(control) && heading.test(labelKey(textOf(e))) && textOf(e).length < 60,
   );
-  return found && !!doc.querySelector('input[type=radio]:checked');
+  return found ? control : null;
 }
 
 /** The manuscript to open next on a grid, by its order now or as it was. */

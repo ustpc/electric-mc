@@ -53,6 +53,11 @@ pitch to associate editors.
   you've opened. On the Assign AE task it names the original AE in the
   Associate Editor List and puts them at the top of the pull-down, so a
   revision is easy to send back to them.
+- **No recommendation without a choice (now).** Submit in a Recommends
+  table (or Commit Decision in a Decision box) does nothing until one of the
+  choices (Accept, Minor Revision, Major Revision, Reject & Resubmit, Reject)
+  is picked. MC itself would accept the empty recommendation; the extension
+  stops the press and says so, in bold E-MC brown, above the choices.
 - **No decision without a word to the author (now).** When you submit an
   accept, revise or reject recommendation or commit such a decision and the
   "Comments to the Author" box is empty, the extension asks before it goes
