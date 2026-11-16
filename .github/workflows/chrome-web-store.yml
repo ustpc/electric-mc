@@ -50,7 +50,13 @@ jobs:
           test "${GITHUB_REF_NAME#extension-v}" = "$version" \
             || { echo "Tag $GITHUB_REF_NAME does not match package.json version $version"; exit 1; }
 
+      # onnxruntime-node (a dependency of Transformers.js, used only by
+      # `make ae-profiles` on a Mac) downloads its optional CUDA binaries from
+      # api.nuget.org on install; a timeout there failed CI on main after
+      # PR #75. Nothing here needs them.
       - run: npm ci
+        env:
+          ONNXRUNTIME_NODE_INSTALL: skip
       - run: npm test
       - run: npm run typecheck
       - run: npm run zip:store
