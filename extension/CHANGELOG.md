@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.76 (2026-11-16)
+
+- New: a recommendation can't go out without a choice. MC accepts Submit in a Recommends table (and Commit Decision in a Decision box) with none of the choices picked, and records an empty recommendation. Now, when the page has choices and none is picked, the extension stops the press and shows "pick one of the choices below before you submit. Nothing was sent." in bold E-MC brown above the choices. Picking a choice removes the message. Save as Draft isn't affected, and the no-comment warning and auto-advance never see a stopped press. The log records each one ("no recommendation picked").
+
 ## 0.0.74 (2026-11-10)
 
 - New: a "Hide columnists" checkbox at the top of the editorial matrix. It hides the columns in the tree and the Columnists section of the table, so only the people who take assignments are left: the EIC and co-chairs, the column heads and the AEs. A columnist who is also a head or an AE stays. The box remembers its setting.
