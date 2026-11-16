@@ -6,6 +6,13 @@ Newest first. Every version bump gets an entry here.
 
 - New: a recommendation can't go out without a choice. MC accepts Submit in a Recommends table (and Commit Decision in a Decision box) with none of the choices picked, and records an empty recommendation. Now, when the page has choices and none is picked, the extension stops the press and shows "pick one of the choices below before you submit. Nothing was sent." in bold E-MC brown above the choices. Picking a choice removes the message. Save as Draft isn't affected, and the no-comment warning and auto-advance never see a stopped press. The log records each one ("no recommendation picked").
 
+## 0.0.75 (2026-11-12)
+
+- New: a word count on manuscript PDFs. When a PDF from MC opens, a box at the lower left of Chrome's PDF viewer gives the body's word count ("2,898 words") and says what it counted. It skips the cover page (page 1), MC's line numbers (digit-only text stacked in a column in the margin or between two columns), running headers and footers, and everything from the References heading on (also Acknowledgments and author bios). When a PDF holds the article twice, such as a clean copy and a marked-up one, it notices the second copy (a later page opens the way the article opened) and counts only the first; the box gives the other copy's count too. It also gives the count including references ("1,820 including references"). The box ends with "(Cover page and marginal line numbers excluded from count.)". Click the box to hide it. Settings → Features → "Count the words in manuscript PDFs" (on by default) turns it off.
+- How it works: Chrome's viewer can't be read, so the extension asks MC for the same PDF again (one more request for a file you just opened) and reads it with pdf.js (`pdfjs-dist`, bundled; about 1.7 MB, loaded only on PDF pages). The text and the count stay in the tab; nothing is stored or sent. The log records the numbers only ("PDF words").
+- The manifest now lists pdf.js's two files under `web_accessible_resources` for MC's pages, so the content script can load them. That isn't a permission and adds no install warning.
+- `tools/wordcount/count.ts` counts PDFs on your own computer the same way, printing numbers only.
+
 ## 0.0.74 (2026-11-10)
 
 - New: a "Hide columnists" checkbox at the top of the editorial matrix. It hides the columns in the tree and the Columnists section of the table, so only the people who take assignments are left: the EIC and co-chairs, the column heads and the AEs. A columnist who is also a head or an AE stays. The box remembers its setting.
