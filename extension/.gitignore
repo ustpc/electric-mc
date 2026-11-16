@@ -13,3 +13,4 @@ coverage/
 # Bundled at build time by scripts/fetch-model.mjs.
 public/models/
 public/ort/
+public/pdfjs/

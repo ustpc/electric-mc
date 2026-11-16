@@ -33,6 +33,7 @@ import { annotateEicRows, myRecommendation, readRecommendations, recommendations
 import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
 import { readIdentity } from '../lib/identity';
+import { showPdfWordCount } from '../lib/pdfcount';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -48,8 +49,16 @@ const MARK = 'data-electric-mc';
 
 async function start() {
   // A PDF from MC opens in Chrome's viewer; the background sets its zoom.
+  // It also gets a word count (lib/pdfcount.ts).
   if (document.contentType === 'application/pdf') {
     chrome.runtime.sendMessage({ type: 'pdf-opened' } satisfies Msg).catch(() => {});
+    const s = await getSettings();
+    if (s.pdfWordCount && isEnabledFor(s, location.href)) {
+      showPdfWordCount().then(
+        (data) => send({ type: 'log', level: 'info', event: 'PDF words', data }),
+        (e: unknown) => send({ type: 'log', level: 'warn', event: 'PDF words', data: { error: String(e) } }),
+      );
+    }
     return;
   }
   let settings: Settings = await getSettings();

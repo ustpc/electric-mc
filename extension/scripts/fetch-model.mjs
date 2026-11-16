@@ -31,6 +31,14 @@ async function fetchModel() {
   }
 }
 
+// pdf.js for the word count on PDFs (lib/pdfcount.ts), loaded by the
+// content script from the extension's files on PDF pages only.
+async function copyPdfJs() {
+  const dir = join(root, 'public', 'pdfjs');
+  await mkdir(dir, { recursive: true });
+  for (const f of ['pdf.min.mjs', 'pdf.worker.min.mjs']) await copyFile(join(root, 'node_modules', 'pdfjs-dist', 'build', f), join(dir, f));
+}
+
 async function copyRuntime() {
   const dir = join(root, 'public', 'ort');
   await mkdir(dir, { recursive: true });
@@ -38,6 +46,7 @@ async function copyRuntime() {
 }
 
 await copyRuntime();
+await copyPdfJs();
 if (process.env.SKIP_MODEL) {
   process.stdout.write('fetch-model: SKIP_MODEL set, building without the embedding model\n');
 } else {
