@@ -80,11 +80,11 @@ pitch to associate editors.
   Co-Chair Recommends and the extension keeps it in a To EIC list and marks
   the manuscript in the queue grid, which MC itself doesn't, until the EIC
   acts. One click copies the list for the EIC.
-- **Decisions you made, in red (now).** An immediate decision made without
+- **Decisions you made, marked in the queue (now).** An immediate decision made without
   assigning an AE leaves the manuscript in MC's Assign AE list. The
   extension notes the choice when you press Submit and, in queue lists and
   search results, shades that manuscript's rows light red and prints your
-  decision in red in its Status cell, until the decision letter goes out.
+  decision in blue under its ID, until the decision letter goes out.
 - **The editorial matrix, with workloads (in development).** One window lists the
   whole section team (column heads, columnists and associate editors) with
   photos, roles, institutions and expertise, and shows next to each editor

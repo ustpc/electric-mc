@@ -8,7 +8,7 @@
 // decision made without an AE doesn't show in that box, and MC goes on
 // listing the manuscript under Assign AE, so we also note the choice when
 // the person presses Submit or Commit Decision. Those rows get a light red
-// background and the choice in red. Only the choice is kept, never the
+// background and the choice in blue under the ID. Only the choice is kept, never the
 // comments, and it stays in this browser.
 
 import { labelKey, textOf, cellLines, truncate, isLayoutRow } from './text';
@@ -107,8 +107,8 @@ export function myRecommendation(recs: Recommendation[], coChairName?: string): 
 const NOTE = 'eic-note';
 const ROW_ATTR = 'data-emc-decided';
 const STYLE_ID = 'emc-decided-style';
-/** The red of the note and, at 10%, of the row. */
-export const DECIDED_COLOR = '#b91c1c';
+/** The blue of the note under the ID; the row itself is 10% red. */
+export const DECIDED_COLOR = '#1d4ed8';
 // More specific than the revision highlight, so a decided revision shows red.
 const CSS = `table tr[${ROW_ATTR}] > td, table tr[${ROW_ATTR}] > th { background-color: rgba(220, 38, 38, 0.1) !important; }`;
 
@@ -122,7 +122,7 @@ export function eicNote(item: EicItem): string {
 /**
  * Mark each manuscript in the To EIC list on a queue grid or search
  * results: a light red background on its rows (the ID row and the rows its
- * cells span) and a red note in its Status cell.
+ * cells span) and a blue note under its ID, where MC puts "(Resubmitted)".
  */
 export function annotateEicRows(doc: Document, items: Record<string, EicItem>, idPattern?: string): number {
   doc.querySelectorAll(`[data-electric-mc="${NOTE}"]`).forEach((e) => e.remove());
@@ -152,7 +152,7 @@ export function annotateEicRows(doc: Document, items: Record<string, EicItem>, i
       }
       span = 0;
       const item = items[ref.id];
-      const cell = item && (tr.cells[col] ?? null);
+      const cell = item && col >= 0 ? (tr.cells[0] ?? null) : null;
       if (!item || !cell) continue;
       tr.setAttribute(ROW_ATTR, item.id);
       span = Math.max(1, ...Array.from(tr.cells).map((c) => c.rowSpan || 1)) - 1;

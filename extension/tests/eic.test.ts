@@ -65,12 +65,12 @@ const GRID = `<table>
 const ITEM: EicItem = { id: 'XYZJ-26-09-9011', baseId: 'XYZJ-26-09-9011', site: 'xyzj', title: 'A Synthetic Paper', recommendation: 'Reject', seen: '2026-10-23' };
 
 describe('queue grid', () => {
-  it('notes a recommended manuscript in its Status cell', () => {
+  it('notes a recommended manuscript under its ID', () => {
     document.body.innerHTML = GRID;
     expect(annotateEicRows(document, { [ITEM.id]: ITEM })).toBe(1);
     const note = document.querySelector('[data-electric-mc="eic-note"]')!;
     expect(note.textContent).toBe('E-MC: you recommended Reject (seen 2026-10-23); waiting for the EIC');
-    expect(note.closest('td')!.textContent).toContain('AE: Not Assigned');
+    expect(note.closest('td')!.textContent).toContain('XYZJ-26-09-9011');
     // Run again: still one note.
     annotateEicRows(document, { [ITEM.id]: ITEM });
     expect(document.querySelectorAll('[data-electric-mc="eic-note"]')).toHaveLength(1);
@@ -155,12 +155,13 @@ describe('decisions made without an AE', () => {
     expect(pickedChoice(document)).toBeNull();
   });
 
-  it('shades the decided manuscript\'s rows red and notes the decision in red', () => {
+  it('shades the decided manuscript\'s rows red and notes the decision in blue under the ID', () => {
     document.body.innerHTML = GRID;
     expect(annotateEicRows(document, { [DECISION.id]: DECISION })).toBe(1);
     const note = document.querySelector<HTMLElement>('[data-electric-mc="eic-note"]')!;
     expect(note.textContent).toBe('E-MC: you decided Reject (2026-10-23); MC still lists it until the EIC acts');
-    expect(note.style.color).toBe('rgb(185, 28, 28)');
+    expect(note.style.color).toBe('rgb(29, 78, 216)');
+    expect(note.closest('td')!.textContent).toContain('XYZJ-26-09-9011');
     // The ID row is marked; the other manuscript isn't.
     const marked = Array.from(document.querySelectorAll('tr[data-emc-decided]'));
     expect(marked.map((tr) => tr.getAttribute('data-emc-decided'))).toEqual(['XYZJ-26-09-9011']);
@@ -183,6 +184,6 @@ describe('decisions made without an AE', () => {
     document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'search-results.html'), 'utf8').replace(/^<!doctype html>/i, '');
     const item = { ...DECISION, id: 'TEST-26-10-9009', baseId: 'TEST-26-10-9009' };
     expect(annotateEicRows(document, { [item.id]: item })).toBe(1);
-    expect(document.querySelector('[data-electric-mc="eic-note"]')!.closest('td')!.textContent).toContain('AE: Not Assigned');
+    expect(document.querySelector('[data-electric-mc="eic-note"]')!.closest('td')!.textContent).toContain('TEST-26-10-9009');
   });
 });
