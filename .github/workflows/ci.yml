@@ -43,6 +43,9 @@ jobs:
       - run: npm run typecheck
       - run: npm run coverage
       - run: npm run build
+      # Chrome Web Store policy (MV3): no remotely hosted code. The build runs
+      # this check too; it is repeated here so a failure is easy to spot.
+      - run: npm run check:remote-code
       # Load the built extension into headless Chromium, reload it twice (as
       # an update does) and fail on any error Chrome records for it.
       - run: npx playwright install --with-deps chromium

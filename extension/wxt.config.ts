@@ -2,6 +2,7 @@ import { defineConfig } from 'wxt';
 import preact from '@preact/preset-vite';
 import { defaultClientConditions } from 'vite';
 import pkg from './package.json' with { type: 'json' };
+import { localRuntime } from './scripts/local-runtime';
 
 // Electric MC test extension. See doc/planning/Technical Stack and Architecture.md.
 // STORE=1 builds the Chrome Web Store package: its name and description
@@ -35,7 +36,9 @@ export default defineConfig({
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';" },
   },
   vite: () => ({
-    plugins: [preact()],
+    // localRuntime() strips the CDN and Hugging Face addresses from
+    // Transformers.js (MV3: no remotely hosted code).
+    plugins: [preact(), localRuntime()],
     resolve: {
       // AE suggestions run the model on the CPU, so use ONNX's plain WASM
       // build, loaded from public/ort (scripts/fetch-model.mjs), instead of

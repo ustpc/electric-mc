@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.77 (2026-11-18)
+
+- Fix for the Chrome Web Store's "Blue Argon" warning (remotely hosted code). Transformers.js, which runs the AE-suggestion model, contains a default that points ONNX's WebAssembly runtime at cdn.jsdelivr.net and models at huggingface.co. The extension always replaced those with its own bundled files before loading the model, and its CSP allows only its own scripts, so nothing was ever loaded from there; but MV3 doesn't allow the address in the package at all. The build now rewrites those defaults to the bundled runtime (`ort/`) and turns off remote models (`scripts/local-runtime.ts`), and stops if a Transformers.js upgrade changes that code. AE suggestions work as before.
+- New build check: `scripts/check-no-remote-code.mjs` runs after every build and zip and in CI, and fails if the built extension names a CDN or model host, imports a script or worker from a URL, has a remote `<script>`, or has a CSP that allows other script sources.
+
 ## 0.0.76 (2026-11-16)
 
 - New: a recommendation can't go out without a choice. MC accepts Submit in a Recommends table (and Commit Decision in a Decision box) with none of the choices picked, and records an empty recommendation. Now, when the page has choices and none is picked, the extension stops the press and shows "pick one of the choices below before you submit. Nothing was sent." in bold E-MC brown above the choices. Picking a choice removes the message. Save as Draft isn't affected, and the no-comment warning and auto-advance never see a stopped press. The log records each one ("no recommendation picked").
