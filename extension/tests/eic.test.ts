@@ -3,7 +3,7 @@
 // and clickable IDs. Synthetic markup and names only.
 import { describe, expect, it } from 'vitest';
 import { addRoles, roleLabels, rolesIn } from '../lib/roles';
-import { annotateEicRows, eicSummary, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { annotateEicRows, decidedWithoutAe, eicSummary, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { linkIds, unlinkIds } from '../lib/idlink';
@@ -185,5 +185,18 @@ describe('decisions made without an AE', () => {
     const item = { ...DECISION, id: 'TEST-26-10-9009', baseId: 'TEST-26-10-9009' };
     expect(annotateEicRows(document, { [item.id]: item })).toBe(1);
     expect(document.querySelector('[data-electric-mc="eic-note"]')!.closest('td')!.textContent).toContain('TEST-26-10-9009');
+  });
+
+  it('marks a row whose Status has a Make Decision task next to Assign AE', () => {
+    expect(decidedWithoutAe('AE: Not Assigned\nMake Immediate Decision\nAssign AE (Due 20-Oct-2026)\nMake Decision (Due 25-Oct-2026)')).toBe(true);
+    expect(decidedWithoutAe('AE: Not Assigned\nMake Immediate Decision\nAssign AE (Due 20-Oct-2026)')).toBe(false);
+    expect(decidedWithoutAe('Make Decision (Due 25-Oct-2026)')).toBe(false);
+    document.body.innerHTML = GRID.replace(
+      '<td>AE: Not Assigned</td><td><a href="#" id="go2">',
+      '<td>AE: Not Assigned<br>Make Immediate Decision<br>Assign AE (Due 20-Oct-2026)<br>Make Decision (Due 25-Oct-2026)</td><td><a href="#" id="go2">',
+    );
+    expect(annotateEicRows(document, {})).toBe(1);
+    expect(document.querySelector('tr[data-emc-decided]')!.getAttribute('data-emc-decided')).toBe('XYZJ-26-10-9012');
+    expect(document.querySelector('[data-electric-mc="eic-note"]')!.textContent).toBe('E-MC: decision made; MC still lists it until the EIC acts');
   });
 });

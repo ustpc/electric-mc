@@ -114,9 +114,21 @@ const CSS = `table tr[${ROW_ATTR}] > td, table tr[${ROW_ATTR}] > th { background
 
 /** The note for one manuscript. */
 export function eicNote(item: EicItem): string {
+  if (!item.recommendation) return 'E-MC: decision made; MC still lists it until the EIC acts';
   return item.kind === 'decision'
     ? `E-MC: you decided ${item.recommendation} (${item.seen}); MC still lists it until the EIC acts`
     : `E-MC: you recommended ${item.recommendation} (seen ${item.seen}); waiting for the EIC`;
+}
+
+/**
+ * Whether a queue row's Status says a decision was already made while the
+ * Assign AE task is still open: after a co-chair's immediate decision MC
+ * adds a "Make Decision (Due …)" task next to "Assign AE". "Make Immediate
+ * Decision" is the co-chair's own option and doesn't count.
+ */
+export function decidedWithoutAe(status: string): boolean {
+  const lines = status.split(/\n|(?=\bassign ae\b)|(?=\bmake (?:immediate )?decision\b)/i).map((l) => labelKey(l));
+  return lines.some((l) => /^assign ae\b/.test(l)) && lines.some((l) => /^make decision\b/.test(l));
 }
 
 /**
@@ -151,7 +163,10 @@ export function annotateEicRows(doc: Document, items: Record<string, EicItem>, i
         continue;
       }
       span = 0;
-      const item = items[ref.id];
+      const status = tr.cells[col] ? cellLines(tr.cells[col]!).join('\n') : '';
+      const item: EicItem | undefined =
+        items[ref.id] ??
+        (decidedWithoutAe(status) ? { id: ref.id, baseId: ref.baseId, site: null, recommendation: '', seen: '', kind: 'decision' } : undefined);
       const cell = item && col >= 0 ? (tr.cells[0] ?? null) : null;
       if (!item || !cell) continue;
       tr.setAttribute(ROW_ATTR, item.id);
