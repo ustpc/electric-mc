@@ -1,0 +1,165 @@
+// @vitest-environment jsdom
+// One-button reject: the controls next to Assign and a whole run through
+// synthetic pages. Synthetic markup and names only.
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { addControls, findAssignButton, isPdfLink, noteAeSubmit, ownOption, readRun, rejectRadio, startRun, stepRun, writeRun } from '../lib/onebutton';
+import { findAeSelect } from '../lib/aeload';
+
+const WHO = { email: 'cochair@example.org', firstName: 'Opinions', lastName: 'Co-Chair' };
+
+const ASSIGN_PAGE = `<table><tr><td>Associate Editor List</td></tr>
+  <tr><td>Pick from a list:</td><td><select name="XIK_WORKFLOW_ASSIGN_TO_1">
+    <option value="">Select an AE (# Current Assignments)</option>
+    <option value="a">Editor, Pat (3)</option><option value="b">Co-Chair, Opinions (0)</option><option value="c">Editor, Robin (5)</option>
+  </select> <a href="#">View Details</a> <a href="#" id="assign"><img src="/images/assign.gif" alt="Assign"></a></td></tr></table>`;
+
+const DETAILS = (ae: string, links: string) => `<div><p>AE: ${ae}<br>CC: <a href="#">Co-Chair, Opinions</a><br>EIC: <a href="#">Chief, Robin</a></p>${links}</div>`;
+
+const FORM = (heading: string) => `<table><tr><td><b>${heading}</b></td></tr>
+  <tr><td><input type="radio" name="r" id="acc"></td><td>Accept</td></tr>
+  <tr><td><input type="radio" name="r" id="rr"></td><td>Reject &amp; Resubmit</td></tr>
+  <tr><td><input type="radio" name="r" id="rej"></td><td>Reject</td></tr>
+  <tr><td><textarea name="T1_REVIEWER_COMMENTS_TO_EDITOR"></textarea><textarea name="T1_REVIEWER_COMMENTS_TO_AUTHOR"></textarea></td></tr>
+  <tr><td><a href="#" id="submit">Submit</a></td></tr></table>`;
+
+const hooks = () => ({ openBySearch: vi.fn(() => true), log: vi.fn() });
+const clicks = (ids: string[]) => document.querySelectorAll('a[id]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); ids.push(a.id); }));
+
+afterEach(() => {
+  sessionStorage.clear();
+  vi.useRealTimers();
+});
+
+describe('controls next to Assign', () => {
+  it('finds the Assign button and the logged-in person\'s entry', () => {
+    document.body.innerHTML = ASSIGN_PAGE;
+    const sel = findAeSelect(document)!.select;
+    expect(findAssignButton(sel)?.id).toBe('assign');
+    expect(ownOption(sel, WHO)?.value).toBe('b');
+    expect(ownOption(sel, { ...WHO, lastName: 'Nobody' })).toBeNull();
+  });
+
+  it('stays disabled until the PDF was opened and the box is checked', () => {
+    document.body.innerHTML = ASSIGN_PAGE;
+    const start = vi.fn();
+    expect(addControls(document, false, start)).toBe(true);
+    const go = document.querySelector<HTMLButtonElement>('[data-ob="go"]')!;
+    const box = document.querySelector<HTMLInputElement>('[data-ob="arm"]')!;
+    expect(document.querySelector('[data-electric-mc="one-button"]')!.previousElementSibling?.id).toBe('assign');
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    expect(go.disabled).toBe(true);
+    addControls(document, true, start);
+    expect(go.disabled).toBe(false);
+    go.click();
+    expect(start).toHaveBeenCalledOnce();
+  });
+
+  it('knows a PDF link', () => {
+    document.body.innerHTML = '<a id="p" href="#">PDF</a><a id="h" href="#">HTML</a>';
+    expect(isPdfLink(document.getElementById('p'))).toBe(true);
+    expect(isPdfLink(document.getElementById('h'))).toBe(false);
+  });
+
+  it('picks Reject, not Reject & Resubmit', () => {
+    document.body.innerHTML = FORM('Associate Editor Recommends');
+    expect(rejectRadio(document)?.id).toBe('rej');
+  });
+});
+
+describe('a whole run', () => {
+  it('assigns, recommends as AE, then as co-chair, and submits', () => {
+    vi.useFakeTimers();
+    const h = hooks();
+    const ids: string[] = [];
+    const ID = 'XYZJ-26-09-9011';
+
+    document.body.innerHTML = ASSIGN_PAGE;
+    clicks(ids);
+    expect(startRun(document, ID, WHO)).toBeNull();
+    expect(findAeSelect(document)!.select.value).toBe('b');
+    expect(ids).toEqual(['assign']);
+    expect(readRun(document)?.step).toBe('assigned');
+
+    // Back on the paper with the AE shown: on to the AE center.
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '<a href="#" id="aec">Associate Editor Center</a>');
+    clicks(ids);
+    stepRun(document, { manuscript: ID, isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids.at(-1)).toBe('aec');
+    expect(readRun(document)?.step).toBe('ae-center');
+
+    // The AE dashboard: search for the paper.
+    document.body.innerHTML = '<p>Associate Editor Dashboard</p>';
+    stepRun(document, { isDetails: false }, undefined, h);
+    expect(h.openBySearch).toHaveBeenCalledWith(ID);
+    expect(readRun(document)?.step).toBe('ae-details');
+
+    // The paper as AE: open Make Recommendation.
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '<a href="#" id="task">Make Recommendation (Due 01-Dec-2026)</a>');
+    clicks(ids);
+    stepRun(document, { manuscript: ID, isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids.at(-1)).toBe('task');
+
+    // The form: Reject picked, cursor in the comments.
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', FORM('Associate Editor Recommends'));
+    stepRun(document, { manuscript: ID, isDetails: true }, 'Co-Chair, Opinions', h);
+    expect((document.getElementById('rej') as HTMLInputElement).checked).toBe(true);
+    expect(document.activeElement?.getAttribute('name')).toBe('T1_REVIEWER_COMMENTS_TO_AUTHOR');
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('One-button reject mode');
+
+    // The person writes and submits.
+    (document.querySelector('[name$=TO_AUTHOR]') as HTMLTextAreaElement).value = 'Synthetic comment to the author.';
+    (document.querySelector('[name$=TO_EDITOR]') as HTMLTextAreaElement).value = 'Synthetic note.';
+    sessionStorage.setItem('emc-advance', '{}');
+    noteAeSubmit(document, h);
+    expect(readRun(document)).toMatchObject({ step: 'ae-sent', toAuthor: 'Synthetic comment to the author.', toEditor: 'Synthetic note.' });
+    expect(sessionStorage.getItem('emc-advance')).toBeNull();
+
+    // Back to the Co-Chair Center, search, open the co-chair task.
+    document.body.innerHTML = '<a href="#" id="ccc">Co-Chair Center</a>';
+    clicks(ids);
+    stepRun(document, { manuscript: ID, isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids.at(-1)).toBe('ccc');
+    document.body.innerHTML = '<p>Co-Chair Dashboard</p>';
+    stepRun(document, { isDetails: false }, undefined, h);
+    expect(readRun(document)?.step).toBe('cc-details');
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '<a href="#" id="cctask">Co-Chair Make Recommendation</a>');
+    clicks(ids);
+    stepRun(document, { manuscript: ID, isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids.at(-1)).toBe('cctask');
+
+    // The co-chair form: filled in and submitted.
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', FORM('Co-Chair Recommends'));
+    clicks(ids);
+    stepRun(document, { manuscript: ID, isDetails: true }, 'Co-Chair, Opinions', h);
+    expect((document.getElementById('rej') as HTMLInputElement).checked).toBe(true);
+    expect((document.querySelector('[name$=TO_AUTHOR]') as HTMLTextAreaElement).value).toBe('Synthetic comment to the author.');
+    expect((document.querySelector('[name$=TO_EDITOR]') as HTMLTextAreaElement).value).toBe('Synthetic note.');
+    expect(ids.at(-1)).not.toBe('submit');
+    vi.advanceTimersByTime(700);
+    expect(ids.at(-1)).toBe('submit');
+    expect(readRun(document)?.step).toBe('cc-sent');
+
+    document.body.innerHTML = '<p>done</p>';
+    stepRun(document, { manuscript: ID, isDetails: true }, undefined, h);
+    expect(readRun(document)).toBeNull();
+  });
+
+  it('stops when MC opens another paper', () => {
+    const h = hooks();
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '');
+    stepRun(document, { manuscript: 'XYZJ-26-09-9012', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(readRun(document)).toBeNull();
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('stopped');
+  });
+
+  it('stops when the AE step was not Reject', () => {
+    const h = hooks();
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-form', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = FORM('Associate Editor Recommends');
+    (document.getElementById('acc') as HTMLInputElement).checked = true;
+    noteAeSubmit(document, h);
+    expect(readRun(document)).toBeNull();
+  });
+});

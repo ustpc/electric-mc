@@ -34,6 +34,7 @@ import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readR
 import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
 import { readIdentity } from '../lib/identity';
+import { addControls, forgetPdfUnless, isPdfLink, noteAeSubmit, notePdfViewed, pdfViewed, readRun, refreshControls, showBanner, startRun, stepRun } from '../lib/onebutton';
 import { flagPanel, labelFlags, readFlagPanel, type FlagMap } from '../lib/flags';
 import { showPdfWordCount } from '../lib/pdfcount';
 
@@ -172,6 +173,8 @@ async function start() {
     recordIdentity(r);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
+    if (reason === 'load') oneButton(r);
+    else if (settings.oneButtonReject && r.pageType === 'manuscript') addOneButton(r);
     if (reason === 'load') landAfterLogin();
     if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
     if (reason === 'load' || reason === 'bfcache') {
@@ -257,6 +260,7 @@ async function start() {
       'click',
       (e) => {
         if (!chrome.runtime?.id || !enabled() || !isRecommendationSubmit(e.target)) return;
+        if (settings.oneButtonReject) noteAeSubmit(document, obHooks);
         const m = last?.manuscript;
         const control = recommendationSubmitControl(e.target);
         const choice = pickedChoice(document);
@@ -279,6 +283,42 @@ async function start() {
       },
       true,
     );
+
+  // One-button reject (lib/onebutton.ts): the controls next to Assign, and
+  // each step of a run as its pages load.
+  const obHooks = {
+    openBySearch: (id: string) => openManuscript(document, id),
+    log: (event: string, data?: unknown) => send({ type: 'log', level: 'info', event, data }),
+  };
+  const addOneButton = (r: ParseResult) => {
+    const id = r.manuscript?.id;
+    if (!id || readRun(document)) return;
+    addControls(document, pdfViewed(document, id), () => {
+      const why = startRun(document, id, readIdentity(document));
+      if (why) showBanner(document, `One-button reject didn't start: ${why}`, 'stop');
+      else obHooks.log('one-button reject started', {});
+    });
+  };
+  const oneButton = (r: ParseResult) => {
+    const id = r.pageType === 'manuscript' ? r.manuscript?.id : undefined;
+    if (!readRun(document)) forgetPdfUnless(document, id);
+    // A popup MC opens (an e-mail window) inherits this tab's sessionStorage; leave it alone.
+    if (!settings.oneButtonReject || window.opener) return;
+    stepRun(document, { manuscript: id, isDetails: r.pageType === 'manuscript' }, editorBlock(document.body).get('ae'), obHooks);
+    if (r.pageType === 'manuscript') addOneButton(r);
+  };
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (!chrome.runtime?.id || !enabled() || !settings.oneButtonReject) return;
+      const id = last?.pageType === 'manuscript' ? last.manuscript?.id : undefined;
+      if (id && isPdfLink(e.target)) {
+        notePdfViewed(document, id);
+        refreshControls(document, true);
+      }
+    },
+    true,
+  );
 
   // The icon-to-label map from the Flag This Manuscript panel, sent when new.
   const learnFlags = () => {

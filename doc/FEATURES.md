@@ -80,6 +80,12 @@ pitch to associate editors.
   Co-Chair Recommends and the extension keeps it in a To EIC list and marks
   the manuscript in the queue grid, which MC itself doesn't, until the EIC
   acts. One click copies the list for the EIC.
+- **One-button reject (testing).** Next to MC's Assign button, after you've
+  opened the PDF: check "reject" and press "one-button reject". The
+  extension assigns the paper to your own AE entry, takes you to the AE
+  recommendation with Reject picked, and after you write your comments and
+  press Submit it makes the co-chair recommendation with the same comments
+  and submits it. A banner shows each step; anything unexpected stops it.
 - **Flags, named (now).** MC's flag icons carry no words. The extension
   learns each one's label from the "Flag This Manuscript" panel and writes
   it beside the icon in italics: "(flagged: 3 or more rejections)".

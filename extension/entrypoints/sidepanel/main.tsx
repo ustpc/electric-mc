@@ -756,7 +756,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'flagLabels' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'flagLabels' | 'oneButtonReject' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   const adv = s.showAdvanced;
@@ -779,6 +779,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
       <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
+      {box('oneButtonReject', 'One-button reject next to MC\'s Assign AE button (co-chairs)')}
       {box('flagLabels', 'Name MC\'s flag icons (learned from the Flag This Manuscript panel)')}
       {box('pdfWordCount', "Count the words in manuscript PDFs (the body only: no cover page, line numbers or references)")}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}

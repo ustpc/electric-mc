@@ -57,6 +57,8 @@ export interface Settings {
   highlightRevisions: boolean;
   /** Put MC's flag labels next to flag icons, as learned from the Flag This Manuscript panel (lib/flags.ts). On by default. */
   flagLabels: boolean;
+  /** "| [ ] reject [one-button reject]" next to MC's Assign AE button (lib/onebutton.ts). Off by default. */
+  oneButtonReject: boolean;
   /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
   lookupEarlierVersions: boolean;
   /** Widen MC's fixed-width column to the window, less half an inch each side. */
@@ -95,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   loginToCoChair: true,
   highlightRevisions: true,
   flagLabels: true,
+  oneButtonReject: false,
   lookupEarlierVersions: true,
   fullWidth: false,
   fontSize: 0,
