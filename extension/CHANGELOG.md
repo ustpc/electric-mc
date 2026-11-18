@@ -5,7 +5,7 @@ Newest first. Every version bump gets an entry here.
 ## 0.0.77 (2026-11-18)
 
 - Fix for the Chrome Web Store's "Blue Argon" warning (remotely hosted code). Transformers.js, which runs the AE-suggestion model, contains a default that points ONNX's WebAssembly runtime at cdn.jsdelivr.net and models at huggingface.co. The extension always replaced those with its own bundled files before loading the model, and its CSP allows only its own scripts, so nothing was ever loaded from there; but MV3 doesn't allow the address in the package at all. The build now rewrites those defaults to the bundled runtime (`ort/`) and turns off remote models (`scripts/local-runtime.ts`), and stops if a Transformers.js upgrade changes that code. AE suggestions work as before.
-- New build check: `scripts/check-no-remote-code.mjs` runs after every build and zip and in CI, and fails if the built extension names a CDN or model host, imports a script or worker from a URL, has a remote `<script>`, or has a CSP that allows other script sources.
+- New build check: `scripts/check-no-remote-code.mjs` runs after every build and zip and in CI, and fails if the built extension names a CDN or model host, imports a script or worker from a URL (including a bare `import "https://…"`), has a remote `<script>`, or has a CSP that allows other script sources. The CSP check reads each directive by its full name and covers `default-src` (the fallback), `script-src`, `script-src-elem`, `script-src-attr` and `worker-src`, in every policy the manifest has. Tests in `tests/noremotecode.test.ts` (from Copilot's review of PR #80).
 
 ## 0.0.76 (2026-11-16)
 
