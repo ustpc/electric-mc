@@ -90,6 +90,8 @@ export default defineBackground(() => {
       bg(rememberIdentity(msg.site, msg.identity));
     } else if (msg.type === 'eic') {
       bg(updateEic(msg.set, msg.remove));
+    } else if (msg.type === 'flags') {
+      bg(rememberFlags(msg.journal, msg.map));
     } else if (msg.type === 'version-info') {
       bg(rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info));
     } else if (msg.type === 'ae-load') {
@@ -143,6 +145,17 @@ function rememberIdentity(site: string, identity: McIdentity): Promise<void> {
       await chrome.storage.local.set({ [KEY.notes]: migrateNotes(notes, { email: identity.email, author }, nowS()) });
       await log({ level: 'info', source: 'background', event: 'notes migrated to authored notes' });
     }
+  });
+}
+
+/** Merge flag labels learned from a Flag This Manuscript panel (lib/flags.ts). */
+function rememberFlags(journal: string, map: Record<string, string>): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.flags))[KEY.flags] as Record<string, Record<string, string>> | undefined) ?? {};
+    const merged = { ...(all[journal] ?? {}), ...map };
+    if (JSON.stringify(merged) === JSON.stringify(all[journal] ?? {})) return;
+    all[journal] = merged;
+    await chrome.storage.local.set({ [KEY.flags]: all });
   });
 }
 

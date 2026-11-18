@@ -738,7 +738,7 @@ function summary(d: unknown): string {
  */
 async function clearAllData() {
   if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database and the AE menu config? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu, KEY.team]);
+  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu, KEY.team, KEY.flags]);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
 }
@@ -756,7 +756,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'flagLabels' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   const adv = s.showAdvanced;
@@ -779,6 +779,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
       <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
+      {box('flagLabels', 'Name MC\'s flag icons (learned from the Flag This Manuscript panel)')}
       {box('pdfWordCount', "Count the words in manuscript PDFs (the body only: no cover page, line numbers or references)")}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
       {box('loginToCoChair', 'After I log in, go to the Co-Chair Center (when I could also pick the AE Center)')}

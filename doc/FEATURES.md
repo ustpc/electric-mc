@@ -80,6 +80,9 @@ pitch to associate editors.
   Co-Chair Recommends and the extension keeps it in a To EIC list and marks
   the manuscript in the queue grid, which MC itself doesn't, until the EIC
   acts. One click copies the list for the EIC.
+- **Flags, named (now).** MC's flag icons carry no words. The extension
+  learns each one's label from the "Flag This Manuscript" panel and writes
+  it beside the icon in italics: "(flagged: 3 or more rejections)".
 - **Decisions you made, marked in the queue (now).** An immediate decision made without
   assigning an AE leaves the manuscript in MC's Assign AE list. The
   extension notes the choice when you press Submit and, in queue lists and

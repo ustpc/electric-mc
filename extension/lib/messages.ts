@@ -17,6 +17,7 @@ export type Msg =
   | { type: 'ae-load'; journal: string; entries: AeLoadEntry[] }
   | { type: 'roles'; site: string; roles: Role[] }
   | { type: 'eic'; set?: EicItem; remove?: string }
+  | { type: 'flags'; journal: string; map: Record<string, string> }
   | { type: 'identity'; site: string; identity: McIdentity }
   | { type: 'pdf-opened' }
   // Side panel → content script (via tabs.sendMessage)
@@ -54,6 +55,8 @@ export interface Settings {
   loginToCoChair: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
+  /** Put MC's flag labels next to flag icons, as learned from the Flag This Manuscript panel (lib/flags.ts). On by default. */
+  flagLabels: boolean;
   /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
   lookupEarlierVersions: boolean;
   /** Widen MC's fixed-width column to the window, less half an inch each side. */
@@ -91,6 +94,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoLogin: false,
   loginToCoChair: true,
   highlightRevisions: true,
+  flagLabels: true,
   lookupEarlierVersions: true,
   fullWidth: false,
   fontSize: 0,
@@ -188,6 +192,8 @@ export const KEY = {
   lastKeepalive: 'lastKeepalive',
   /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
   eic: 'eic',
+  /** MC's flag icons and their labels, by journal (lib/flags.ts). */
+  flags: 'flags',
   /** AE expertise profiles the person loaded, as the file was written (lib/match.ts). */
   aeProfiles: 'aeProfiles',
   /** The AE-assignment menu's layout: this browser's copy, the server's, and which is used (lib/aemenu.ts). */

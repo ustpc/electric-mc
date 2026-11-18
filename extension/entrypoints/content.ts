@@ -34,6 +34,7 @@ import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readR
 import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
 import { readIdentity } from '../lib/identity';
+import { flagPanel, labelFlags, readFlagPanel, type FlagMap } from '../lib/flags';
 import { showPdfWordCount } from '../lib/pdfcount';
 
 export default defineContentScript({
@@ -73,6 +74,9 @@ async function start() {
   const enabled = () => isEnabledFor(settings, location.href);
   // Recommendations sent to the EIC, kept up to date from storage.
   let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
+  // MC's flag icons and their labels, for this journal (lib/flags.ts).
+  let flagMaps = ((await chrome.storage.local.get(KEY.flags))[KEY.flags] as Record<string, FlagMap> | undefined) ?? {};
+  const flagsHere = () => flagMaps[journalKey(location.href)] ?? {};
   // The AE-assignment menu's layout (lib/aemenu.ts) and the roster its groups draw on.
   const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
   let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
@@ -194,6 +198,8 @@ async function start() {
       linkIds(document, settings.idPattern);
       annotateEicRows(document, eicItems, settings.idPattern);
     }
+    learnFlags();
+    labelFlags(document, flagsHere(), settings.flagLabels);
     applyRestyle(document, settings);
     hidePageHeader(document, settings.hidePageHeader);
     enlargeNavArrows(document, true);
@@ -273,6 +279,18 @@ async function start() {
       },
       true,
     );
+
+  // The icon-to-label map from the Flag This Manuscript panel, sent when new.
+  const learnFlags = () => {
+    const panel = flagPanel(document);
+    if (!panel) return;
+    const found = readFlagPanel(panel);
+    const known = flagsHere();
+    const fresh = Object.fromEntries(Object.entries(found).filter(([k, v]) => known[k] !== v));
+    if (!Object.keys(fresh).length) return;
+    send({ type: 'flags', journal: journalKey(location.href), map: fresh });
+    send({ type: 'log', level: 'info', event: 'flags learned', data: { count: Object.keys(fresh).length } });
+  };
 
   // The person's own recommendation to the EIC, from the Recommendations box
   // on the details page. It leaves the To EIC list when it's gone from the
@@ -566,6 +584,11 @@ async function start() {
       if (changes[KEY.aeMenu]) aeMenu = changes[KEY.aeMenu]!.newValue as AeMenuStore | undefined;
       if (changes[KEY.team]) team = (changes[KEY.team]!.newValue as Team | undefined) ?? null;
       if (enabled()) styleAeMenu();
+      return;
+    }
+    if (area === 'local' && changes[KEY.flags]) {
+      flagMaps = (changes[KEY.flags]!.newValue as Record<string, FlagMap> | undefined) ?? {};
+      if (enabled()) labelFlags(document, flagsHere(), settings.flagLabels);
       return;
     }
     if (area === 'local' && changes[KEY.eic]) {
