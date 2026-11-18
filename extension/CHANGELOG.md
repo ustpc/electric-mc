@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.78 (2026-11-18)
+
+- New: decisions you made show in red on queue lists and search results. When a co-chair makes an immediate decision without assigning an AE, MC keeps the manuscript under "Assign AE" until the EIC acts, and MC's Recommendations box doesn't show the decision, so the extension never knew about it. Now it notes your choice when you press Submit (or Commit Decision) with a choice picked, once MC answers with a new page (a press MC refuses, or one the extension's own guards stop, isn't kept). In queue grids and search results, that manuscript's rows get a light red background (10% red) and its Status cell says, in red, "E-MC: you decided Reject (2026-10-23); MC still lists it until the EIC acts". Recommendations from the Recommendations box show the same way, as before but in red ("you recommended …"). A decision noted at Submit leaves the list when a decision letter for the manuscript has gone out. Only the choice is kept, in this browser, never the comments. The log records each one ("decision recorded at submit").
+- Known gap: rescinding a decision that MC's Recommendations box never showed doesn't clear it; it stays red until the decision letter goes out.
+
 ## 0.0.77 (2026-11-18)
 
 - Fix for the Chrome Web Store's "Blue Argon" warning (remotely hosted code). Transformers.js, which runs the AE-suggestion model, contains a default that points ONNX's WebAssembly runtime at cdn.jsdelivr.net and models at huggingface.co. The extension always replaced those with its own bundled files before loading the model, and its CSP allows only its own scripts, so nothing was ever loaded from there; but MV3 doesn't allow the address in the package at all. The build now rewrites those defaults to the bundled runtime (`ort/`) and turns off remote models (`scripts/local-runtime.ts`), and stops if a Transformers.js upgrade changes that code. AE suggestions work as before.

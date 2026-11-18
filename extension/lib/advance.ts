@@ -204,6 +204,11 @@ function taskOn(view: Window, doc: Document, from: string | undefined): string |
   return (opened && opened.from === from ? opened.task : null) ?? currentTask(doc);
 }
 
+/** The task the person is doing on manuscript `from`, if we can tell. */
+export function openedTask(doc: Document, from: string | undefined): string | null {
+  return taskOn(doc.defaultView!, doc, from);
+}
+
 function rememberTask(view: Window, doc: Document, from: string | undefined) {
   const task = taskOn(view, doc, from);
   if (task && from) write(view, TASK_KEY, { task, from, at: Date.now() } satisfies Carry);

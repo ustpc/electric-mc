@@ -3,7 +3,9 @@
 // and clickable IDs. Synthetic markup and names only.
 import { describe, expect, it } from 'vitest';
 import { addRoles, roleLabels, rolesIn } from '../lib/roles';
-import { annotateEicRows, eicSummary, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { annotateEicRows, eicSummary, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { linkIds, unlinkIds } from '../lib/idlink';
 
 describe('roles', () => {
@@ -129,5 +131,58 @@ describe('pages with ID links still parse and highlight', () => {
     expect(marked.map((tr) => tr.getAttribute('data-emc-revision'))).toEqual(['TEST-26-03-1111.R2', '']);
     expect(marked[0]!.cells[0]!.querySelector('a[data-electric-mc="id-link"]')?.textContent).toBe('TEST-26-03-1111.R2');
     expect(marked[1]!.previousElementSibling).toBe(marked[0]);
+  });
+});
+
+describe('decisions made without an AE', () => {
+  const DECISION: EicItem = { ...ITEM, recommendation: 'Reject', kind: 'decision', source: 'submit', seen: '2026-10-23' };
+
+  it('reads the picked choice and tells a decision from a recommendation', () => {
+    document.body.innerHTML = `<table><tr><td><b>Co-Chair Immediate Decision</b></td></tr>
+      <tr><td><input type="radio" name="d" value="xik_1"></td><td>Accept</td></tr>
+      <tr><td><input type="radio" name="d" value="xik_2" checked></td><td><table><tr><td>Reject</td></tr></table></td></tr>
+      <tr><td><input type="button" value="Submit" id="go"></td></tr></table>`;
+    expect(pickedChoice(document)).toBe('Reject');
+    const go = document.getElementById('go')!;
+    expect(isDecisionPress(go, null)).toBe(true);
+    document.querySelector('b')!.textContent = 'Co-Chair Recommends';
+    expect(isDecisionPress(go, null)).toBe(false);
+    expect(isDecisionPress(go, 'make immediate decision')).toBe(true);
+  });
+
+  it('finds no choice when none is picked', () => {
+    document.body.innerHTML = '<table><tr><td><input type="radio" name="d"></td><td>Reject</td></tr></table>';
+    expect(pickedChoice(document)).toBeNull();
+  });
+
+  it('shades the decided manuscript\'s rows red and notes the decision in red', () => {
+    document.body.innerHTML = GRID;
+    expect(annotateEicRows(document, { [DECISION.id]: DECISION })).toBe(1);
+    const note = document.querySelector<HTMLElement>('[data-electric-mc="eic-note"]')!;
+    expect(note.textContent).toBe('E-MC: you decided Reject (2026-10-23); MC still lists it until the EIC acts');
+    expect(note.style.color).toBe('rgb(185, 28, 28)');
+    // The ID row is marked; the other manuscript isn't.
+    const marked = Array.from(document.querySelectorAll('tr[data-emc-decided]'));
+    expect(marked.map((tr) => tr.getAttribute('data-emc-decided'))).toEqual(['XYZJ-26-09-9011']);
+    expect(document.getElementById('emc-decided-style')!.textContent).toContain('rgba(220, 38, 38, 0.1)');
+    // Gone from the list: the rows go back to normal.
+    annotateEicRows(document, {});
+    expect(document.querySelectorAll('tr[data-emc-decided], [data-electric-mc="eic-note"]')).toHaveLength(0);
+  });
+
+  it('shades both rows of a two-row manuscript', () => {
+    document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'queue-rowspan.html'), 'utf8').replace(/^<!doctype html>/i, '');
+    const item = { ...DECISION, id: 'XYZJ-26-09-9005', baseId: 'XYZJ-26-09-9005' };
+    expect(annotateEicRows(document, { [item.id]: item })).toBe(1);
+    const marked = Array.from(document.querySelectorAll('tr[data-emc-decided]'));
+    expect(marked.map((tr) => tr.getAttribute('data-emc-decided'))).toEqual(['XYZJ-26-09-9005', '']);
+    expect(marked[1]!.textContent).toContain('Writer, Sample');
+  });
+
+  it('marks search results too', () => {
+    document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'search-results.html'), 'utf8').replace(/^<!doctype html>/i, '');
+    const item = { ...DECISION, id: 'TEST-26-10-9009', baseId: 'TEST-26-10-9009' };
+    expect(annotateEicRows(document, { [item.id]: item })).toBe(1);
+    expect(document.querySelector('[data-electric-mc="eic-note"]')!.closest('td')!.textContent).toContain('AE: Not Assigned');
   });
 });

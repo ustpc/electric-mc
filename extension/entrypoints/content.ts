@@ -19,7 +19,7 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
-import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
+import { carryTask, onPageLoad, openedTask, recommendationSubmitControl, isRecommendationSubmit, watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
 import { describePage, watchClicks } from '../lib/devtrace';
@@ -30,7 +30,7 @@ import { findAeSelect, parseOption } from '../lib/aeload';
 import type { Team } from '../lib/team';
 import { linkIds, unlinkIds } from '../lib/idlink';
 import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
-import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
 import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
 import { readIdentity } from '../lib/identity';
@@ -227,22 +227,70 @@ async function start() {
     send({ type: 'identity', site: r.site, identity: id });
   };
 
+  // A decision or recommendation the person sends with Submit or Commit
+  // Decision. Noted at the press and kept once MC answers with a new page,
+  // so a press MC refuses (or one the guards above stop) isn't kept. MC's
+  // Recommendations box never shows an immediate decision made without an AE.
+  const SUBMITTED_KEY = 'emc-submitted-choice';
+  const commitSubmitted = () => {
+    let pending: (EicItem & { at: number }) | null = null;
+    try {
+      const raw = sessionStorage.getItem(SUBMITTED_KEY);
+      sessionStorage.removeItem(SUBMITTED_KEY);
+      pending = raw ? JSON.parse(raw) : null;
+    } catch {
+      return;
+    }
+    if (!pending || Date.now() - pending.at > 3 * 60_000) return;
+    const { at: _at, ...item } = pending;
+    send({ type: 'eic', set: item });
+    send({ type: 'log', level: 'info', event: 'decision recorded at submit', data: { kind: item.kind, choice: item.recommendation } });
+  };
+  const watchSubmitted = () =>
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (!chrome.runtime?.id || !enabled() || !isRecommendationSubmit(e.target)) return;
+        const m = last?.manuscript;
+        const control = recommendationSubmitControl(e.target);
+        const choice = pickedChoice(document);
+        if (!m || !control || !choice) return;
+        const item: EicItem = {
+          id: m.id,
+          baseId: m.baseId,
+          site: last?.site ?? null,
+          title: m.title,
+          recommendation: choice,
+          seen: today(),
+          kind: isDecisionPress(control, openedTask(document, m.id)) ? 'decision' : 'recommendation',
+          source: 'submit',
+        };
+        try {
+          sessionStorage.setItem(SUBMITTED_KEY, JSON.stringify({ ...item, at: Date.now() }));
+        } catch {
+          /* storage blocked */
+        }
+      },
+      true,
+    );
+
   // The person's own recommendation to the EIC, from the Recommendations box
   // on the details page. It leaves the To EIC list when it's gone from the
   // box (rescinded or acted on) or a decision letter has gone out.
   const recordRecommendation = (r: ParseResult) => {
+    commitSubmitted();
     const m = r.manuscript;
     if (!m) return;
     const box = recommendationsBox(document);
     const mine = box && myRecommendation(readRecommendations(box), editorBlock(document.body).get('cc'));
+    const had = eicItems[m.id];
     if (mine) {
-      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today() };
-      const had = eicItems[m.id];
-      if (!had || had.recommendation !== item.recommendation || had.title !== item.title) {
+      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today(), kind: had?.kind ?? 'recommendation', source: 'box' };
+      if (!had || had.recommendation !== item.recommendation || had.title !== item.title || had.source !== 'box') {
         send({ type: 'eic', set: item });
         send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
       }
-    } else if (eicItems[m.id] && (box || decisionLettersIn(document, settings.idPattern).has(m.id))) {
+    } else if (had && ((box && had.source !== 'submit') || decisionLettersIn(document, settings.idPattern).has(m.id))) {
       send({ type: 'eic', remove: m.id });
       send({ type: 'log', level: 'info', event: 'recommendation to EIC cleared', data: { reason: box ? 'no longer in Recommendations' : 'decision sent' } });
     }
@@ -442,6 +490,9 @@ async function start() {
   watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
     send({ type: 'log', level: 'info', event: 'no comment to author', data }),
   );
+
+  // Note the choice in each press that gets past the two guards above.
+  watchSubmitted();
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
   watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);

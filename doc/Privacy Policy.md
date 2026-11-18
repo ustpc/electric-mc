@@ -130,8 +130,9 @@ no manuscript data is part of that. The file is kept in
 `chrome.storage.local` in that browser only. Clear all data removes it.
 
 **The To EIC list and your roles.** The extension keeps, in
-`chrome.storage.local` only, each recommendation you sent to the EIC
-(manuscript ID, title, the recommendation, and when it was first seen) and
+`chrome.storage.local` only, each recommendation you sent to the EIC and
+each decision you submitted (manuscript ID, title, the choice you picked,
+and when it was first seen) and
 which MC roles you have. It never keeps your comments to the EIC or the
 author. Items leave the list when the EIC acts; Clear all data removes the
 list and the roles.
@@ -333,3 +334,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-04 | The team database (names, MC emails, roles, links, photos) replaces the loaded roster and the AE menu's people table; local storage only; Clear all data removes it (extension 0.0.54). |
 | 2026-11-07 | Test builds let Chrome cache MC pages (no-store replaced with private) so Back works; pages stay in Chrome's cache on the computer; a setting turns it off (extension 0.0.59). |
 | 2026-11-12 | Word counts on PDFs: the extension fetches the PDF again and reads its text on-device with pdf.js; text and count stay in the tab, the log keeps numbers only (extension 0.0.75). |
+| 2026-11-18 | The To EIC list also keeps the choice you picked when you press Submit or Commit Decision (no comments), so decisions made without an AE can be marked on queue lists; local storage only (extension 0.0.78). |

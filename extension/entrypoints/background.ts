@@ -153,7 +153,7 @@ function updateEic(set?: EicItem, remove?: string): Promise<void> {
     if (set) {
       const prev = all[set.id];
       // Keep the first date seen; a changed recommendation replaces the old one.
-      if (prev && prev.recommendation === set.recommendation && prev.title === set.title) return;
+      if (prev && prev.recommendation === set.recommendation && prev.title === set.title && prev.kind === set.kind && prev.source === set.source) return;
       all[set.id] = { ...set, seen: prev?.seen ?? set.seen };
     }
     if (remove) {
