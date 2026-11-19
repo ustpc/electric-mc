@@ -11,6 +11,7 @@
 // background and the choice in blue under the ID. Only the choice is kept, never the
 // comments, and it stays in this browser.
 
+import { pickedLabel } from './recommendform';
 import { labelKey, textOf, cellLines, truncate, isLayoutRow } from './text';
 import { parseManuscriptId } from './ids';
 
@@ -42,10 +43,7 @@ export interface EicItem {
 
 /** The label of the choice picked on the page (its radio button's row), or null. */
 export function pickedChoice(doc: Document): string | null {
-  const radio = doc.querySelector<HTMLInputElement>('input[type=radio]:checked');
-  const row = radio?.closest('tr');
-  if (!row) return null;
-  const label = textOf(row).replace(/\s+/g, ' ').trim();
+  const label = pickedLabel(doc);
   return label ? truncate(label, 60) : null;
 }
 

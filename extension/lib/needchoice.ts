@@ -4,15 +4,10 @@
 // empty recommendation. When such a press comes with choices on the page and
 // none picked, we stop it and say so in the E-MC color next to the choices.
 
-import { recommendationSubmitControl } from './advance';
+import { choiceRadios, submitControl } from './recommendform';
 import { EMC_COLOR } from './milestones';
 
 export const NEED_CHOICE_ID = 'electric-mc-need-choice';
-
-/** The page's own radio buttons (not ours). */
-function choices(doc: Document): HTMLInputElement[] {
-  return Array.from(doc.querySelectorAll<HTMLInputElement>('input[type=radio]')).filter((r) => !r.closest('[data-electric-mc]'));
-}
 
 /**
  * Whether a press sends a recommendation or decision while the page offers
@@ -20,15 +15,15 @@ function choices(doc: Document): HTMLInputElement[] {
  * we can't tell what the choice would be.
  */
 export function missingChoice(target: EventTarget | null): boolean {
-  const control = recommendationSubmitControl(target);
+  const control = submitControl(target);
   if (!control) return false;
-  const radios = choices(control.ownerDocument);
+  const radios = choiceRadios(control.ownerDocument);
   return radios.length > 0 && !radios.some((r) => r.checked);
 }
 
 /** Show the message just above the choices, once, and bring it into view. */
 export function showNeedChoice(doc: Document): HTMLElement | null {
-  const first = choices(doc)[0];
+  const first = choiceRadios(doc)[0];
   if (!first) return null;
   let note = doc.getElementById(NEED_CHOICE_ID);
   if (!note) {
@@ -57,7 +52,7 @@ export function watchMissingChoice(doc: Document, enabled: () => boolean, log?: 
     e.preventDefault();
     e.stopImmediatePropagation();
     showNeedChoice(doc);
-    log?.({ choices: choices(doc).length });
+    log?.({ choices: choiceRadios(doc).length });
   };
   const onChange = (e: Event) => {
     const t = e.target as HTMLInputElement | null;

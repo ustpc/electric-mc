@@ -20,6 +20,7 @@ import { pageClick } from './click';
 import { findAeSelect, mcText, parseOption } from './aeload';
 import { cancelAdvance, taskLinks } from './advance';
 import { EMC_COLOR } from './milestones';
+import { commentBoxes, recommendsRole } from './recommendform';
 import { tabGet, tabSet } from './tabstate';
 import { foldName, labelKey, textOf } from './text';
 import type { McIdentity } from './identity';
@@ -126,27 +127,14 @@ export function rejectRadio(doc: Document): HTMLInputElement | null {
   return hits.length === 1 ? hits[0]! : null;
 }
 
-/** The comment boxes of a recommendation form. */
-export function commentBoxes(doc: Document): { toAuthor: HTMLTextAreaElement | null; toEditor: HTMLTextAreaElement | null } {
-  const boxes = Array.from(doc.querySelectorAll<HTMLTextAreaElement>('textarea'));
-  return {
-    toAuthor: boxes.find((t) => /COMMENTS_TO_AUTHOR$/i.test(t.name)) ?? null,
-    toEditor: boxes.find((t) => /COMMENTS_TO_EDITOR$/i.test(t.name)) ?? null,
-  };
-}
-
 /**
  * The Submit control of the role's "… Recommends" form: the co-chair's form
  * must say Co-Chair in its heading, and the AE's must not, so the run never
  * presses Submit on another role's form.
  */
 export function recommendSubmit(doc: Document, role: 'ae' | 'cc'): HTMLElement | null {
-  const hasHeading = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some((e) => {
-    if (e.children.length > 2 || textOf(e).length >= 60) return false;
-    const t = labelKey(textOf(e));
-    return /recommends$/.test(t) && /co-?chair/.test(t) === (role === 'cc');
-  });
-  if (!hasHeading) return null;
+  const whose = recommendsRole(doc);
+  if (!whose || (whose === 'cc') !== (role === 'cc')) return null;
   const subs = Array.from(doc.querySelectorAll<HTMLElement>('a, button, input[type=submit], input[type=button]')).filter(
     (e) => !e.closest('[data-electric-mc]') && labelKey(textOf(e) || e.getAttribute('value') || '') === 'submit',
   );

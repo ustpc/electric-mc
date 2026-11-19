@@ -7,6 +7,7 @@
 // arrow in that direction, or open the next manuscript in the grid. MC may
 // show either after a recommendation, so both are handled.
 
+import { isSubmitWithChoice, submitControl } from './recommendform';
 import { tabGet, tabSet, type TabKey } from './tabstate';
 import { pageClick } from './click';
 import { gridActions } from './idlink';
@@ -52,35 +53,11 @@ export function directionAt(position: number, total: number, last: Dir): Dir {
   return last;
 }
 
-/**
- * A press that sends a recommendation or a decision: Submit in a
- * "… Recommends" table, or Commit Decision in a "… Decision" box (a
- * co-chair's immediate reject), with a choice made on the page.
- */
-export function isRecommendationSubmit(target: EventTarget | null): boolean {
-  const control = recommendationSubmitControl(target);
-  return !!control && !!control.ownerDocument.querySelector('input[type=radio]:checked');
-}
+/** A press that sends a recommendation or a decision with a choice made (lib/recommendform.ts). */
+export const isRecommendationSubmit = isSubmitWithChoice;
 
-/**
- * The Submit or Commit Decision control a press is on, when the page has a
- * matching "… Recommends" or "… Decision" heading, whether or not a choice
- * is made yet; otherwise null.
- */
-export function recommendationSubmitControl(target: EventTarget | null): Element | null {
-  if (!(target instanceof Element)) return null;
-  const control = target.closest('a, button, input[type=submit], input[type=button], input[type=image]');
-  if (!control) return null;
-  const label = labelKey(textOf(control) || control.getAttribute('value') || control.getAttribute('alt') || control.querySelector('img')?.getAttribute('alt') || '');
-  const heading = label === 'submit' ? /recommends$/ : /^(commit|submit) decision$/.test(label) ? /(recommends|decision)$/ : null;
-  if (!heading) return null;
-  // A matching section heading on the page.
-  const doc = control.ownerDocument;
-  const found = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
-    (e) => e.children.length <= 2 && !control.contains(e) && !e.contains(control) && heading.test(labelKey(textOf(e))) && textOf(e).length < 60,
-  );
-  return found ? control : null;
-}
+/** The Submit or Commit Decision control a press is on (lib/recommendform.ts). */
+export const recommendationSubmitControl = submitControl;
 
 /** The manuscript to open next on a grid, by its order now or as it was. */
 export function nextInGrid(current: string[], from: string, dir: Dir, before: string[]): string | null {
