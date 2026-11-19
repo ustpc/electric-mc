@@ -10,7 +10,8 @@
 // chrome.storage.local (KEY.team). The older roster format (lib/roster.ts) is
 // derived from it, so existing readers keep working.
 
-import { fold, type GroupId, type Roster, type RosterPerson } from './roster';
+import { fold } from './text';
+import { type GroupId, type Roster, type RosterPerson } from './roster';
 
 export type LeaderRole = 'eic' | 'deputy-eic' | 'co-chair';
 export const LEADER_LABEL: Record<LeaderRole, string> = { eic: 'Editor-in-Chief', 'deputy-eic': 'Deputy Editor-in-Chief', 'co-chair': 'Co-Chair' };

@@ -5,6 +5,8 @@
 //   account: {short_name:"…", …}})
 // We read it as text, never run it. Notes are signed in this person's name.
 
+import { foldName } from './text';
+
 export interface McIdentity {
   email: string;
   firstName?: string;
@@ -56,12 +58,9 @@ export function mcName(id: McIdentity): string {
 export function authorLabel(displayName: string | undefined, mc: string): string {
   const d = displayName?.trim();
   if (!d) return mc;
-  return fold(d) === fold(mc) ? d : `${d} (${mc})`;
+  return foldName(d) === foldName(mc) ? d : `${d} (${mc})`;
 }
 
-function fold(s: string): string {
-  return s.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim();
-}
 
 /** The text between the braces of `name: {…}` (no nesting inside). */
 function block(text: string, name: string, from: number): string | null {

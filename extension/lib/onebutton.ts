@@ -21,7 +21,7 @@ import { findAeSelect, mcText, parseOption } from './aeload';
 import { cancelAdvance, taskLinks } from './advance';
 import { EMC_COLOR } from './milestones';
 import { tabGet, tabSet } from './tabstate';
-import { labelKey, textOf } from './text';
+import { foldName, labelKey, textOf } from './text';
 import type { McIdentity } from './identity';
 
 export type Step = 'assigned' | 'ae-center' | 'ae-details' | 'ae-form' | 'ae-sent' | 'cc-center' | 'cc-details' | 'cc-sent';
@@ -99,17 +99,9 @@ export function findAssignButton(select: HTMLSelectElement): HTMLElement | null 
 
 /** "Last, First" for the logged-in person, as MC's pull-down writes names. */
 export function aeNameFor(id: McIdentity): { first: string; last: string } | null {
-  return id.firstName && id.lastName ? { first: fold(id.firstName), last: fold(id.lastName) } : null;
+  return id.firstName && id.lastName ? { first: foldName(id.firstName), last: foldName(id.lastName) } : null;
 }
 
-function fold(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-}
 
 /** The pull-down option for the logged-in person: exactly one "Last, First (n)" match. */
 export function ownOption(select: HTMLSelectElement, who: McIdentity): HTMLOptionElement | null {
@@ -118,7 +110,7 @@ export function ownOption(select: HTMLSelectElement, who: McIdentity): HTMLOptio
   const hits = Array.from(select.options).filter((o) => {
     const e = parseOption(mcText(o));
     if (!e) return false;
-    const [last, first] = e.name.split(',').map((x) => fold(x));
+    const [last, first] = e.name.split(',').map((x) => foldName(x));
     return last === name.last && (first ?? '').startsWith(name.first);
   });
   return hits.length === 1 ? hits[0]! : null;
@@ -365,7 +357,7 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
   switch (s.step) {
     case 'assigned': {
       // MC may show a page or two in between (an e-mail step); give it three loads.
-      const shown = page.isDetails && !wrongPaper && !!aeName && fold(aeName).replace(/\s/g, '').includes(fold(s.ae).replace(/\s/g, ''));
+      const shown = page.isDetails && !wrongPaper && !!aeName && foldName(aeName).replace(/\s/g, '').includes(foldName(s.ae).replace(/\s/g, ''));
       if (!shown) {
         if ((s.tries ?? 0) >= 2) return stopRun(doc, s, page.isDetails ? `the paper doesn't show ${s.ae} as AE.` : "MC didn't come back to the paper after Assign.", hooks);
         writeRun(doc, { ...s, tries: (s.tries ?? 0) + 1 });

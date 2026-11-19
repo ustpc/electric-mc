@@ -6,7 +6,7 @@
 // is embedded on this device (lib/embed.ts) and never leaves it.
 // See doc/planning/AE recruitment and matching.md §3.
 
-import { fold } from './roster';
+import { fold } from './text';
 
 /** The bundled model; profiles built with any other model are refused. */
 export const MODEL_ID = 'Xenova/bge-small-en-v1.5';

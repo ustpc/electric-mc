@@ -13,7 +13,8 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseRoster, fold, type RosterPerson } from '../../lib/roster';
+import { fold } from '../../lib/text';
+import { parseRoster, type RosterPerson } from '../../lib/roster';
 import { DIMS, MODEL_DTYPE, MODEL_ID, encodeVec, normalize, words, type AeProfilesFile } from '../../lib/match';
 
 const here = dirname(fileURLToPath(import.meta.url));
