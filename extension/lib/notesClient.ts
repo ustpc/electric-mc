@@ -47,7 +47,7 @@ function db(): Promise<IDBDatabase> {
     const req = indexedDB.open(DB, 1);
     req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'email' });
     req.onsuccess = () => ok(req.result);
-    req.onerror = () => fail(req.error);
+    req.onerror = () => fail(req.error ?? new Error('IndexedDB error'));
   });
 }
 
@@ -57,7 +57,7 @@ async function idb<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBR
     return await new Promise<T>((ok, fail) => {
       const req = run(d.transaction(STORE, mode).objectStore(STORE));
       req.onsuccess = () => ok(req.result as T);
-      req.onerror = () => fail(req.error);
+      req.onerror = () => fail(req.error ?? new Error('IndexedDB error'));
     });
   } finally {
     d.close();
@@ -99,7 +99,7 @@ async function post(server: string, rec: KeyRecord, payload: Record<string, unkn
     body: JSON.stringify({ key: rec.keyId, payload: body, sig: b64(sig), ...(withSpki ? { spki: rec.spki } : {}) }),
   });
   const got = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!res.ok) throw new NotesError(String(got.error ?? `server said ${res.status}`), res.status);
+  if (!res.ok) throw new NotesError(typeof got.error === 'string' ? got.error : `server said ${res.status}`, res.status);
   return got;
 }
 

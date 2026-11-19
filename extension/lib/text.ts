@@ -8,7 +8,7 @@ export function normalize(s: string | null | undefined): string {
     .normalize('NFKC')
     .replace(/[‘’‛]/g, "'")
     .replace(/[“”‟]/g, '"')
-    .replace(/[  -​  　]/g, ' ')
+    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

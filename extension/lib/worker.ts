@@ -10,7 +10,7 @@ export function isWorkerGone(e: unknown): boolean {
 }
 
 /** Run a promise in the background: a worker-gone error is dropped, anything else is logged. */
-export function bg(p: Promise<unknown> | unknown): void {
+export function bg(p: unknown): void {
   if (p instanceof Promise) p.catch((e: unknown) => (isWorkerGone(e) ? undefined : console.error('[electric-mc]', e)));
 }
 

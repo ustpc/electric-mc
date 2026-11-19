@@ -217,7 +217,7 @@ function App() {
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
           <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
-          <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
+          <button class="act" onClick={() => void (POPOUT ? popIn() : popOut())} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
         </div>
@@ -278,7 +278,7 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
       logFromPanel('info', 'captured page', { pageType: c.result.pageType, bytes: body.length });
       flash(`Saved Downloads/electric-mc/${name}. It contains manuscript data: keep it private.`);
     } catch (e) {
-      flash(`Capture failed: ${e}`);
+      flash(`Capture failed: ${String(e)}`);
     }
   };
 
@@ -286,8 +286,8 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
     <>
       {dev && (
       <section class="row" style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="act" onClick={reparse}>Re-parse</button>
-        <button class="act" onClick={capture}>Capture page HTML</button>
+        <button class="act" onClick={() => void reparse()}>Re-parse</button>
+        <button class="act" onClick={() => void capture()}>Capture page HTML</button>
         <label class="chk"><input type="checkbox" checked={saveAs} onChange={(e) => setSaveAs((e.target as HTMLInputElement).checked)} />Ask where to save</label>
       </section>
       )}
@@ -509,7 +509,7 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
   const roleMap = useStorage<Record<string, KnownRoles>>('local', KEY.roles, {});
   const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
   const server = saved.notesServer?.trim() ?? '';
-  const roles: KnownRoles = (site && roleMap[site]) || Object.assign({}, ...Object.values(roleMap));
+  const roles: KnownRoles = (site && roleMap[site]) || (Object.assign({}, ...Object.values(roleMap)) as KnownRoles);
   const knownTitle = title ?? (current ? seen[current]?.title : undefined);
   const [draft, setDraft] = useState('');
   const [status, setStatus] = useState('');
@@ -535,7 +535,7 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
       } else if (del) await deleteNote(server, who, m, h, del.t, del.email);
       setStatus('Saved and shared');
     } catch (e) {
-      setStatus(`Saved here, not shared: ${e instanceof Error ? e.message : e}`);
+      setStatus(`Saved here, not shared: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -722,7 +722,7 @@ function LogView({ flash }: { flash: (s: string) => void }) {
 }
 
 function summary(d: unknown): string {
-  if (!d || typeof d !== 'object') return d === undefined ? '' : String(d);
+  if (!d || typeof d !== 'object') return d === undefined ? '' : String(d as string | number | boolean | null);
   const r = d as Partial<ParseResult>;
   if (r.pageType) {
     const n = r.rows ? ` ${r.rows.length} rows` : r.queues ? ` ${r.queues.length} queues` : r.manuscript ? ` ${r.manuscript.id}` : '';

@@ -36,7 +36,7 @@ interface Meta { url?: string; pageType?: string; fingerprint?: string; parserVe
 function parseFile(file: string, mutate?: (d: Document) => void): { meta: Meta; r: ParseResult } {
   const html = readFileSync(file, 'utf8');
   const m = /<!-- electric-mc-capture (\{.*?\}) -->/.exec(html);
-  const meta: Meta = m ? JSON.parse(m[1]!) : {};
+  const meta = (m ? JSON.parse(m[1]!) : {}) as Meta;
   const url = meta.url ?? 'https://mc.manuscriptcentral.com/unknown';
   // Scripts were stripped at capture; don't run anything that's left.
   const dom = new JSDOM(html, { url, runScripts: undefined, virtualConsole: new VirtualConsole() });

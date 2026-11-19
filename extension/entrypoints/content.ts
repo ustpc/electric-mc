@@ -246,7 +246,7 @@ async function start() {
     try {
       const raw = sessionStorage.getItem(SUBMITTED_KEY);
       sessionStorage.removeItem(SUBMITTED_KEY);
-      pending = raw ? JSON.parse(raw) : null;
+      pending = raw ? (JSON.parse(raw) as EicItem & { at: number }) : null;
     } catch {
       return;
     }

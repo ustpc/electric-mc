@@ -226,7 +226,7 @@ async function main() {
   mailto = o.mailto ?? '';
   if (!mailto) console.warn('Tip: set OPENALEX_MAILTO=you@example.org (or --mailto) to use OpenAlex\'s faster polite pool.');
   const roster = parseRoster(JSON.parse(await readFile(o.roster, 'utf8')));
-  const ids: Record<string, Ids> = o.ids ? JSON.parse(await readFile(o.ids, 'utf8')) : {};
+  const ids = (o.ids ? JSON.parse(await readFile(o.ids, 'utf8')) : {}) as Record<string, Ids>;
   const people = roster.people.filter((p) => (o.only ? p.id === o.only : o.all || p.assignable) && !ids[p.id]?.skip);
   console.log(`${people.length} people from ${o.roster}; loading ${MODEL_ID} (${MODEL_DTYPE})…`);
   const extract = await loadModel();
