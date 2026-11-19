@@ -1,6 +1,8 @@
 // Background service worker: keeps the latest parse for each tab, the debug
-// log, and the "seen manuscripts" index that a later build will preload from
-// the backend in one query.
+// log (and the live log file in test builds), the "seen manuscripts" index,
+// and what content scripts learn (roles, identity, flags, AE loads, the To
+// EIC list). All storage writes go through one queue so tabs can't drop each
+// other's updates.
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
@@ -59,7 +61,7 @@ export default defineBackground(() => {
     })());
   });
 
-  // Keep the icon (blue on, grey off) and the menu label in step with the current tab.
+  // Keep the icon (brown on, grey off) and the menu label in step with the current tab.
   chrome.tabs.onActivated.addListener(({ tabId }) => bg(refreshTab(tabId)));
   chrome.tabs.onUpdated.addListener((tabId, change) => {
     if (change.url || change.status === 'complete') bg(refreshTab(tabId));

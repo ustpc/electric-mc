@@ -98,8 +98,7 @@ async function start() {
     earlier = { on: m.id, list: [] };
     const got = await chrome.storage.local.get(KEY.seen);
     const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
-    const fromBackend = await askBackend(m.baseId);
-    const list = earlierIds(m.baseId, m.revision).map((id) => ({ id, ae: fromBackend?.[id] ?? known?.versionInfo?.[id]?.ae ?? known?.aeByVersion?.[id] }));
+    const list = earlierIds(m.baseId, m.revision).map((id) => ({ id, ae: known?.versionInfo?.[id]?.ae ?? known?.aeByVersion?.[id] }));
     if (earlier?.on !== m.id) return;
     earlier = { on: m.id, list };
     markAeList(document, list);
@@ -405,10 +404,9 @@ async function start() {
     const idCol = (row: HTMLTableRowElement) => Array.from(row.cells).findIndex((c) => c.textContent?.includes(m.baseId));
     const got = await chrome.storage.local.get(KEY.seen);
     const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
-    const fromBackend = await askBackend(m.baseId);
     const infos: VersionInfo[] = links.map((v) => {
       const info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
-      info.ae = fromBackend?.[v.ref.id] ?? info.ae ?? known?.aeByVersion?.[v.ref.id];
+      info.ae ??= known?.aeByVersion?.[v.ref.id];
       info.submitted ??= v.submitted;
       info.responded ??= decisionLettersIn(document, settings.idPattern).get(v.ref.id);
       return info;
@@ -653,15 +651,6 @@ async function start() {
       run('settings');
     });
   });
-}
-
-/**
- * What the backend knows about each version's AE, from the assignment
- * emails. The backend isn't built yet, so this always falls through to
- * reading the pages.
- */
-async function askBackend(_baseId: string): Promise<Record<string, string> | null> {
-  return null;
 }
 
 /** A short brown note at the bottom of the page, for a few seconds. */

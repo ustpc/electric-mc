@@ -224,7 +224,7 @@ export const LOCAL_DATA_KEYS: string[] = [
 /**
  * Settings live in chrome.storage.sync, so they follow the person's Chrome
  * profile to every computer they sign in to, with no Electric MC account.
- * Builds before 0.2.6 kept them in storage.local; those are copied over once.
+ * The earliest test builds (0.0.11 and before) kept them in storage.local; those are copied over once.
  */
 export const SETTINGS_AREA = 'sync' as const;
 

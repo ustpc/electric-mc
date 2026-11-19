@@ -126,8 +126,12 @@ pitch to associate editors.
 
 ## Privacy
 
-- Nothing leaves your browser in the test extension unless you set a notes
-  server. Once set, the only information that leaves your browser is your MC identity,  hash of each title, and GPG-encrypted per-manuscript notes that can only be read by specific individual
+- Nothing leaves your browser unless you set a notes server. Once set, what
+  leaves it is your MC identity and this browser's public key, a hash of
+  each manuscript's title (never the title), and your notes. Notes are
+  signed in your browser so the server and other readers can tell who wrote
+  them, but they are not encrypted: the notes server can read them.
+  End-to-end encryption is designed but not built.
 - Logs keep only problems unless you turn on developer mode, and the export
   meant for sharing strips names, titles, emails and manuscript IDs.
 - No manuscript content ever goes to a third-party AI service.

@@ -2,7 +2,7 @@
   "name": "electric-mc-extension",
   "private": true,
   "version": "0.0.79",
-  "description": "Electric MC test extension: page parsers, debug overlay, and logging for Manuscript Central",
+  "description": "Electric MC: a better Manuscript Central for editors, with notes, queues and checks, all in your browser",
   "type": "module",
   "scripts": {
     "dev": "wxt",
