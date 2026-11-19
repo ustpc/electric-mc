@@ -2,7 +2,7 @@
 // the server, migration from one-text-per-manuscript, and title hashing.
 // Synthetic IDs and people only.
 import { describe, expect, it } from 'vitest';
-import { canDelete, canEdit, mergeNotes, migrateNotes, needsMigration, normalizeTitle, removeNote, SESSION_GAP_S, sessionNote, titleHash, upsertNote, type Note } from '../lib/notes';
+import { applyNoteOpToStore, canDelete, canEdit, mergeNotes, migrateNotes, needsMigration, normalizeTitle, removeNote, SESSION_GAP_S, sessionNote, titleHash, upsertNote, type Note, type NotesStore } from '../lib/notes';
 
 const M = 'XYZJ-26-01-9001';
 const note = (t: number, email: string, text = 'x', updated = t): Note => ({ m: M, t, email, author: email, text, updated });
@@ -91,5 +91,22 @@ describe('titles', () => {
     expect(a).toMatch(/^[0-9a-f]{64}$/);
     expect(await titleHash('THIS IS A  TEST!')).toBe(a);
     expect(await titleHash('This is another test!')).not.toBe(a);
+  });
+});
+
+describe('note changes sent to the background', () => {
+  const n = (t: number, email: string, text: string, updated = t): Note => ({ m: 'XYZJ-26-09-9011', t, email, author: email, text, updated });
+  it('applies each kind of change, and drops a manuscript left with no notes', () => {
+    let all: NotesStore = { other: [n(1, 'b@example.org', 'kept')] };
+    all = applyNoteOpToStore(all, 'XYZJ-26-09-9011', { op: 'upsert', note: n(10, 'a@example.org', 'one') });
+    all = applyNoteOpToStore(all, 'XYZJ-26-09-9011', { op: 'upsert', note: n(10, 'a@example.org', 'one, edited', 12) });
+    expect(all['XYZJ-26-09-9011']).toEqual([n(10, 'a@example.org', 'one, edited', 12)]);
+    all = applyNoteOpToStore(all, 'XYZJ-26-09-9011', { op: 'synced', t: 10, email: 'a@example.org', updated: 12 });
+    expect(all['XYZJ-26-09-9011']![0]!.synced).toBe(true);
+    all = applyNoteOpToStore(all, 'XYZJ-26-09-9011', { op: 'merge', server: [] });
+    expect(all['XYZJ-26-09-9011']).toBeUndefined(); // synced, and gone from the server
+    all = applyNoteOpToStore(all, 'XYZJ-26-09-9011', { op: 'upsert', note: n(20, 'a@example.org', 'two') });
+    all = applyNoteOpToStore(all, 'XYZJ-26-09-9011', { op: 'remove', t: 20, email: 'a@example.org' });
+    expect(all).toEqual({ other: [n(1, 'b@example.org', 'kept')] });
   });
 });

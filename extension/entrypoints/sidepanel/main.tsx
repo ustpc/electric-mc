@@ -6,11 +6,11 @@ import { canKeepBackPages } from '../../lib/backcache';
 import { render } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, LOCAL_DATA_KEYS, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, LOCAL_DATA_KEYS, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 import { filterSeen } from '../../lib/seen';
-import { canDelete, canEdit, mergeNotes, nowS, removeNote, sessionNote, titleHash, upsertNote, type Note, type NotesStore } from '../../lib/notes';
+import { canDelete, canEdit, nowS, sessionNote, titleHash, type Note, type NoteOp, type NotesStore } from '../../lib/notes';
 import { authorLabel, mcName, type McIdentity } from '../../lib/identity';
 import { banKey, deleteNote, forgetKeys, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
 import type { KnownRoles } from '../../lib/roles';
@@ -457,12 +457,10 @@ function EicView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (
 /** The note being typed saves itself shortly after typing stops, on leaving the box, and on switching manuscript. */
 const NOTE_SAVE_MS = 600;
 
-/** Change one manuscript's notes, reading storage just before writing so another window's edits aren't lost. */
-async function updateNotes(m: string, change: (list: Note[]) => Note[]): Promise<void> {
-  const all = ((await chrome.storage.local.get(KEY.notes))[KEY.notes] as NotesStore | undefined) ?? {};
-  const next = change(all[m] ?? []);
-  const { [m]: _old, ...rest } = all;
-  await chrome.storage.local.set({ [KEY.notes]: next.length ? { ...rest, [m]: next } : rest });
+/** Change one manuscript's notes. The background applies it in its storage queue, so no other writer's change is lost. */
+async function updateNotes(m: string, op: NoteOp): Promise<void> {
+  const r = (await chrome.runtime.sendMessage({ type: 'notes', m, op } satisfies Msg)) as { ok?: boolean; error?: string } | undefined;
+  if (!r?.ok) throw new Error(r?.error ?? 'the extension did not answer');
 }
 
 function when(t: number): string {
@@ -531,7 +529,7 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
       const h = await titleHash(knownTitle);
       if (n) {
         await putNote(server, who, n, h);
-        await updateNotes(m, (l) => l.map((x) => (x.t === n.t && x.email === n.email && x.updated === n.updated ? { ...x, synced: true } : x)));
+        await updateNotes(m, { op: 'synced', t: n.t, email: n.email, updated: n.updated });
       } else if (del) await deleteNote(server, who, m, h, del.t, del.email);
       setStatus('Saved and shared');
     } catch (e) {
@@ -553,14 +551,14 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
       let t = session.current?.m === p.m ? session.current.t : sessionNote(all[p.m] ?? [], email, now)?.t;
       if (!p.text.trim()) {
         if (t === undefined) return;
-        await updateNotes(p.m, (l) => removeNote(l, t!, email));
+        await updateNotes(p.m, { op: 'remove', t, email });
         session.current = null;
         return share(p.m, null, { t, email });
       }
       t ??= now;
       session.current = { m: p.m, t };
       const note: Note = { m: p.m, t, email, author: who.label, text: p.text, updated: now, keyId: await myKeyId(email) };
-      await updateNotes(p.m, (l) => upsertNote(l, note));
+      await updateNotes(p.m, { op: 'upsert', note });
       await share(p.m, note);
     })().catch((e) => setStatus(`Not saved: ${e}`));
   };
@@ -580,7 +578,7 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
     let live = true;
     void titleHash(knownTitle)
       .then((h) => listNotes(server, me, current, h))
-      .then((got) => (live ? updateNotes(current, (l) => mergeNotes(l, got)) : undefined))
+      .then((got) => (live ? updateNotes(current, { op: 'merge', server: got }) : undefined))
       .catch((e) => live && setStatus(`Couldn't fetch shared notes: ${e instanceof Error ? e.message : e}`));
     return () => {
       live = false;
@@ -608,13 +606,13 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
     setEditing(null);
     if (!text.trim()) return remove(n);
     const next: Note = { ...n, text, updated: nowS(), synced: false, keyId: await myKeyId(email) };
-    await updateNotes(current, (l) => upsertNote(l, next));
+    await updateNotes(current, { op: 'upsert', note: next });
     if (session.current?.t === n.t) setDraft(text);
     await share(current, next);
   };
   const remove = async (n: Note) => {
     if (!window.confirm(`Delete this note by ${n.author}?`)) return;
-    await updateNotes(current, (l) => removeNote(l, n.t, n.email));
+    await updateNotes(current, { op: 'remove', t: n.t, email: n.email });
     if (n.email === email && session.current?.t === n.t) {
       session.current = null;
       setDraft('');

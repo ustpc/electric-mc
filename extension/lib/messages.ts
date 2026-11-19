@@ -8,6 +8,7 @@ import type { VersionInfo } from './milestones';
 import type { EicItem } from './recommend';
 import type { Role } from './roles';
 import type { McIdentity } from './identity';
+import type { NoteOp } from './notes';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
@@ -21,6 +22,8 @@ export type Msg =
   | { type: 'identity'; site: string; identity: McIdentity }
   | { type: 'pdf-opened' }
   | { type: 'page-sample'; name: string; url: string; html: string }
+  // Side panel → background: change one manuscript's notes; replies { ok } or { error }.
+  | { type: 'notes'; m: string; op: NoteOp }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }

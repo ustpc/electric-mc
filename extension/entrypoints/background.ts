@@ -19,7 +19,7 @@ import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
 import type { McIdentity } from '../lib/identity';
-import { migrateNotes, needsMigration, nowS } from '../lib/notes';
+import { applyNoteOpToStore, migrateNotes, needsMigration, nowS, type NoteOp, type NotesStore } from '../lib/notes';
 import { bg, isWorkerGone } from '../lib/worker';
 
 const BADGE: Record<string, string> = {
@@ -83,8 +83,15 @@ export default defineBackground(() => {
   );
   chrome.tabs.onZoomChange.addListener((z) => pdfZoom.changed(z));
   chrome.tabs.onRemoved.addListener((id) => pdfZoom.closed(id));
-  chrome.runtime.onMessage.addListener((msg: Msg, sender) => {
+  chrome.runtime.onMessage.addListener((msg: Msg, sender, reply) => {
     const tabId = sender.tab?.id;
+    if (msg.type === 'notes') {
+      updateNotes(msg.m, msg.op).then(
+        () => reply({ ok: true }),
+        (e: unknown) => reply({ error: String(e) }),
+      );
+      return true; // reply comes later
+    }
     if (msg.type === 'parsed' && tabId !== undefined) {
       bg(onParsed(tabId, msg.result, msg.reason, msg.title));
     } else if (msg.type === 'roles') {
@@ -179,6 +186,14 @@ function updateEic(set?: EicItem, remove?: string): Promise<void> {
       delete all[remove];
     }
     await chrome.storage.local.set({ [KEY.eic]: all });
+  });
+}
+
+/** One change to a manuscript's notes, in the storage queue (lib/notes.ts NoteOp). */
+function updateNotes(m: string, op: NoteOp): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.notes))[KEY.notes] as NotesStore | undefined) ?? {};
+    await chrome.storage.local.set({ [KEY.notes]: applyNoteOpToStore(all, m, op) });
   });
 }
 
