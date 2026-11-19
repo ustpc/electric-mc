@@ -38,6 +38,7 @@ import { addControls, forgetPdfUnless, isPdfLink, noteAeSubmit, notePdfViewed, p
 import { flagPanel, labelFlags, readFlagPanel, type FlagMap } from '../lib/flags';
 import { showPdfWordCount } from '../lib/pdfcount';
 import { currentPage } from '../lib/mcpage';
+import { tabSet, tabTake } from '../lib/tabstate';
 import { sampleDue } from '../lib/pagesample';
 
 export default defineContentScript({
@@ -242,16 +243,8 @@ async function start() {
   // Decision. Noted at the press and kept once MC answers with a new page,
   // so a press MC refuses (or one the guards above stop) isn't kept. MC's
   // Recommendations box never shows an immediate decision made without an AE.
-  const SUBMITTED_KEY = 'emc-submitted-choice';
   const commitSubmitted = () => {
-    let pending: (EicItem & { at: number }) | null = null;
-    try {
-      const raw = sessionStorage.getItem(SUBMITTED_KEY);
-      sessionStorage.removeItem(SUBMITTED_KEY);
-      pending = raw ? (JSON.parse(raw) as EicItem & { at: number }) : null;
-    } catch {
-      return;
-    }
+    const pending = tabTake<EicItem & { at: number }>(window, 'submittedChoice');
     if (!pending || Date.now() - pending.at > 3 * 60_000) return;
     const { at: _at, ...item } = pending;
     send({ type: 'eic', set: item });
@@ -277,11 +270,7 @@ async function start() {
           kind: isDecisionPress(control, openedTask(document, m.id)) ? 'decision' : 'recommendation',
           source: 'submit',
         };
-        try {
-          sessionStorage.setItem(SUBMITTED_KEY, JSON.stringify({ ...item, at: Date.now() }));
-        } catch {
-          /* storage blocked */
-        }
+        tabSet(window, 'submittedChoice', { ...item, at: Date.now() });
       },
       true,
     );

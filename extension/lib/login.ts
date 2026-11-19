@@ -4,6 +4,8 @@
 // press "Log In" once a password manager has filled both fields. The
 // "Create an Account" links are drawn as pictures, with no text to read.
 
+import { tabGet, tabSet } from './tabstate';
+
 export interface LoginFields {
   user: HTMLInputElement;
   password: HTMLInputElement;
@@ -42,8 +44,6 @@ export function annotateLogin(f: LoginFields): void {
   if (f.submit && f.submit.tagName === 'BUTTON' && !f.submit.getAttribute('type')) f.submit.setAttribute('type', 'submit');
 }
 
-const ATTEMPT_KEY = 'emc-auto-login-at';
-
 /**
  * Press "Log In" when both fields get filled without typing (a password
  * manager fills them with input events but no key presses). Only once a
@@ -59,14 +59,9 @@ export function watchForAutofill(f: LoginFields, onSubmit: (how: string) => void
     timer = view.setTimeout(() => {
       if (!f.user.value || !f.password.value) return;
       if (Date.now() - lastKey < 1500) return; // the person is typing
-      let prev = 0;
-      try {
-        prev = Number(view.sessionStorage.getItem(ATTEMPT_KEY) ?? 0);
-        if (Date.now() - prev < 60_000) return;
-        view.sessionStorage.setItem(ATTEMPT_KEY, String(Date.now()));
-      } catch {
-        /* storage blocked: still submit once */
-      }
+      // Storage blocked: still submit once.
+      if (Date.now() - Number(tabGet<number>(view, 'autoLoginAt') ?? 0) < 60_000) return;
+      tabSet(view, 'autoLoginAt', Date.now());
       // Clicking the page's own button runs whatever script MC attaches to it.
       if (f.submit) {
         f.submit.click();

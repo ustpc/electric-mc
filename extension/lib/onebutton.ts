@@ -18,8 +18,9 @@
 
 import { pageClick } from './click';
 import { findAeSelect, mcText, parseOption } from './aeload';
-import { taskLinks } from './advance';
+import { cancelAdvance, taskLinks } from './advance';
 import { EMC_COLOR } from './milestones';
+import { tabGet, tabSet } from './tabstate';
 import { labelKey, textOf } from './text';
 import type { McIdentity } from './identity';
 
@@ -40,69 +41,37 @@ export interface RunState {
   reviewers?: 'set' | 'not found';
 }
 
-const STATE = 'emc-one-button';
-const PDF = 'emc-one-button-pdf';
 const RUN_MS = 30 * 60_000;
 const UI = 'one-button';
 const BANNER = 'one-button-banner';
 
 // ---------- storage ----------
 
-function store(doc: Document): Storage | null {
-  try {
-    return doc.defaultView?.sessionStorage ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function readRun(doc: Document): RunState | null {
-  try {
-    const raw = store(doc)?.getItem(STATE);
-    const s = raw ? (JSON.parse(raw) as RunState) : null;
-    if (s && Date.now() - s.at > RUN_MS) {
-      writeRun(doc, null);
-      return null;
-    }
-    return s;
-  } catch {
+  const s = tabGet<RunState>(doc, 'oneButton');
+  if (s && Date.now() - s.at > RUN_MS) {
+    writeRun(doc, null);
     return null;
   }
+  return s;
 }
 
 export function writeRun(doc: Document, s: RunState | null): void {
-  try {
-    if (s) store(doc)?.setItem(STATE, JSON.stringify(s));
-    else store(doc)?.removeItem(STATE);
-  } catch {
-    /* storage blocked */
-  }
+  tabSet(doc, 'oneButton', s);
 }
 
 /** Note that the PDF was opened on this visit to manuscript `id`. */
 export function notePdfViewed(doc: Document, id: string): void {
-  try {
-    store(doc)?.setItem(PDF, id);
-  } catch {
-    /* storage blocked */
-  }
+  tabSet(doc, 'oneButtonPdf', id);
 }
 
 export function pdfViewed(doc: Document, id: string | undefined): boolean {
-  try {
-    return !!id && store(doc)?.getItem(PDF) === id;
-  } catch {
-    return false;
-  }
+  return !!id && tabGet<string>(doc, 'oneButtonPdf') === id;
 }
 
 /** On each page: leaving the paper (another paper, or a page that isn't a paper) forgets the PDF. */
 export function forgetPdfUnless(doc: Document, id: string | undefined): void {
-  try {
-    if (store(doc)?.getItem(PDF) !== id) store(doc)?.removeItem(PDF);
-  } catch {
-    /* storage blocked */
-  }
+  if (tabGet<string>(doc, 'oneButtonPdf') !== id) tabSet(doc, 'oneButtonPdf', null);
 }
 
 /** A press on a link that opens the manuscript's PDF. */
@@ -499,14 +468,7 @@ export function noteAeSubmit(doc: Document, hooks: Hooks): void {
   // Our own next page is the Co-Chair Center, not the next paper. Auto-advance
   // notes the press in a listener that may run after this one, so clear again
   // once every listener has run.
-  const clear = () => {
-    try {
-      store(doc)?.removeItem('emc-advance');
-      store(doc)?.removeItem('emc-carry-task');
-    } catch {
-      /* storage blocked */
-    }
-  };
+  const clear = () => cancelAdvance(doc);
   clear();
   setTimeout(clear, 0);
 }

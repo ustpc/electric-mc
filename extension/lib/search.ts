@@ -3,11 +3,11 @@
 // Running a search reloads the page, so "then press Take Action" is carried
 // across the reload in sessionStorage, which is per tab.
 
+import { tabSet, tabTake } from './tabstate';
 import { parseManuscriptId } from './ids';
 import { labelKey, textOf } from './text';
 import { pageClick } from './click';
 
-const PENDING = 'emc-open-manuscript';
 const PENDING_MS = 60_000;
 
 const isSearchButton = (el: Element) =>
@@ -71,26 +71,14 @@ export function runSearch(doc: Document, id: string): boolean {
 export function openManuscript(doc: Document, id: string): boolean {
   if (!findSearchForm(doc)) return false;
   // Set before the search runs, so the results page finds it.
-  try {
-    doc.defaultView?.sessionStorage.setItem(PENDING, JSON.stringify({ id, at: Date.now() }));
-  } catch {
-    /* storage blocked: the search still runs */
-  }
+  tabSet(doc, 'openManuscript', { id, at: Date.now() }); // storage blocked: the search still runs
   return runSearch(doc, id);
 }
 
 /** The ID we searched for from the side panel, if that was moments ago. Clears it. */
 export function takePending(doc: Document): string | null {
-  try {
-    const s = doc.defaultView?.sessionStorage;
-    const raw = s?.getItem(PENDING);
-    if (!raw) return null;
-    s!.removeItem(PENDING);
-    const p = JSON.parse(raw) as { id: string; at: number };
-    return Date.now() - p.at < PENDING_MS ? p.id : null;
-  } catch {
-    return null;
-  }
+  const p = tabTake<{ id: string; at: number }>(doc, 'openManuscript');
+  return p && Date.now() - p.at < PENDING_MS ? p.id : null;
 }
 
 /**
