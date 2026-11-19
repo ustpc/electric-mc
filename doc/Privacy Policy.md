@@ -164,6 +164,12 @@ minutes, so they can be copied from the AE recommendation into the co-chair
 recommendation on the next pages. The log records each step without any text
 from the paper or your comments.
 
+**Page checks** (extension 0.0.79). On each MC page the extension checks
+whether the page parts its features rely on are there, and keeps, per MC page
+name, how often each check passed or failed, in `chrome.storage.local`. Only
+the check names and counts are kept, never page text. Clear all data removes
+them.
+
 **Keepalive** (off by default). If you turn it on, after 10 minutes without
 keyboard or mouse activity in any MC tab the extension presses MC's own
 "+ Search" toggle, which sends MC a small request, so MC doesn't log you out;
@@ -372,3 +378,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-20 | Test builds in developer mode with the log helper save one HTML copy per kind of MC page each week (scripts and typed text removed) in `var/real-pages/` on the computer, for local tests only. Clear all data now also removes the activity times, the flag labels and this browser's note-signing keys (extension 0.0.79). |
 | 2026-11-20 | Added what was missing from this policy: MC's flag labels (0.0.78), the logged-in identity read from MC's analytics metadata and kept even without a notes server, one-button reject's comments in the tab's sessionStorage for up to 30 minutes, and the keepalive's requests to MC and activity times (from the 2026-11-19 system audit). |
 | 2026-11-20 | Developer mode also logs the requests MC's own page scripts make, by address and parameter names only, in local storage and the local log file (extension 0.0.79). |
+| 2026-11-20 | Page checks: per MC page name, counts of which page parts were found, no page text, local storage only; Clear all data removes them (extension 0.0.79). |

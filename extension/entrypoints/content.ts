@@ -41,6 +41,7 @@ import { showPdfWordCount } from '../lib/pdfcount';
 import { currentPage } from '../lib/mcpage';
 import { tabSet, tabTake } from '../lib/tabstate';
 import { clickBus } from '../lib/clickbus';
+import { blockedBy, runProbes, type ProbeStore } from '../lib/probes';
 import { sampleDue } from '../lib/pagesample';
 
 export default defineContentScript({
@@ -189,6 +190,7 @@ async function start() {
     if (reason === 'load') landAfterLogin();
     if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
     if (settings.developer && reason === 'load') void samplePage();
+    if (reason === 'load') sendProbes();
     if (reason === 'load' || reason === 'bfcache') {
       const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
       if (adv) {
@@ -289,11 +291,18 @@ async function start() {
   const addOneButton = (r: ParseResult) => {
     const id = r.manuscript?.id;
     if (!id || readRun(document)) return;
-    addControls(document, pdfViewed(document, id), () => {
+    addControls(document, pdfViewed(document, id), () => void (async () => {
+      // MC seems to have changed a page part the run needs: don't start (lib/probes.ts).
+      const store = (await chrome.storage.local.get(KEY.probes))[KEY.probes] as ProbeStore | undefined;
+      const blocked = blockedBy(store, currentPage(document), 'oneButtonReject');
+      if (blocked.length) {
+        showBanner(document, `One-button reject didn't start: MC seems to have changed this page (${blocked.join(', ')} not found lately). Do it by hand.`, 'stop');
+        return;
+      }
       const why = startRun(document, id, readIdentity(document));
       if (why) showBanner(document, `One-button reject didn't start: ${why}`, 'stop');
       else obHooks.log('one-button reject started', {});
-    });
+    })());
   };
   const oneButton = (r: ParseResult) => {
     const id = r.pageType === 'manuscript' ? r.manuscript?.id : undefined;
@@ -666,6 +675,12 @@ function idsKey(r: ParseResult): string {
 
 function send(m: Msg) {
   chrome.runtime.sendMessage(m).catch(() => {});
+}
+
+/** Each load: which of the page parts our features rely on are there (lib/probes.ts). Names and booleans only. */
+function sendProbes(): void {
+  const page = currentPage(document);
+  if (page) send({ type: 'probes', page, results: runProbes(document) });
 }
 
 /**

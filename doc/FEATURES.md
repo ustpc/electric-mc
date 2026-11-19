@@ -42,6 +42,7 @@ pitch to associate editors.
   list's page arrows are drawn larger.
 - **The Version History box stands out**, so a revision's earlier versions
   are easy to find.
+- **Told when MC changes.** If a part of an MC page the extension relies on stops showing up, the side panel says so, and the automations that need it stay off there until it's back.
 - **Stay logged in (optional, off by default).** After 10 minutes without
   activity in any MC tab, the extension presses MC's own "+ Search" toggle so
   MC doesn't log you out; it gives up after 48 hours, so an unattended

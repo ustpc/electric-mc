@@ -9,6 +9,7 @@ import type { EicItem } from './recommend';
 import type { Role } from './roles';
 import type { McIdentity } from './identity';
 import type { NoteOp } from './notes';
+import type { ProbeResults } from './probes';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
@@ -22,6 +23,7 @@ export type Msg =
   | { type: 'identity'; site: string; identity: McIdentity }
   | { type: 'pdf-opened' }
   | { type: 'page-sample'; name: string; url: string; html: string }
+  | { type: 'probes'; page: string; results: ProbeResults }
   // Side panel → background: change one manuscript's notes; replies { ok } or { error }.
   | { type: 'notes'; m: string; op: NoteOp }
   // Side panel → content script (via tabs.sendMessage)
@@ -211,6 +213,8 @@ export const KEY = {
   matrixHideColumnists: 'matrixHideColumnists',
   /** When each kind of MC page was last saved as a sample, by CURRENT_PAGE (lib/pagesample.ts). Test builds only. */
   pageSamples: 'pageSamples',
+  /** Probe results learned per MC page name (lib/probes.ts). */
+  probes: 'probes',
   tab: (id: number) => `tab:${id}`,
 } as const;
 
@@ -221,7 +225,7 @@ export const KEY = {
  */
 export const LOCAL_DATA_KEYS: string[] = [
   KEY.log, KEY.seen, KEY.notes, KEY.lastPrune, KEY.aeLoad, KEY.team, KEY.roster, KEY.roles, KEY.lastActivity,
-  KEY.lastKeepalive, KEY.eic, KEY.flags, KEY.aeProfiles, KEY.aeMenu, KEY.identity, KEY.matrixHideColumnists, KEY.pageSamples,
+  KEY.lastKeepalive, KEY.eic, KEY.flags, KEY.aeProfiles, KEY.aeMenu, KEY.identity, KEY.matrixHideColumnists, KEY.pageSamples, KEY.probes,
 ];
 
 /**

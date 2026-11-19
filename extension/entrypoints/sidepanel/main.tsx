@@ -2,6 +2,7 @@
 // current Manuscript Central tab, the seen-manuscripts index, authored notes,
 // the debug log and its export, and capture of page HTML for the validator.
 
+import { brokenProbes, NEEDS, type ProbeName, type ProbeStore } from '../../lib/probes';
 import { canKeepBackPages } from '../../lib/backcache';
 import { render } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
@@ -225,6 +226,7 @@ function App() {
           <SiteSwitch url={url} />
         </div>
         <StaleTab tabId={tabId} url={url} />
+        <McChanged />
         <nav>
           {(['page', 'seen', ...(coChair ? ['eic'] : []), 'notes', ...(dev ? ['log'] : []), 'settings'] as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
@@ -245,6 +247,24 @@ function App() {
     </>
   );
 }
+
+/** MC seems to have changed parts of its pages that features rely on (lib/probes.ts). */
+function McChanged() {
+  const store = useStorage<ProbeStore>('local', KEY.probes, {});
+  const broken = brokenProbes(store);
+  if (!broken.length) return null;
+  return (
+    <p class="mc-changed" style="color:#b45309;font-weight:700;margin:6px 0">
+      MC changed: {broken.map((b) => `${PROBE_LABEL[b.probe] ?? b.probe} not found on ${b.page}`).join('; ')}.
+      {broken.some((b) => NEEDS.oneButtonReject!.includes(b.probe)) ? ' One-button reject stays off there until it is back.' : ''}
+    </p>
+  );
+}
+
+const PROBE_LABEL: Partial<Record<ProbeName, string>> = {
+  editorBlock: 'the AE/CC lines', taskLinks: 'the task links', navBar: 'the next/previous arrows', aeSelect: 'the Assign AE pull-down',
+  recommendsForm: 'the Recommends form', takeActionGrid: 'the Take Action list', searchForm: 'the search bar', searchToggle: 'the "+ Search" toggle', identity: 'who is logged in',
+};
 
 function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?: number; flash: (s: string) => void; dev: boolean }) {
   const [raw, setRaw] = useState(false);

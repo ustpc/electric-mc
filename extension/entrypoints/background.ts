@@ -12,6 +12,7 @@ import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
 import { closeLiveLog, liveLog, liveLogPage } from '../lib/livelog';
 import { sampleDue } from '../lib/pagesample';
+import { applyProbes, type ProbeResults, type ProbeStore } from '../lib/probes';
 import { makeQueue } from '../lib/queue';
 import { setBackPages } from '../lib/backcache';
 import { addRoles, type KnownRoles, type Role } from '../lib/roles';
@@ -109,6 +110,8 @@ export default defineBackground(() => {
       bg(rememberAeLoad(msg.journal, msg.entries));
     } else if (msg.type === 'pdf-opened' && tabId !== undefined) {
       bg(getSettings().then((s) => pdfZoom.opened(tabId, s.pdfZoom)));
+    } else if (msg.type === 'probes') {
+      bg(rememberProbes(msg.page, msg.results));
     } else if (msg.type === 'page-sample') {
       bg(savePageSample(msg.name, msg.url, msg.html));
     } else if (msg.type === 'disabled' && tabId !== undefined) {
@@ -277,6 +280,17 @@ function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
     await chrome.storage.local.set({ [KEY.log]: appendCapped(list, entry) });
     // Developer mode in a test build: also append it to the live log file.
     if (liveLogAllowed() && (await getSettings()).developer) liveLog(entry);
+  });
+}
+
+/** Count one page load's probe results; log when MC seems to have changed a page, or changed it back. */
+function rememberProbes(page: string, results: ProbeResults): Promise<void> {
+  return serial(async () => {
+    const store = ((await chrome.storage.local.get(KEY.probes))[KEY.probes] as ProbeStore | undefined) ?? {};
+    const next = applyProbes(store, page, results);
+    await chrome.storage.local.set({ [KEY.probes]: next.store });
+    for (const probe of next.broke) bg(log({ level: 'warn', source: 'background', event: 'MC changed', data: { page, probe } }));
+    for (const probe of next.recovered) bg(log({ level: 'info', source: 'background', event: 'MC page part back', data: { page, probe } }));
   });
 }
 
