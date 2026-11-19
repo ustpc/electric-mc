@@ -5,7 +5,8 @@
 // and lib/aemenu.ts puts them at the top of the pull-down.
 
 import { findAeSelect } from './aeload';
-import { EMC_STYLE, versionName } from './milestones';
+import { versionName } from './milestones';
+import { EMC_STYLE } from './ui';
 import { textOf } from './text';
 
 export interface EarlierAe {

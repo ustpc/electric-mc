@@ -5,7 +5,7 @@
 // none picked, we stop it and say so in the E-MC color next to the choices.
 
 import { choiceRadios, submitControl } from './recommendform';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 
 export const NEED_CHOICE_ID = 'electric-mc-need-choice';
 

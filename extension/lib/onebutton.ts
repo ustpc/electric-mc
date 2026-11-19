@@ -19,7 +19,7 @@
 import { pageClick } from './click';
 import { findAeSelect, mcText, parseOption } from './aeload';
 import { cancelAdvance, taskLinks } from './advance';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 import { commentBoxes, recommendsRole } from './recommendform';
 import { tabGet, tabSet } from './tabstate';
 import { foldName, labelKey, textOf } from './text';

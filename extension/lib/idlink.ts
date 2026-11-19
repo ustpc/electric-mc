@@ -4,7 +4,7 @@
 // The click goes through pageClick, since MC's action is a javascript: link.
 
 import { pageClick } from './click';
-import { EMC_STYLE } from './milestones';
+import { EMC_STYLE } from './ui';
 import { takeActionGrids } from './grid';
 
 const MARK = 'id-link';

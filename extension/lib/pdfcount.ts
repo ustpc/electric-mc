@@ -9,7 +9,7 @@
 
 import { countPdfWords, type WordCount } from './wordcount';
 import { pdfPages } from './pdftext';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 
 type PdfJs = Parameters<typeof pdfPages>[0];
 

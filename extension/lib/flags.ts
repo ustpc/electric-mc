@@ -8,7 +8,7 @@
 // rejections)". Only MC's own flag labels are kept, never anything about a
 // manuscript.
 
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 import { labelKey, textOf } from './text';
 
 /** Icon file name to label, for one journal. */

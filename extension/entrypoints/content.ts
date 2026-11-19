@@ -9,7 +9,8 @@ import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, 
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { coChairLanding, watchLoginSubmit } from '../lib/landing';
-import { EMC_COLOR, EMC_STYLE, addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { EMC_COLOR, EMC_STYLE } from '../lib/ui';
 import { annotateVersionRow, findVersionLinks } from '../lib/versions';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';

@@ -9,7 +9,7 @@
 
 import { findManuscriptIds } from './ids';
 import { textOf } from './text';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 
 const WIDE = 'data-emc-wide';
 const FONT = 'data-emc-fs';

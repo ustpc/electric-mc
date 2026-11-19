@@ -3,13 +3,10 @@
 // Everything we add to MC's pages is bold in the E-MC color so it can't be
 // mistaken for ScholarOne's own content.
 
+import { EMC_STYLE } from './ui';
 import { labeledValues } from '../parsers/dom';
 import { parseManuscriptId } from './ids';
 import { MC_DATE, labelKey, textOf, isLayoutRow } from './text';
-
-/** The E-MC color: the brown of the side panel's warning pill. */
-export const EMC_COLOR = '#b45309';
-export const EMC_STYLE = `color:${EMC_COLOR} !important;font-weight:700 !important`;
 
 /** What we know about one earlier version. */
 export interface VersionInfo {
