@@ -33,7 +33,7 @@ def unpacked_id(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=(__doc__ or '').splitlines()[0])
     ap.add_argument("--ext-id", help="extension ID from chrome://extensions (default: computed from build/chrome-mv3)")
     ap.add_argument("--uninstall", action="store_true")
     ap.add_argument("--dry-run", action="store_true")

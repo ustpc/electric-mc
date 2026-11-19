@@ -15,6 +15,7 @@ import functools
 import http.server
 import os
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -55,8 +56,11 @@ def site(tmp_path_factory):
     (root / "queue.html").write_text(PAGE.format(rows=rows))
     (root / "a.pdf").write_bytes(b"%PDF-1.4\n% synthetic test file\n")
     (root / "wrap.html").write_text('<html><body><iframe src="a.pdf"></iframe></body></html>')
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(root))
-    handler.log_message = lambda *a: None
+    class Quiet(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            pass
+
+    handler = functools.partial(Quiet, directory=str(root))
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_port}/queue.html"
@@ -88,7 +92,7 @@ def test_download_direct_and_wrapped(site, page, tmp_path):
     for msid in IDS:
         dest = str(tmp_path / f"{msid}.pdf")
         assert mc_queue.download(page, msid, dest) == dest
-        assert open(dest, "rb").read(5) == b"%PDF-"
+        assert Path(dest).read_bytes()[:5] == b"%PDF-"
     assert len(page.context.pages) == 1  # fetched in the page: no popup window
     assert sorted(os.listdir(tmp_path)) == sorted(f"{m}.pdf" for m in IDS)
 

@@ -144,11 +144,11 @@ class Snapshots:
         try:
             with open(base + ".html", "w", encoding="utf-8") as f:
                 f.write(page.content())
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a snapshot is best effort
             log(f"snapshot {step}: no HTML ({e.__class__.__name__})")
         try:
             page.screenshot(path=base + ".png", full_page=True, timeout=10_000)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a snapshot is best effort
             log(f"snapshot {step}: no PNG ({e.__class__.__name__})")
 
 
@@ -248,6 +248,7 @@ def cloudflare(page):
     try:
         until(lambda: not challenged(page), CF_WAIT)
     except Timeout:
+        assert browser is not None
         browser.unhide()
         log("Cloudflare check: please complete it in the browser window")
         until(lambda: not challenged(page), HUMAN_WAIT, "the Cloudflare check")
@@ -357,7 +358,7 @@ def log_in(page, username, password, site_url):
     except Timeout:
         if visible(page, "input[name='USERID']"):
             snap(page, "login rejected", important=True)
-            raise BadLogin(username)
+            raise BadLogin(username) from None
         raise
     if needs_code(page):
         enter_code(page)
@@ -401,6 +402,7 @@ def all_queue_ids(page, on_page=lambda page, ids: None):
     for i in range(1, len(opts)):
         log(f"page {opts[i]}")
         sel, _ = page_picker(page)
+        assert sel is not None, "the page picker went away"
         page.evaluate("window.__mcq_old_page = true")
         sel.select_option(index=i)
         # The picker submits a form: wait for the new page, not the old one.
@@ -432,7 +434,7 @@ VIEW_SUBMISSION_JS = """(msid) => {
     return {onclick: links[0].getAttribute("onclick") || "", href: links[0].getAttribute("href") || ""};
   }
   return {error: "no View Submission link in its row"};
-}""" % ID_JS
+}""".replace("%s", ID_JS)
 
 
 def view_submission_target(page, msid):
@@ -556,7 +558,7 @@ def poll(page, a, cfg, store, creds, center, queues, tally):
         log_in(page, username, creds["password"], cfg["site_url"])
     except BadLogin:
         if not creds["from_keychain"]:
-            raise SystemExit(f"MC rejected the user ID or password for {username}")
+            raise SystemExit(f"MC rejected the user ID or password for {username}") from None
         log("MC rejected the Keychain password; deleting it")
         mc_store.forget_password(username)
         creds["password"], creds["from_keychain"] = get_password(username, ask=True)
@@ -618,7 +620,7 @@ def on_sigterm(signum, frame):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=(__doc__ or '').splitlines()[0])
     ap.add_argument("username", nargs="?", help="MC user ID (default: username in the config)")
     ap.add_argument("--config", help=f"config file (default: ${mc_store.ENV_VAR}, else {mc_store.REPO_CONFIG})")
     mode = ap.add_mutually_exclusive_group()

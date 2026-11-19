@@ -6,9 +6,8 @@ profile are found and killed, and nothing else is touched. Uses throwaway
 import subprocess
 import sys
 
-import psutil
-
 import mc_browser
+import psutil
 
 
 def spawn(tag):
