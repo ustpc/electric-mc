@@ -33,6 +33,19 @@ pitch to associate editors.
   MC tabs only and stays out of the way on every other site.
 - **Click the ID to open a manuscript.** No more aiming for the
   little Take Action checkbox.
+- **One search result opens itself (optional).** When a search finds
+  exactly one manuscript, the extension presses its Take Action for you.
+- **Click anywhere in a choice row.** In MC's recommendation and decision
+  tables, a click anywhere on a row picks its choice, not just on the tiny
+  radio button.
+- **Arrows you can hit.** MC's previous/next manuscript arrows and the
+  list's page arrows are drawn larger.
+- **The Version History box stands out**, so a revision's earlier versions
+  are easy to find.
+- **Stay logged in (optional, off by default).** After 10 minutes without
+  activity in any MC tab, the extension presses MC's own "+ Search" toggle so
+  MC doesn't log you out; it gives up after 48 hours, so an unattended
+  computer is still logged out. Ctrl+Shift+K sends one at once.
 
 ## For editors and reviewers
 
