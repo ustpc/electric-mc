@@ -87,4 +87,18 @@ describe('background linkage', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(local().pageSamples).toBeUndefined();
   });
+
+  it('learns probes per MC page and logs when MC changed one', async () => {
+    for (let i = 0; i < 20; i++) await send({ type: 'probes', page: 'ASSOCIATE_EDITOR_ASSIGN', results: { aeSelect: true } }, 1);
+    for (let i = 0; i < 3; i++) await send({ type: 'probes', page: 'ASSOCIATE_EDITOR_ASSIGN', results: { aeSelect: false } }, 1);
+    await until(() => (local().log ?? []).some((e: { event: string }) => e.event === 'MC changed'));
+    expect(local().probes.ASSOCIATE_EDITOR_ASSIGN.aeSelect).toMatchObject({ pass: 20, fail: 3, failStreak: 3 });
+  });
+
+  it('turns the site off and on from the toolbar menu', async () => {
+    const menu = (env.chrome as unknown as { contextMenus: { onClicked: { listeners: Array<(i: unknown, t: unknown) => void> } } }).contextMenus.onClicked.listeners[0]!;
+    menu({ menuItemId: 'toggle-site' }, { url: 'https://mc.manuscriptcentral.com/xyzj' });
+    await until(() => !!(env.storage.sync.data.settings as { disabledHosts?: string[] } | undefined)?.disabledHosts?.length);
+    expect((env.storage.sync.data.settings as { disabledHosts: string[] }).disabledHosts).toEqual(['mc.manuscriptcentral.com']);
+  });
 });

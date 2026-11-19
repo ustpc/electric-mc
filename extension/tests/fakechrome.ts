@@ -62,7 +62,7 @@ export function fakeChrome(manifest: { version?: string; name?: string; permissi
     connectNative: undefined,
   };
   const filled = <T extends object>(o: T): T => new Proxy(o as Record<string, unknown>, { get: (t, p: string) => (p in t ? t[p] : ((t[p] = /^on[A-Z]/.test(p) ? event() : stub()), t[p])) }) as T;
-  const base = { storage, runtime: filled(runtime), tabs: filled({ get: () => Promise.resolve(undefined), query: () => Promise.resolve([]) }) };
+  const base = { storage, runtime: filled(runtime), tabs: filled({ get: () => Promise.resolve(undefined), query: () => Promise.resolve([]) }), contextMenus: filled({}) };
   const chrome = filled(base);
   return { chrome, storage, onMessage };
 }
