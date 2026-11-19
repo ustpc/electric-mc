@@ -8,7 +8,7 @@ import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { coChairLanding, watchLoginSubmit } from '../lib/landing';
 import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
-import { EMC_COLOR, EMC_STYLE } from '../lib/ui';
+import { toast } from '../lib/ui';
 import { annotateVersionRow, findVersionLinks } from '../lib/versions';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
@@ -18,7 +18,7 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
-import { carryTask, onPageLoad, openedTask, recommendationSubmitControl, isRecommendationSubmit, watchRecommendations } from '../lib/advance';
+import { openedTask, recommendationSubmitControl, isRecommendationSubmit, watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
 import { describePage, watchClicks, watchRequests } from '../lib/devtrace';
@@ -39,6 +39,7 @@ import { tabSet, tabTake } from '../lib/tabstate';
 import { clickBus } from '../lib/clickbus';
 import { featuresOff, runFeatures, type Feature, type PageContext } from '../lib/features/feature';
 import { pageLook } from '../lib/features/look';
+import { autoAdvance } from '../lib/features/advance';
 import { queueMarks } from '../lib/features/queuemarks';
 import { recordIdentity, recordRoles } from '../lib/features/recorders';
 import { blockedBy, runProbes, type ProbeStore } from '../lib/probes';
@@ -85,6 +86,7 @@ async function start() {
   // says run early in each run, the queue marks where they always did, and
   // those that change how the page looks last.
   const recorders: Feature[] = [recordRoles(), recordIdentity()];
+  const navigation: Feature[] = [autoAdvance()];
   const queue: Feature[] = [queueMarks()];
   const look: Feature[] = [pageLook()];
   // Recommendations sent to the EIC, kept up to date from storage.
@@ -197,17 +199,7 @@ async function start() {
     if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
     if (settings.developer && reason === 'load') void samplePage();
     if (reason === 'load') sendProbes();
-    if (reason === 'load' || reason === 'bfcache') {
-      const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
-      if (adv) {
-        send({ type: 'log', level: 'info', event: 'auto-advance after recommendation', data: adv });
-        if (adv.how === 'end') toast('E-MC: that was the last manuscript in this direction');
-      }
-    }
-    if (settings.autoAdvance) {
-      const carried = carryTask(document, r.manuscript?.id);
-      if (carried) send({ type: 'log', level: 'info', event: 'same task on the next manuscript', data: carried });
-    }
+    runFeatures(navigation, ctx);
     if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
       void earlierVersions(r);
       // MC sometimes redraws the section; put our rows back.
@@ -545,7 +537,7 @@ async function start() {
     const idleMin = activity ? Math.round((Date.now() - activity) / 60_000) : undefined;
     const pageMin = Math.round(performance.now() / 60_000);
     send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r, idleMin, pageMin } });
-    if (trigger === 'hotkey') toast(r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
+    if (trigger === 'hotkey') toast(document, r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
   };
   window.setInterval(() => {
     if (!chrome.runtime?.id || !enabled() || !settings.keepAlive) return;
@@ -619,15 +611,6 @@ async function start() {
   });
 }
 
-/** A short brown note at the bottom of the page, for a few seconds. */
-function toast(text: string) {
-  const el = document.createElement('div');
-  el.setAttribute(MARK, 'toast');
-  el.textContent = text;
-  el.style.cssText = `position:fixed;right:12px;bottom:12px;z-index:2147483647;background:#fff;border:2px solid ${EMC_COLOR};padding:6px 10px;border-radius:6px;${EMC_STYLE}`;
-  document.documentElement.appendChild(el);
-  setTimeout(() => el.remove(), 4000);
-}
 
 /** Today as yyyy-mm-dd, local time. */
 function today(): string {
