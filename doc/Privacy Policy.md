@@ -17,8 +17,9 @@ builds can also append the log, in developer mode only, to a file on the
 same computer through a helper you install yourself (`make
 install-log-host`); nothing is sent anywhere else. In developer mode the log
 also records a trace of each click (which control and its label) and each
-page load (address, MC's hidden form fields and page metadata); typed text is
-never recorded. Test builds in developer mode with that helper installed also
+page load (address, MC's hidden form fields and page metadata), and each
+request the page's own scripts make (its address and the names, not values,
+of its parameters); typed text is never recorded. Test builds in developer mode with that helper installed also
 save, once a week for each kind of MC page, a copy of the page's HTML (scripts
 and typed text left out) next to the log file, in `var/real-pages/`, replacing
 the previous week's copy; it is read only by local tests on that computer and
@@ -370,3 +371,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-18 | The To EIC list also keeps the choice you picked when you press Submit or Commit Decision (no comments), so decisions made without an AE can be marked on queue lists; local storage only (extension 0.0.78). |
 | 2026-11-20 | Test builds in developer mode with the log helper save one HTML copy per kind of MC page each week (scripts and typed text removed) in `var/real-pages/` on the computer, for local tests only. Clear all data now also removes the activity times, the flag labels and this browser's note-signing keys (extension 0.0.79). |
 | 2026-11-20 | Added what was missing from this policy: MC's flag labels (0.0.78), the logged-in identity read from MC's analytics metadata and kept even without a notes server, one-button reject's comments in the tab's sessionStorage for up to 30 minutes, and the keepalive's requests to MC and activity times (from the 2026-11-19 system audit). |
+| 2026-11-20 | Developer mode also logs the requests MC's own page scripts make, by address and parameter names only, in local storage and the local log file (extension 0.0.79). |

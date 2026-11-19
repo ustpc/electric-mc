@@ -4,7 +4,10 @@
 // it's in, what its link runs), and on every page load the address, the
 // action MC was asked for (XIK_TAGACT and hidden form fields), any JSON
 // MC embeds in the page, and its analytics metadata (who, which role). Typed text is never recorded: text boxes,
-// password fields and text areas give only their name. All of this is real
+// password fields and text areas give only their name. Also every request
+// the page's own scripts make after it loads (XHR, fetch, beacons; MC's
+// AJAX servlet is the one known so far), by path and query parameter names,
+// so we learn which parts of MC run in the browser. All of this is real
 // manuscript data, kept only in this browser and the local log file.
 
 import { textOf } from './text';
@@ -106,4 +109,62 @@ export function watchClicks(doc: Document, enabled: () => boolean, log: (c: Clic
   };
   doc.addEventListener('click', listener, true);
   return () => doc.removeEventListener('click', listener, true);
+}
+
+export interface RequestTrace {
+  /** xmlhttprequest, fetch or beacon. */
+  kind: string;
+  /** Path on the same host, or host and path elsewhere; never the query values. */
+  path: string;
+  /** The query's parameter names, sorted. */
+  params: string[];
+  ms: number;
+  bytes?: number;
+  status?: number;
+}
+
+const SCRIPTED = new Set(['xmlhttprequest', 'fetch', 'beacon']);
+
+/** One resource timing entry as a trace, or null for what the page itself loads (images, scripts, CSS). */
+export function describeRequest(e: { name: string; initiatorType: string; duration: number; transferSize?: number; responseStatus?: number }, here: string): RequestTrace | null {
+  if (!SCRIPTED.has(e.initiatorType)) return null;
+  let u: URL;
+  try {
+    u = new URL(e.name, here);
+  } catch {
+    return null;
+  }
+  const same = u.host === new URL(here).host;
+  const out: RequestTrace = {
+    kind: e.initiatorType,
+    path: clip(same ? u.pathname : `${u.host}${u.pathname}`, 200),
+    params: [...new Set(u.searchParams.keys())].sort(),
+    ms: Math.round(e.duration),
+  };
+  if (e.transferSize) out.bytes = e.transferSize;
+  if (e.responseStatus) out.status = e.responseStatus;
+  return out;
+}
+
+/**
+ * Log each scripted request while `enabled()` (developer mode). Returns a
+ * function that stops. Resource timing sees requests from the page's own
+ * scripts, which the content script can't otherwise see.
+ */
+export function watchRequests(view: Window, enabled: () => boolean, log: (r: RequestTrace) => void): () => void {
+  const PO = (view as Window & { PerformanceObserver?: typeof PerformanceObserver }).PerformanceObserver;
+  if (!PO) return () => {};
+  const po = new PO((list) => {
+    if (!enabled()) return;
+    for (const e of list.getEntries() as PerformanceResourceTiming[]) {
+      const r = describeRequest(e, view.location.href);
+      if (r) log(r);
+    }
+  });
+  try {
+    po.observe({ type: 'resource', buffered: false });
+  } catch {
+    return () => {};
+  }
+  return () => po.disconnect();
 }

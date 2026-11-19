@@ -22,7 +22,7 @@ import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive'
 import { carryTask, onPageLoad, openedTask, recommendationSubmitControl, isRecommendationSubmit, watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
-import { describePage, watchClicks } from '../lib/devtrace';
+import { describePage, watchClicks, watchRequests } from '../lib/devtrace';
 import { journalKey, readAeLoad } from '../lib/aeload';
 import { activeAeMenu, aeMenuStatus, clearAeMenu, plainAeMenu, type AeMenuStore, type FirstGroup } from '../lib/aemenu';
 import { earlierIds, markAeList, type EarlierAe } from '../lib/earlierae';
@@ -525,6 +525,7 @@ async function start() {
 
   // Developer trace: every click, for replaying a session from the log.
   watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
+  watchRequests(window, () => !!chrome.runtime?.id && enabled() && settings.developer, (r) => send({ type: 'log', level: 'debug', event: 'request', data: r }));
 
   // Stop a recommendation or decision that has no choice picked
   // (lib/needchoice.ts). First of all, so a stopped press reaches nothing else.
