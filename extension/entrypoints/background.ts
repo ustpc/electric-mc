@@ -21,6 +21,7 @@ import type { ParseResult } from '../parsers/types';
 import type { McIdentity } from '../lib/identity';
 import { applyNoteOpToStore, migrateNotes, needsMigration, nowS, type NoteOp, type NotesStore } from '../lib/notes';
 import { bg, isWorkerGone } from '../lib/worker';
+import { applyEic, mergeFlags, mergeSeen, mergeVersion, seenUpdates, type SeenStore } from '../lib/model';
 
 const BADGE: Record<string, string> = {
   login: 'LOG',
@@ -164,10 +165,8 @@ function rememberIdentity(site: string, identity: McIdentity): Promise<void> {
 function rememberFlags(journal: string, map: Record<string, string>): Promise<void> {
   return serial(async () => {
     const all = ((await chrome.storage.local.get(KEY.flags))[KEY.flags] as Record<string, Record<string, string>> | undefined) ?? {};
-    const merged = { ...(all[journal] ?? {}), ...map };
-    if (JSON.stringify(merged) === JSON.stringify(all[journal] ?? {})) return;
-    all[journal] = merged;
-    await chrome.storage.local.set({ [KEY.flags]: all });
+    const next = mergeFlags(all, journal, map);
+    if (next) await chrome.storage.local.set({ [KEY.flags]: next });
   });
 }
 
@@ -175,17 +174,8 @@ function rememberFlags(journal: string, map: Record<string, string>): Promise<vo
 function updateEic(set?: EicItem, remove?: string): Promise<void> {
   return serial(async () => {
     const all = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
-    if (set) {
-      const prev = all[set.id];
-      // Keep the first date seen; a changed recommendation replaces the old one.
-      if (prev && prev.recommendation === set.recommendation && prev.title === set.title && prev.kind === set.kind && prev.source === set.source) return;
-      all[set.id] = { ...set, seen: prev?.seen ?? set.seen };
-    }
-    if (remove) {
-      if (!all[remove]) return;
-      delete all[remove];
-    }
-    await chrome.storage.local.set({ [KEY.eic]: all });
+    const next = applyEic(all, set, remove);
+    if (next) await chrome.storage.local.set({ [KEY.eic]: next });
   });
 }
 
@@ -255,22 +245,11 @@ async function onParsed(tabId: number, result: ParseResult, reason: string, titl
 
 /** AE (and status) of an earlier version, looked up by the content script. */
 function rememberVersion(baseId: string, id: string, ae?: string, status?: string, info?: VersionInfo): Promise<void> {
-  if (ae && /not assigned/i.test(ae)) ae = undefined;
-  if (info?.ae && /not assigned/i.test(info.ae)) info = { ...info, ae: undefined };
   if (!ae && !status && !info) return Promise.resolve();
   return serial(async () => {
-    const got = await chrome.storage.local.get(KEY.seen);
-    const seen = (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {};
-    const now = new Date().toISOString();
-    const prev = seen[baseId] ?? { baseId, latestId: id, site: null, firstSeen: now, lastSeen: now, seenOn: [] };
-    seen[baseId] = {
-      ...prev,
-      aeByVersion: ae ? { ...prev.aeByVersion, [id]: ae } : prev.aeByVersion,
-      statusByVersion: status ? { ...prev.statusByVersion, [id]: status } : prev.statusByVersion,
-      // Merge, so a later partial update (just the decision date) keeps what we knew.
-      versionInfo: info ? { ...prev.versionInfo, [id]: { ...prev.versionInfo?.[id], ...defined(info) } } : prev.versionInfo,
-    };
-    await chrome.storage.local.set({ [KEY.seen]: seen });
+    const seen = ((await chrome.storage.local.get(KEY.seen))[KEY.seen] as SeenStore | undefined) ?? {};
+    const next = mergeVersion(seen, baseId, id, new Date().toISOString(), ae, status, info);
+    if (next) await chrome.storage.local.set({ [KEY.seen]: next });
   });
 }
 
@@ -284,9 +263,6 @@ function rememberAeLoad(journal: string, entries: AeLoadEntry[]): Promise<void> 
   });
 }
 
-function defined<T extends object>(o: T): T {
-  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
-}
 
 // Storage writes are serialized so concurrent tabs don't drop each other's
 // entries. The log has its own queue, so data tasks can log (lib/queue.ts).
@@ -323,40 +299,11 @@ function liveLogAllowed(): boolean {
 }
 
 function remember(r: ParseResult): Promise<void> {
-  const updates: Array<Partial<SeenManuscript> & { baseId: string; latestId: string }> = [];
-  if (r.manuscript) {
-    const m = r.manuscript;
-    const ae = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
-    updates.push({ baseId: m.baseId, latestId: m.id, title: m.title, status: m.status, reviewers: m.reviewers.length, aeByVersion: ae ? { [m.id]: ae } : undefined });
-  }
-  // Only real queue lists: a manuscript page's Notes table also lists IDs.
-  for (const row of r.pageType === 'queue-list' ? r.rows ?? [] : []) {
-    updates.push({ baseId: row.baseId, latestId: row.id, title: row.title, status: row.status, queue: r.heading ?? undefined });
-  }
+  const updates = seenUpdates(r);
   if (!updates.length) return Promise.resolve();
   return serial(async () => {
-    const got = await chrome.storage.local.get(KEY.seen);
-    const seen = (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {};
-    const now = new Date().toISOString();
-    for (const u of updates) {
-      const prev = seen[u.baseId];
-      const merged: SeenManuscript = {
-        ...(prev ?? { baseId: u.baseId, latestId: u.latestId, site: r.site, firstSeen: now, lastSeen: now, seenOn: [] }),
-      };
-      const { aeByVersion, latestId, ...rest } = u;
-      for (const [k, v] of Object.entries(rest)) if (v !== undefined && v !== '') (merged as unknown as Record<string, unknown>)[k] = v;
-      // Keep the highest revision seen, and every version's AE.
-      if (!prev || revisionOf(latestId) >= revisionOf(prev.latestId)) merged.latestId = latestId;
-      if (aeByVersion) merged.aeByVersion = { ...prev?.aeByVersion, ...aeByVersion };
-      merged.lastSeen = now;
-      if (!merged.seenOn.includes(r.pageType)) merged.seenOn = [...merged.seenOn, r.pageType];
-      seen[u.baseId] = merged;
-    }
-    await chrome.storage.local.set({ [KEY.seen]: seen });
+    const seen = ((await chrome.storage.local.get(KEY.seen))[KEY.seen] as SeenStore | undefined) ?? {};
+    await chrome.storage.local.set({ [KEY.seen]: mergeSeen(seen, updates, r.site, r.pageType, new Date().toISOString()) });
   });
 }
 
-function revisionOf(id: string): number {
-  const m = /\.R(\d+)$/.exec(id);
-  return m ? Number(m[1]) : 0;
-}
