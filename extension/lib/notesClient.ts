@@ -64,6 +64,11 @@ async function idb<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBR
   }
 }
 
+/** Forget this browser's signing keys (Clear all data); a new one is made on next use. */
+export async function forgetKeys(): Promise<void> {
+  await idb('readwrite', (s) => s.clear());
+}
+
 /** This browser's key for one MC account, made on first use. */
 async function keyFor(email: string): Promise<KeyRecord> {
   const have = await idb<KeyRecord | undefined>('readonly', (s) => s.get(email));

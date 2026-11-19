@@ -8,7 +8,8 @@ import { PdfZoom } from '../lib/pdfzoom';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
-import { closeLiveLog, liveLog } from '../lib/livelog';
+import { closeLiveLog, liveLog, liveLogPage } from '../lib/livelog';
+import { sampleDue } from '../lib/pagesample';
 import { makeQueue } from '../lib/queue';
 import { setBackPages } from '../lib/backcache';
 import { addRoles, type KnownRoles, type Role } from '../lib/roles';
@@ -98,6 +99,8 @@ export default defineBackground(() => {
       bg(rememberAeLoad(msg.journal, msg.entries));
     } else if (msg.type === 'pdf-opened' && tabId !== undefined) {
       bg(getSettings().then((s) => pdfZoom.opened(tabId, s.pdfZoom)));
+    } else if (msg.type === 'page-sample') {
+      bg(savePageSample(msg.name, msg.url, msg.html));
     } else if (msg.type === 'disabled' && tabId !== undefined) {
       bg(chrome.storage.session.remove(KEY.tab(tabId)));
     } else if (msg.type === 'log') {
@@ -281,6 +284,19 @@ function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
     await chrome.storage.local.set({ [KEY.log]: appendCapped(list, entry) });
     // Developer mode in a test build: also append it to the live log file.
     if (liveLogAllowed() && (await getSettings()).developer) liveLog(entry);
+  });
+}
+
+/** A weekly page sample to the live-log helper, in a test build in developer mode (lib/pagesample.ts). */
+function savePageSample(name: string, url: string, html: string): Promise<void> {
+  return serial(async () => {
+    if (!liveLogAllowed() || !(await getSettings()).developer) return;
+    const last = (await chrome.storage.local.get(KEY.pageSamples))[KEY.pageSamples] as Record<string, number> | undefined;
+    const now = Date.now();
+    if (!sampleDue(last, name, now)) return;
+    if (!liveLogPage({ name, url, html })) return;
+    await chrome.storage.local.set({ [KEY.pageSamples]: { ...last, [name]: now } });
+    bg(log({ level: 'debug', source: 'background', event: 'page sample saved', data: { name } }));
   });
 }
 

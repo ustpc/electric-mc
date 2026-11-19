@@ -18,10 +18,15 @@ same computer through a helper you install yourself (`make
 install-log-host`); nothing is sent anywhere else. In developer mode the log
 also records a trace of each click (which control and its label) and each
 page load (address, MC's hidden form fields and page metadata); typed text is
-never recorded.
+never recorded. Test builds in developer mode with that helper installed also
+save, once a week for each kind of MC page, a copy of the page's HTML (scripts
+and typed text left out) next to the log file, in `var/real-pages/`, replacing
+the previous week's copy; it is read only by local tests on that computer and
+never committed or sent anywhere (extension 0.0.79).
 Manuscripts you haven't viewed in 2 years are removed from that storage
 automatically, with your notes on them, and **Clear all data** in Settings
-removes all of it at once (extension 0.0.30).
+removes all of it at once (extension 0.0.30), including, since 0.0.79, the
+activity times and this browser's note-signing keys.
 
 The one exception is **shared notes** (extension 0.0.40), and only if you
 enter a notes server address in Settings. Without one, notes stay in your
@@ -335,3 +340,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-07 | Test builds let Chrome cache MC pages (no-store replaced with private) so Back works; pages stay in Chrome's cache on the computer; a setting turns it off (extension 0.0.59). |
 | 2026-11-12 | Word counts on PDFs: the extension fetches the PDF again and reads its text on-device with pdf.js; text and count stay in the tab, the log keeps numbers only (extension 0.0.75). |
 | 2026-11-18 | The To EIC list also keeps the choice you picked when you press Submit or Commit Decision (no comments), so decisions made without an AE can be marked on queue lists; local storage only (extension 0.0.78). |
+| 2026-11-20 | Test builds in developer mode with the log helper save one HTML copy per kind of MC page each week (scripts and typed text removed) in `var/real-pages/` on the computer, for local tests only. Clear all data now also removes the activity times, the flag labels and this browser's note-signing keys (extension 0.0.79). |

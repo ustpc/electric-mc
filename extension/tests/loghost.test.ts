@@ -1,7 +1,7 @@
 // The live-log host (tools/log-host): fed Chrome's framing (4-byte length,
 // then JSON), it answers with the file's path and appends one line per entry.
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -25,6 +25,26 @@ describe('log host', () => {
       const out = r.stdout as Buffer;
       expect(JSON.parse(out.subarray(4, 4 + out.readUInt32LE(0)).toString('utf8'))).toEqual({ ok: true, path: file });
       expect(readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l))).toEqual(entries);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('saves a page sample as real-pages/<name>.html and does not log it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'emc-log-'));
+    try {
+      const file = join(dir, 'electric-mc.log');
+      const msgs = [
+        { emc_page: { name: 'ASSOCIATE_EDITOR_DASHBOARD', url: 'https://mc.manuscriptcentral.com/xyzj', html: '<p>synthetic</p>' } },
+        { emc_page: { name: '../escape', url: '', html: '<p>no</p>' } },
+        { level: 'info', event: 'after' },
+      ];
+      const r = spawnSync('python3', [HOST, file], { input: Buffer.concat(msgs.map(frame)) });
+      expect(r.status).toBe(0);
+      const saved = readFileSync(join(dir, 'real-pages', 'ASSOCIATE_EDITOR_DASHBOARD.html'), 'utf8');
+      expect(saved).toMatch(/^<!-- electric-mc-capture \{.*"currentPage": "ASSOCIATE_EDITOR_DASHBOARD".*\} -->\n<p>synthetic<\/p>$/);
+      expect(existsSync(join(dir, 'escape.html'))).toBe(false);
+      expect(readFileSync(file, 'utf8').trim().split('\n').map((l) => JSON.parse(l))).toEqual([{ level: 'info', event: 'after' }]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

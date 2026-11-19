@@ -20,6 +20,7 @@ export type Msg =
   | { type: 'flags'; journal: string; map: Record<string, string> }
   | { type: 'identity'; site: string; identity: McIdentity }
   | { type: 'pdf-opened' }
+  | { type: 'page-sample'; name: string; url: string; html: string }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -205,8 +206,20 @@ export const KEY = {
   identity: 'identity',
   /** The matrix's "Hide columnists" checkbox. */
   matrixHideColumnists: 'matrixHideColumnists',
+  /** When each kind of MC page was last saved as a sample, by CURRENT_PAGE (lib/pagesample.ts). Test builds only. */
+  pageSamples: 'pageSamples',
   tab: (id: number) => `tab:${id}`,
 } as const;
+
+/**
+ * Every storage.local key that holds data, for Clear all data. Settings live
+ * in storage.sync and are kept. A test checks that each KEY is either here or
+ * deliberately left out, so a new key can't be forgotten.
+ */
+export const LOCAL_DATA_KEYS: string[] = [
+  KEY.log, KEY.seen, KEY.notes, KEY.lastPrune, KEY.aeLoad, KEY.team, KEY.roster, KEY.roles, KEY.lastActivity,
+  KEY.lastKeepalive, KEY.eic, KEY.flags, KEY.aeProfiles, KEY.aeMenu, KEY.identity, KEY.matrixHideColumnists, KEY.pageSamples,
+];
 
 /**
  * Settings live in chrome.storage.sync, so they follow the person's Chrome

@@ -6,13 +6,13 @@ import { canKeepBackPages } from '../../lib/backcache';
 import { render } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, LOCAL_DATA_KEYS, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 import { filterSeen } from '../../lib/seen';
 import { canDelete, canEdit, mergeNotes, nowS, removeNote, sessionNote, titleHash, upsertNote, type Note, type NotesStore } from '../../lib/notes';
 import { authorLabel, mcName, type McIdentity } from '../../lib/identity';
-import { banKey, deleteNote, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
+import { banKey, deleteNote, forgetKeys, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
 import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
@@ -732,15 +732,17 @@ function summary(d: unknown): string {
 }
 
 /**
- * Remove everything Electric MC stored about manuscripts: Seen, notes, the
- * log, AE workloads, the loaded roster and each tab's latest parse. Settings stay, and so does the record of
- * tabs whose side panel is switched off, which Chrome needs to put it back.
+ * Remove everything Electric MC stored in this browser except the settings:
+ * every storage.local key, each tab's latest parse, and the note-signing keys
+ * in IndexedDB. The record of tabs whose side panel is switched off stays,
+ * since Chrome needs it to put the panel back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database and the AE menu config? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu, KEY.team, KEY.flags]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles and flags learned, who is logged in, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database, the AE menu config, the activity times and this browser\'s note-signing keys (a new key is made the next time you post)? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove(LOCAL_DATA_KEYS);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
+  await forgetKeys().catch(() => {});
 }
 
 function SettingsView({ flash }: { flash: (s: string) => void }) {

@@ -37,6 +37,8 @@ import { readIdentity } from '../lib/identity';
 import { addControls, forgetPdfUnless, isPdfLink, noteAeSubmit, notePdfViewed, pdfViewed, readRun, refreshControls, showBanner, startRun, stepRun } from '../lib/onebutton';
 import { flagPanel, labelFlags, readFlagPanel, type FlagMap } from '../lib/flags';
 import { showPdfWordCount } from '../lib/pdfcount';
+import { currentPage } from '../lib/mcpage';
+import { sampleDue } from '../lib/pagesample';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -177,6 +179,7 @@ async function start() {
     else if (settings.oneButtonReject && r.pageType === 'manuscript') addOneButton(r);
     if (reason === 'load') landAfterLogin();
     if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
+    if (settings.developer && reason === 'load') void samplePage();
     if (reason === 'load' || reason === 'bfcache') {
       const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
       if (adv) {
@@ -683,6 +686,20 @@ function idsKey(r: ParseResult): string {
 
 function send(m: Msg) {
   chrome.runtime.sendMessage(m).catch(() => {});
+}
+
+/**
+ * Test builds in developer mode: once a week per kind of page (CURRENT_PAGE),
+ * send this page's snapshot to be saved on this computer for the local
+ * real-data tests (lib/pagesample.ts). The background checks again.
+ */
+async function samplePage(): Promise<void> {
+  if (!chrome.runtime.getManifest().permissions?.includes('nativeMessaging')) return;
+  const name = currentPage(document);
+  if (!name) return;
+  const last = (await chrome.storage.local.get(KEY.pageSamples))[KEY.pageSamples] as Record<string, number> | undefined;
+  if (!sampleDue(last, name, Date.now())) return;
+  send({ type: 'page-sample', name, url: location.origin + location.pathname, html: snapshot() });
 }
 
 /** Page HTML without our overlay, scripts, or anything typed into fields. */
