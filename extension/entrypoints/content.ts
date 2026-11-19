@@ -4,8 +4,6 @@
 // when MC changes the page in place. Nothing runs on sites switched off.
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { coChairLanding, watchLoginSubmit } from '../lib/landing';
@@ -29,8 +27,6 @@ import { activeAeMenu, aeMenuStatus, clearAeMenu, plainAeMenu, type AeMenuStore,
 import { earlierIds, markAeList, type EarlierAe } from '../lib/earlierae';
 import { findAeSelect, parseOption } from '../lib/aeload';
 import type { Team } from '../lib/team';
-import { linkIds, unlinkIds } from '../lib/idlink';
-import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
 import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
 import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
@@ -41,6 +37,10 @@ import { showPdfWordCount } from '../lib/pdfcount';
 import { currentPage } from '../lib/mcpage';
 import { tabSet, tabTake } from '../lib/tabstate';
 import { clickBus } from '../lib/clickbus';
+import { featuresOff, runFeatures, type Feature, type PageContext } from '../lib/features/feature';
+import { pageLook } from '../lib/features/look';
+import { queueMarks } from '../lib/features/queuemarks';
+import { recordIdentity, recordRoles } from '../lib/features/recorders';
 import { blockedBy, runProbes, type ProbeStore } from '../lib/probes';
 import { sampleDue } from '../lib/pagesample';
 
@@ -81,6 +81,12 @@ async function start() {
   const enabled = () => isEnabledFor(settings, location.href);
   // Every click handler of ours, in phases (lib/clickbus.ts): trace, guard, record, act.
   const clicks = clickBus(document);
+  // Features as modules (lib/features/): those that record what the page
+  // says run early in each run, the queue marks where they always did, and
+  // those that change how the page looks last.
+  const recorders: Feature[] = [recordRoles(), recordIdentity()];
+  const queue: Feature[] = [queueMarks()];
+  const look: Feature[] = [pageLook()];
   // Recommendations sent to the EIC, kept up to date from storage.
   let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
   // MC's flag icons and their labels, for this journal (lib/flags.ts).
@@ -166,6 +172,7 @@ async function start() {
     }
     const changed = !last || last.fingerprint !== r.fingerprint || last.pageType !== r.pageType || idsKey(last) !== idsKey(r);
     last = r;
+    const ctx: PageContext = { doc: document, result: r, reason, settings, send };
     const title = settings.rewriteTitle ? titleFor(r) : null;
     if (settings.rewriteTitle) titles.set(title);
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
@@ -181,8 +188,7 @@ async function start() {
     if (earlier?.on === r.manuscript?.id) markAeList(document, earlier?.list ?? []);
     else markAeList(document, []);
     styleAeMenu();
-    recordRoles(r);
-    recordIdentity(r);
+    runFeatures(recorders, ctx);
     recordRecommendation(r);
     if (reason === 'load') followSearch(r);
     if (reason === 'load') oneButton(r);
@@ -209,45 +215,12 @@ async function start() {
     } else {
       document.querySelectorAll('tr[data-electric-mc="milestones"]').forEach((tr) => tr.remove());
     }
-    if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
-    else clearHighlights(document);
-    if (r.pageType === 'queue-list') {
-      linkIds(document, settings.idPattern);
-      annotateEicRows(document, eicItems, settings.idPattern);
-    }
+    runFeatures(queue, ctx);
+    if (r.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
     learnFlags();
     labelFlags(document, flagsHere(), settings.flagLabels);
-    applyRestyle(document, settings);
-    hidePageHeader(document, settings.hidePageHeader);
-    enlargeNavArrows(document, true);
-    const pager = enlargePagerArrows(document, true);
-    const pagerKey = `${location.href}|${pager.holders}|${pager.arrows}`;
-    if ((pager.holders || pager.arrows) && pagerKey !== pagerLogged) {
-      pagerLogged = pagerKey;
-      send({ type: 'log', level: pager.arrows ? 'debug' : 'warn', event: 'pager arrows', data: pager });
-    }
-    emphasizeVersionHistory(document, true, settings.fontSize, settings.idPattern);
+    runFeatures(look, ctx);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
-  };
-
-  // The person's roles, from the role switcher and breadcrumb; sent only when new.
-  const rolesSent = new Set<string>();
-  const recordRoles = (r: ParseResult) => {
-    const found = rolesNamed(roleLabels(document, r.breadcrumb)).filter((x) => !rolesSent.has(x));
-    if (!found.length || !r.site) return;
-    found.forEach((x) => rolesSent.add(x));
-    send({ type: 'roles', site: r.site, roles: found });
-  };
-
-  // Who is logged in, from MC's own page metadata; sent when it changes.
-  let identitySent = '';
-  const recordIdentity = (r: ParseResult) => {
-    const id = r.site ? readIdentity(document) : null;
-    if (!id || !r.site) return;
-    const key = JSON.stringify(id);
-    if (key === identitySent) return;
-    identitySent = key;
-    send({ type: 'identity', site: r.site, identity: id });
   };
 
   // A decision or recommendation the person sends with Submit or Commit
@@ -425,7 +398,6 @@ async function start() {
     show('AE: open this version once to record it');
   };
   let noLinksLogged = false;
-  let pagerLogged = '';
 
   // Any Audit Trail on screen tells us when decisions were sent; keep them.
   const recordLetters = (r: ParseResult) => {
@@ -507,14 +479,8 @@ async function start() {
     observer?.disconnect();
     clearTimeout(timer);
     titles.restore();
-    clearHighlights(document);
-    clearRestyle(document);
+    featuresOff([...recorders, ...queue, ...look], document);
     clearAeMenu(document);
-    hidePageHeader(document, false);
-    enlargeNavArrows(document, false);
-    enlargePagerArrows(document, false);
-    emphasizeVersionHistory(document, false);
-    unlinkIds(document);
     document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
     overlay?.hide();
     stopLogin?.();
