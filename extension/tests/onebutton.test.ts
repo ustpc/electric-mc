@@ -2,7 +2,7 @@
 // One-button reject: the controls next to Assign and a whole run through
 // synthetic pages. Synthetic markup and names only.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addControls, findAssignButton, isPdfLink, noteAeSubmit, ownOption, readRun, rejectRadio, startRun, stepRun, writeRun } from '../lib/onebutton';
+import { addControls, findAssignButton, isPdfLink, noteAeSubmit, ownOption, readRun, recommendSubmit, rejectRadio, startRun, stepRun, writeRun } from '../lib/onebutton';
 import { findAeSelect } from '../lib/aeload';
 
 const WHO = { email: 'cochair@example.org', firstName: 'Opinions', lastName: 'Co-Chair' };
@@ -161,5 +161,49 @@ describe('a whole run', () => {
     (document.getElementById('acc') as HTMLInputElement).checked = true;
     noteAeSubmit(document, h);
     expect(readRun(document)).toBeNull();
+  });
+
+  it('presses Submit only on its own role\'s form', () => {
+    document.body.innerHTML = FORM('Associate Editor Recommends');
+    expect(recommendSubmit(document, 'ae')?.id).toBe('submit');
+    expect(recommendSubmit(document, 'cc')).toBeNull();
+    document.body.innerHTML = FORM('Co-Chair Recommends');
+    expect(recommendSubmit(document, 'cc')?.id).toBe('submit');
+    expect(recommendSubmit(document, 'ae')).toBeNull();
+    document.body.innerHTML = FORM('Reviewer Recommends');
+    expect(recommendSubmit(document, 'cc')).toBeNull();
+  });
+
+  it('stops at the co-chair step if the form there is another role\'s', () => {
+    const h = hooks();
+    const ids: string[] = [];
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'cc-details', at: Date.now(), ae: 'Co-Chair, Opinions', tries: 2 });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', FORM('Associate Editor Recommends'));
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids).not.toContain('submit');
+    expect(readRun(document)).toBeNull();
+  });
+
+  it('waits for another Submit when MC sends the AE form back', () => {
+    const h = hooks();
+    const ids: string[] = [];
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-sent', at: Date.now(), ae: 'Co-Chair, Opinions', toAuthor: 'x' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', FORM('Associate Editor Recommends') + '<a href="#" id="ccc">Co-Chair Center</a>');
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids).not.toContain('ccc');
+    expect(readRun(document)?.step).toBe('ae-form');
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain("didn't take that Submit");
+  });
+
+  it('stops instead of saying done when MC sends the co-chair form back', () => {
+    const h = hooks();
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'cc-sent', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', FORM('Co-Chair Recommends'));
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(readRun(document)).toBeNull();
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('stopped');
+    expect(h.log).toHaveBeenCalledWith('one-button reject stopped', expect.anything());
   });
 });

@@ -174,16 +174,27 @@ export function commentBoxes(doc: Document): { toAuthor: HTMLTextAreaElement | n
   };
 }
 
-/** The Submit control of a "… Recommends" form. */
-export function recommendSubmit(doc: Document): HTMLElement | null {
-  const hasHeading = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
-    (e) => e.children.length <= 2 && textOf(e).length < 60 && /recommends$/.test(labelKey(textOf(e))),
-  );
+/**
+ * The Submit control of the role's "… Recommends" form: the co-chair's form
+ * must say Co-Chair in its heading, and the AE's must not, so the run never
+ * presses Submit on another role's form.
+ */
+export function recommendSubmit(doc: Document, role: 'ae' | 'cc'): HTMLElement | null {
+  const hasHeading = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some((e) => {
+    if (e.children.length > 2 || textOf(e).length >= 60) return false;
+    const t = labelKey(textOf(e));
+    return /recommends$/.test(t) && /co-?chair/.test(t) === (role === 'cc');
+  });
   if (!hasHeading) return null;
   const subs = Array.from(doc.querySelectorAll<HTMLElement>('a, button, input[type=submit], input[type=button]')).filter(
     (e) => !e.closest('[data-electric-mc]') && labelKey(textOf(e) || e.getAttribute('value') || '') === 'submit',
   );
   return subs.length === 1 ? subs[0]! : null;
+}
+
+/** Whether MC sent the role's Recommends form back, with Reject, after a Submit: it didn't take it. */
+export function formCameBack(doc: Document, page: Page, id: string, role: 'ae' | 'cc'): boolean {
+  return (!page.manuscript || page.manuscript === id) && !!recommendSubmit(doc, role) && !!rejectRadio(doc);
 }
 
 /** A link to a role's center ("Associate Editor Center", "Co-Chair Center"). */
@@ -410,7 +421,7 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
       if (wrongPaper) return stopRun(doc, s, `MC opened ${page.manuscript} instead.`, hooks);
       const role = s.step === 'ae-details' ? 'ae' : 'cc';
       const reject = rejectRadio(doc);
-      const submit = recommendSubmit(doc);
+      const submit = recommendSubmit(doc, role);
       if (reject && submit) {
         pageClick(reject);
         const boxes = commentBoxes(doc);
@@ -444,6 +455,15 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
       // Waiting for the person's Submit (see noteAeSubmit).
       return;
     case 'ae-sent': {
+      // The step moves on only once MC has taken the Submit: if it sent the
+      // form back (a required field, an error), wait for the next Submit.
+      if (formCameBack(doc, page, s.id, 'ae')) {
+        const n: RunState = { ...s, step: 'ae-form', tries: 0 };
+        writeRun(doc, n);
+        hooks.log('one-button reject step', { step: 'ae-form', why: 'MC sent the AE form back' });
+        showBanner(doc, `One-button reject mode (${s.id}): MC didn't take that Submit. Fix what it says, then press Submit again.`, 'run', cancel);
+        return;
+      }
       const link = centerLink(doc, 'cc');
       if (!link) return stopRun(doc, s, 'no link to the Co-Chair Center.', hooks);
       next('cc-center');
@@ -451,6 +471,9 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
       return;
     }
     case 'cc-sent': {
+      if (formCameBack(doc, page, s.id, 'cc')) {
+        return stopRun(doc, s, "MC sent the co-chair form back instead of taking the Submit. Check what it says and press Submit yourself; the AE's Reject is already in.", hooks);
+      }
       writeRun(doc, null);
       hooks.log('one-button reject done', {});
       showBanner(doc, `One-button reject done (${s.id}): rejected as AE and as co-chair.`, 'done');
@@ -462,7 +485,8 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
 /**
  * The person's Submit on the AE form, after the page's guards let it
  * through. Keeps the comments for the co-chair step; a choice other than
- * Reject ends the run.
+ * Reject ends the run. The run goes on to the co-chair step on the next page
+ * only if MC took the Submit (see 'ae-sent' in stepRun).
  */
 export function noteAeSubmit(doc: Document, hooks: Hooks): void {
   const s = readRun(doc);
