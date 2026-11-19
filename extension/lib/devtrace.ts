@@ -10,6 +10,7 @@
 // so we learn which parts of MC run in the browser. All of this is real
 // manuscript data, kept only in this browser and the local log file.
 
+import { onClick, type ClickBus } from './clickbus';
 import { textOf } from './text';
 
 const CONTROL = 'a, button, input, select, textarea, label, [onclick], [role=button], img[onclick]';
@@ -101,14 +102,13 @@ export function describePage(doc: Document): PageTrace {
  * Log every click while `enabled()` (developer mode). Returns a function that
  * stops. Clicks are logged as they happen, before MC's handlers navigate.
  */
-export function watchClicks(doc: Document, enabled: () => boolean, log: (c: ClickTrace) => void): () => void {
+export function watchClicks(doc: Document, enabled: () => boolean, log: (c: ClickTrace) => void, bus?: ClickBus): () => void {
   const listener = (e: MouseEvent) => {
     if (!enabled()) return;
     const c = describeClick(e.target);
     if (c && (c.tag !== 'div' || c.onclick)) log(c);
   };
-  doc.addEventListener('click', listener, true);
-  return () => doc.removeEventListener('click', listener, true);
+  return onClick(doc, bus, 'trace', listener);
 }
 
 export interface RequestTrace {

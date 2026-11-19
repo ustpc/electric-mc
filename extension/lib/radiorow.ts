@@ -6,6 +6,7 @@
 // clicks on links, buttons, fields and labels are left alone. The radio is
 // pressed through pageClick, so MC's own onclick handlers run as usual.
 
+import { onClick, type ClickBus } from './clickbus';
 import { pageClick } from './click';
 
 const INTERACTIVE = 'a, button, input, select, textarea, label, [contenteditable]';
@@ -58,7 +59,7 @@ export function radioRowClick(target: EventTarget | null): RadioRowClick {
  * on every click, so the per-site switch applies at once. Returns a
  * function that stops watching.
  */
-export function watchRadioRows(doc: Document, enabled: () => boolean, log?: (data: Record<string, unknown>) => void): () => void {
+export function watchRadioRows(doc: Document, enabled: () => boolean, log?: (data: Record<string, unknown>) => void, bus?: ClickBus): () => void {
   const listener = (e: MouseEvent) => {
     if (e.button !== 0 || !enabled()) return;
     const { radio, why } = radioRowClick(e.target);
@@ -72,7 +73,7 @@ export function watchRadioRows(doc: Document, enabled: () => boolean, log?: (dat
     log?.({ picked: radio.checked, value: radio.value });
   };
   // Capture, so a page handler that stops the click can't hide it from us.
-  doc.addEventListener('click', listener, true);
+  const off = onClick(doc, bus, 'act', listener);
   if (!doc.getElementById(STYLE_ID)) {
     const style = doc.createElement('style');
     style.id = STYLE_ID;
@@ -80,7 +81,7 @@ export function watchRadioRows(doc: Document, enabled: () => boolean, log?: (dat
     (doc.head ?? doc.documentElement).appendChild(style);
   }
   return () => {
-    doc.removeEventListener('click', listener, true);
+    off();
     doc.getElementById(STYLE_ID)?.remove();
   };
 }

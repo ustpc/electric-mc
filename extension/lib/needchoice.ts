@@ -4,6 +4,7 @@
 // empty recommendation. When such a press comes with choices on the page and
 // none picked, we stop it and say so in the E-MC color next to the choices.
 
+import { onClick, type ClickBus } from './clickbus';
 import { choiceRadios, submitControl } from './recommendform';
 import { EMC_COLOR } from './ui';
 
@@ -46,8 +47,8 @@ export function showNeedChoice(doc: Document): HTMLElement | null {
  * stopped press reaches none of them. Picking a choice removes the message.
  * Returns a function that stops watching.
  */
-export function watchMissingChoice(doc: Document, enabled: () => boolean, log?: (data: Record<string, unknown>) => void): () => void {
-  const onClick = (e: MouseEvent) => {
+export function watchMissingChoice(doc: Document, enabled: () => boolean, log?: (data: Record<string, unknown>) => void, bus?: ClickBus): () => void {
+  const onPress = (e: MouseEvent) => {
     if (!enabled() || !missingChoice(e.target)) return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -58,10 +59,10 @@ export function watchMissingChoice(doc: Document, enabled: () => boolean, log?: 
     const t = e.target as HTMLInputElement | null;
     if (t?.type === 'radio' && t.checked) doc.getElementById(NEED_CHOICE_ID)?.remove();
   };
-  doc.addEventListener('click', onClick, true);
+  const off = onClick(doc, bus, 'guard', onPress);
   doc.addEventListener('change', onChange, true);
   return () => {
-    doc.removeEventListener('click', onClick, true);
+    off();
     doc.removeEventListener('change', onChange, true);
   };
 }

@@ -7,6 +7,7 @@
 // arrow in that direction, or open the next manuscript in the grid. MC may
 // show either after a recommendation, so both are handled.
 
+import { onClick, type ClickBus } from './clickbus';
 import { isSubmitWithChoice, submitControl } from './recommendform';
 import { tabGet, tabSet, type TabKey } from './tabstate';
 import { pageClick } from './click';
@@ -253,7 +254,7 @@ export function onPageLoad(doc: Document, current: string | undefined, enabled: 
  * Watch for Submit on a recommendation (note where we were) and for presses
  * of MC's arrows (they set the direction). Returns a function that stops.
  */
-export function watchRecommendations(doc: Document, current: () => string | undefined, enabled: () => boolean): () => void {
+export function watchRecommendations(doc: Document, current: () => string | undefined, enabled: () => boolean, bus?: ClickBus): () => void {
   const view = doc.defaultView!;
   const listener = (e: MouseEvent) => {
     if (!enabled()) return;
@@ -276,6 +277,5 @@ export function watchRecommendations(doc: Document, current: () => string | unde
       rememberTask(view, doc, from);
     }
   };
-  doc.addEventListener('click', listener, true);
-  return () => doc.removeEventListener('click', listener, true);
+  return onClick(doc, bus, 'act', listener);
 }

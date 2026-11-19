@@ -40,6 +40,7 @@ import { flagPanel, labelFlags, readFlagPanel, type FlagMap } from '../lib/flags
 import { showPdfWordCount } from '../lib/pdfcount';
 import { currentPage } from '../lib/mcpage';
 import { tabSet, tabTake } from '../lib/tabstate';
+import { clickBus } from '../lib/clickbus';
 import { sampleDue } from '../lib/pagesample';
 
 export default defineContentScript({
@@ -77,6 +78,8 @@ async function start() {
   let timer: number | undefined;
 
   const enabled = () => isEnabledFor(settings, location.href);
+  // Every click handler of ours, in phases (lib/clickbus.ts): trace, guard, record, act.
+  const clicks = clickBus(document);
   // Recommendations sent to the EIC, kept up to date from storage.
   let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
   // MC's flag icons and their labels, for this journal (lib/flags.ts).
@@ -257,9 +260,7 @@ async function start() {
     send({ type: 'log', level: 'info', event: 'decision recorded at submit', data: { kind: item.kind, choice: item.recommendation } });
   };
   const watchSubmitted = () =>
-    document.addEventListener(
-      'click',
-      (e) => {
+    clicks.add('record', (e) => {
         if (!chrome.runtime?.id || !enabled() || !isRecommendationSubmit(e.target)) return;
         if (settings.oneButtonReject) noteAeSubmit(document, obHooks);
         const m = last?.manuscript;
@@ -277,9 +278,7 @@ async function start() {
           source: 'submit',
         };
         tabSet(window, 'submittedChoice', { ...item, at: Date.now() });
-      },
-      true,
-    );
+    });
 
   // One-button reject (lib/onebutton.ts): the controls next to Assign, and
   // each step of a run as its pages load.
@@ -304,18 +303,14 @@ async function start() {
     stepRun(document, { manuscript: id, isDetails: r.pageType === 'manuscript' }, editorBlock(document.body).get('ae'), obHooks);
     if (r.pageType === 'manuscript') addOneButton(r);
   };
-  document.addEventListener(
-    'click',
-    (e) => {
-      if (!chrome.runtime?.id || !enabled() || !settings.oneButtonReject) return;
-      const id = last?.pageType === 'manuscript' ? last.manuscript?.id : undefined;
-      if (id && isPdfLink(e.target)) {
-        notePdfViewed(document, id);
-        refreshControls(document, true);
-      }
-    },
-    true,
-  );
+  clicks.add('record', (e) => {
+    if (!chrome.runtime?.id || !enabled() || !settings.oneButtonReject) return;
+    const id = last?.pageType === 'manuscript' ? last.manuscript?.id : undefined;
+    if (id && isPdfLink(e.target)) {
+      notePdfViewed(document, id);
+      refreshControls(document, true);
+    }
+  });
 
   // The icon-to-label map from the Flag This Manuscript panel, sent when new.
   const learnFlags = () => {
@@ -530,30 +525,30 @@ async function start() {
   );
 
   // Developer trace: every click, for replaying a session from the log.
-  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
+  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }), clicks);
   watchRequests(window, () => !!chrome.runtime?.id && enabled() && settings.developer, (r) => send({ type: 'log', level: 'debug', event: 'request', data: r }));
 
   // Stop a recommendation or decision that has no choice picked
-  // (lib/needchoice.ts). First of all, so a stopped press reaches nothing else.
+  // (lib/needchoice.ts). A guard: a stopped press reaches nothing else.
   watchMissingChoice(document, () => !!chrome.runtime?.id && enabled(), (data) =>
     send({ type: 'log', level: 'info', event: 'no recommendation picked', data }),
-  );
+  clicks);
 
   // Ask before a decision or recommendation goes out with no comment to the
-  // author (lib/authorcomment.ts). First, so a cancelled press doesn't count
+  // author (lib/authorcomment.ts). A guard too, so a cancelled press doesn't count
   // as a recommendation for auto-advance.
   watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
     send({ type: 'log', level: 'info', event: 'no comment to author', data }),
-  );
+  clicks);
 
-  // Note the choice in each press that gets past the two guards above.
+  // Note the choice in each press that gets past the guards (record phase).
   watchSubmitted();
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
-  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);
+  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance, clicks);
 
   // Clicking anywhere in a radio-button row picks its radio button.
-  watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }));
+  watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }), clicks);
 
   // Keepalives (lib/keepalive.ts). Activity is shared through storage, at
   // most once a minute; our own clicks fire no mousedown, so they don't count.
