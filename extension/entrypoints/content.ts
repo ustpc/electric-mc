@@ -138,7 +138,12 @@ async function start() {
     send({ type: 'log', level: 'info', event: 'AE menu', data: { status, source: aeMenu?.source ?? 'none', groups: c?.groups.length ?? 0, teamPeople: team?.people.length ?? 0, earlierAes: first?.names.length ?? 0 } });
   };
 
+  // The page's decision letters (Audit Trail), read once per run: several features use them.
+  let letters: Map<string, string> | undefined;
+  const lettersHere = () => (letters ??= decisionLettersIn(document, settings.idPattern));
+
   const run = (reason: string) => {
+    letters = undefined;
     // After the extension is reloaded, this copy keeps running in open tabs
     // until they are reloaded. Stop it so it can't fight the new version.
     if (!chrome.runtime?.id) {
@@ -339,7 +344,7 @@ async function start() {
         send({ type: 'eic', set: item });
         send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
       }
-    } else if (had && ((box && had.source !== 'submit') || decisionLettersIn(document, settings.idPattern).has(m.id))) {
+    } else if (had && ((box && had.source !== 'submit') || lettersHere().has(m.id))) {
       send({ type: 'eic', remove: m.id });
       send({ type: 'log', level: 'info', event: 'recommendation to EIC cleared', data: { reason: box ? 'no longer in Recommendations' : 'decision sent' } });
     }
@@ -366,7 +371,7 @@ async function start() {
     const read = versionInfoFrom(document, m.id);
     // "AE: Not Assigned" means unknown, never a name to remember.
     const named = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
-    const info: VersionInfo = { ...read, ae: read.ae ?? named, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
+    const info: VersionInfo = { ...read, ae: read.ae ?? named, responded: lettersHere().get(m.id) ?? read.responded };
     const key = JSON.stringify(info);
     if (key === recorded) return;
     recorded = key;
@@ -397,7 +402,7 @@ async function start() {
       const info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
       info.ae ??= known?.aeByVersion?.[v.ref.id];
       info.submitted ??= v.submitted;
-      info.responded ??= decisionLettersIn(document, settings.idPattern).get(v.ref.id);
+      info.responded ??= lettersHere().get(v.ref.id);
       return info;
     });
     const show = (missingNote: string) =>
@@ -420,7 +425,7 @@ async function start() {
   // Any Audit Trail on screen tells us when decisions were sent; keep them.
   const recordLetters = (r: ParseResult) => {
     const bases = new Set(r.manuscriptIds.map((m) => m.baseId));
-    for (const [id, responded] of decisionLettersIn(document, settings.idPattern)) {
+    for (const [id, responded] of lettersHere()) {
       const baseId = id.replace(/\.R\d+$/, '');
       if (!bases.has(baseId) || sentLetters.get(id) === responded) continue;
       sentLetters.set(id, responded);

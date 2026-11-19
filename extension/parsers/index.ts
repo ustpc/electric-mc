@@ -5,7 +5,7 @@
 import { findManuscriptIds } from '../lib/ids';
 import { fnv1a, textOf } from '../lib/text';
 import { classify } from './classify';
-import { breadcrumb, cleanDocument, headings, skeleton } from './dom';
+import { breadcrumb, cleanDocument, freeze, headings, skeleton } from './dom';
 import { extractManuscript, extractQueues, extractRows } from './extract';
 import { PARSER_VERSION, type ParseResult, type ParserConfig } from './types';
 
@@ -65,6 +65,7 @@ export function parsePage(live: Document, url: string, config: ParserConfig = {}
   step('fingerprint', () => (base.fingerprint = fnv1a(skeleton(live))));
   // Parse a copy without the hidden cookie dialog and other hidden elements.
   const doc = step('clean', () => cleanDocument(live)) ?? live;
+  if (doc !== live) freeze(doc.body);
   step('headings', () => {
     const h = headings(doc);
     base.breadcrumb = breadcrumb(doc) ?? [];
