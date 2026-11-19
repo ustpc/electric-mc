@@ -22,7 +22,7 @@ export default defineConfig({
         'lib/**': { lines: 80, statements: 78, functions: 75, branches: 70 },
         'parsers/**': { lines: 90, statements: 85, functions: 90, branches: 75 },
         'entrypoints/background.ts': { lines: 60, statements: 55, functions: 38, branches: 42 },
-        'entrypoints/content.ts': { lines: 45, statements: 43, functions: 38, branches: 33 },
+        'entrypoints/content.ts': { lines: 52, statements: 50, functions: 44, branches: 42 },
       },
     },
   },

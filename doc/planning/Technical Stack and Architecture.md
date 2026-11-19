@@ -75,8 +75,12 @@ This section describes the extension as built (updated 2026-11-20, after the
 ### 2.2 Components
 
 - **Content script** (`entrypoints/content.ts`) on Manuscript Central pages.
-  It parses each page (`parsers/`), restyles it, and runs the page features
-  (`lib/`). It sends what it learns to the service worker.
+  It parses each page (`parsers/`) and runs the page features, each a module
+  in `lib/features/` with the same shape (`lib/features/feature.ts`): a
+  `start` that registers click handlers on the click bus (`lib/clickbus.ts`),
+  the stored values it follows (handed to it at start and on each change, so
+  features don't read storage themselves), an `onPage` for each run, and an
+  `off` that undoes it. It sends what it learns to the service worker.
 - **Service worker** (`entrypoints/background.ts`). It keeps each tab's latest
   parse (session storage), the log, the Seen index and what content scripts
   learn, writing storage through one queue. In test builds it also feeds the

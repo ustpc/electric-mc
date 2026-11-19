@@ -7,10 +7,9 @@ import { defineContentScript } from 'wxt/utils/define-content-script';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { coChairLanding, watchLoginSubmit } from '../lib/landing';
-import { addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
+import { decisionLettersIn } from '../lib/milestones';
 import { toast } from '../lib/ui';
-import { annotateVersionRow, findVersionLinks } from '../lib/versions';
-import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
+import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
@@ -18,31 +17,25 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
-import { openedTask, recommendationSubmitControl, isRecommendationSubmit, watchRecommendations } from '../lib/advance';
+import { watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
 import { describePage, watchClicks, watchRequests } from '../lib/devtrace';
-import { journalKey, readAeLoad } from '../lib/aeload';
-import { activeAeMenu, aeMenuStatus, clearAeMenu, plainAeMenu, type AeMenuStore, type FirstGroup } from '../lib/aemenu';
-import { earlierIds, markAeList, type EarlierAe } from '../lib/earlierae';
-import { findAeSelect, parseOption } from '../lib/aeload';
-import type { Team } from '../lib/team';
-import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
-import { rolesIn as editorBlock } from '../parsers/dom';
 import { abstractAndKeywords } from '../parsers/extract';
-import { readIdentity } from '../lib/identity';
-import { addControls, forgetPdfUnless, isPdfLink, noteAeSubmit, notePdfViewed, pdfViewed, readRun, refreshControls, showBanner, startRun, stepRun } from '../lib/onebutton';
-import { flagPanel, labelFlags, readFlagPanel, type FlagMap } from '../lib/flags';
 import { showPdfWordCount } from '../lib/pdfcount';
 import { currentPage } from '../lib/mcpage';
-import { tabSet, tabTake } from '../lib/tabstate';
 import { clickBus } from '../lib/clickbus';
-import { featuresOff, runFeatures, type Feature, type PageContext } from '../lib/features/feature';
+import { deliverStored, featuresOff, runFeatures, startFeatures, watchedKeys, type Feature, type PageContext } from '../lib/features/feature';
+import { versionHistory } from '../lib/features/versions';
+import { aeAssignMenu } from '../lib/features/aemenu';
+import { oneButtonReject } from '../lib/features/onebutton';
+import { eicList } from '../lib/features/eic';
+import { flagLabels } from '../lib/features/flags';
 import { pageLook } from '../lib/features/look';
 import { autoAdvance } from '../lib/features/advance';
 import { queueMarks } from '../lib/features/queuemarks';
 import { recordIdentity, recordRoles } from '../lib/features/recorders';
-import { blockedBy, runProbes, type ProbeStore } from '../lib/probes';
+import { runProbes } from '../lib/probes';
 import { sampleDue } from '../lib/pagesample';
 
 export default defineContentScript({
@@ -85,78 +78,20 @@ async function start() {
   // Features as modules (lib/features/): those that record what the page
   // says run early in each run, the queue marks where they always did, and
   // those that change how the page looks last.
-  const recorders: Feature[] = [recordRoles(), recordIdentity()];
+  const recorders: Feature[] = [versionHistory(), aeAssignMenu(), recordRoles(), recordIdentity()];
+  const actions: Feature[] = [oneButtonReject()];
   const navigation: Feature[] = [autoAdvance()];
-  const queue: Feature[] = [queueMarks()];
-  const look: Feature[] = [pageLook()];
-  // Recommendations sent to the EIC, kept up to date from storage.
-  let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
-  // MC's flag icons and their labels, for this journal (lib/flags.ts).
-  let flagMaps = ((await chrome.storage.local.get(KEY.flags))[KEY.flags] as Record<string, FlagMap> | undefined) ?? {};
-  const flagsHere = () => flagMaps[journalKey(location.href)] ?? {};
-  // The AE-assignment menu's layout (lib/aemenu.ts) and the roster its groups draw on.
-  const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
-  let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
-  let team = (menuGot[KEY.team] as Team | undefined) ?? null;
-  // Logged once per page that has an AE pull-down: whether it was styled, or why not.
-  let aeMenuLogged = '';
-  // The AEs of this revision's earlier versions, for the Assign AE page.
-  let earlier: { on: string; list: EarlierAe[] } | null = null;
-  const loadEarlier = async (r: ParseResult) => {
-    const m = r.manuscript;
-    if (!m || m.revision < 1 || !settings.lookupEarlierVersions) {
-      earlier = null;
-      return;
-    }
-    if (earlier?.on === m.id) return;
-    earlier = { on: m.id, list: [] };
-    const got = await chrome.storage.local.get(KEY.seen);
-    const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
-    const list = earlierIds(m.baseId, m.revision).map((id) => ({ id, ae: known?.versionInfo?.[id]?.ae ?? known?.aeByVersion?.[id] }));
-    if (earlier?.on !== m.id) return;
-    earlier = { on: m.id, list };
-    markAeList(document, list);
-    styleAeMenu();
-  };
-  const firstGroup = (): FirstGroup | undefined => {
-    if (!earlier || earlier.on !== last?.manuscript?.id) return undefined;
-    const names = [...new Set(earlier.list.map((v) => v.ae).filter((n): n is string => !!n))];
-    if (!names.length) return undefined;
-    return { label: names.length === 1 && earlier.list.length === 1 ? 'Original AE' : 'Earlier AEs', names };
-  };
-
-  const styleAeMenu = () => {
-    const c = activeAeMenu(aeMenu);
-    const first = firstGroup();
-    let status: string;
-    if (c) status = aeMenuStatus(document, c, team, first);
-    else if (first) {
-      status = aeMenuStatus(document, plainAeMenu(), team, first);
-      if (status === 'styled') status = 'styled (earlier AE only)';
-    }
-    else {
-      clearAeMenu(document);
-      const cfg = aeMenu?.source === 'server' ? aeMenu.server : aeMenu?.local;
-      status = !cfg ? `off: no ${aeMenu?.source === 'server' ? "server" : "browser"} config` : 'off: config not enabled';
-    }
-    if (status === 'no AE pull-down' || (!c && !findAeSelect(document))) {
-      // A pull-down full of "Name (3)" options that wasn't recognized: say so once.
-      const counted = Array.from(document.querySelectorAll('select')).some((sel) => Array.from(sel.options).filter((o) => parseOption(o.text)).length >= 5);
-      if (!counted) return;
-      status = 'not recognized as the AE pull-down';
-    }
-    const key = `${location.href}|${status}`;
-    if (key === aeMenuLogged) return;
-    aeMenuLogged = key;
-    send({ type: 'log', level: 'info', event: 'AE menu', data: { status, source: aeMenu?.source ?? 'none', groups: c?.groups.length ?? 0, teamPeople: team?.people.length ?? 0, earlierAes: first?.names.length ?? 0 } });
-  };
-
-  // The page's decision letters (Audit Trail), read once per run: several features use them.
-  let letters: Map<string, string> | undefined;
-  const lettersHere = () => (letters ??= decisionLettersIn(document, settings.idPattern));
-
+  const queue: Feature[] = [queueMarks(), eicList()];
+  const look: Feature[] = [flagLabels(), pageLook()];
+  const features = [...recorders, ...actions, ...navigation, ...queue, ...look];
+  // The latest run's context, for click handlers and stored-value changes.
+  let current: PageContext | null = null;
+  const live = () => (chrome.runtime?.id && enabled() ? current : null);
+  const getStored = async <T,>(key: string) => (await chrome.storage.local.get(key))[key] as T | undefined;
+  startFeatures(features, { doc: document, clicks, current: live }, send);
+  const watched = watchedKeys(features);
+  deliverStored(features, await chrome.storage.local.get(watched), null, send);
   const run = (reason: string) => {
-    letters = undefined;
     // After the extension is reloaded, this copy keeps running in open tabs
     // until they are reloaded. Stop it so it can't fight the new version.
     if (!chrome.runtime?.id) {
@@ -174,7 +109,10 @@ async function start() {
     }
     const changed = !last || last.fingerprint !== r.fingerprint || last.pageType !== r.pageType || idsKey(last) !== idsKey(r);
     last = r;
-    const ctx: PageContext = { doc: document, result: r, reason, settings, send };
+    // The page's decision letters (Audit Trail), read at most once per run: several features use them.
+    let letters: Map<string, string> | undefined;
+    const ctx: PageContext = { doc: document, result: r, reason, settings, send, letters: () => (letters ??= decisionLettersIn(document, settings.idPattern)), get: getStored };
+    current = ctx;
     const title = settings.rewriteTitle ? titleFor(r) : null;
     if (settings.rewriteTitle) titles.set(title);
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
@@ -183,229 +121,18 @@ async function start() {
     // Any page with one password field gets login help, whatever the classifier
     // thought (a maintenance notice can make the login page look like something else).
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
-    recordLetters(r);
-    recordThisVersion(r);
-    recordAeLoad();
-    void loadEarlier(r);
-    if (earlier?.on === r.manuscript?.id) markAeList(document, earlier?.list ?? []);
-    else markAeList(document, []);
-    styleAeMenu();
     runFeatures(recorders, ctx);
-    recordRecommendation(r);
     if (reason === 'load') followSearch(r);
-    if (reason === 'load') oneButton(r);
-    else if (settings.oneButtonReject && r.pageType === 'manuscript') addOneButton(r);
+    runFeatures(actions, ctx);
     if (reason === 'load') landAfterLogin();
     if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
     if (settings.developer && reason === 'load') void samplePage();
     if (reason === 'load') sendProbes();
     runFeatures(navigation, ctx);
-    if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
-      void earlierVersions(r);
-      // MC sometimes redraws the section; put our rows back.
-      if (milestones?.on === r.manuscript.id && !document.querySelector('tr[data-electric-mc="milestones"]')) addMilestoneRows(document, milestones.info);
-    } else {
-      document.querySelectorAll('tr[data-electric-mc="milestones"]').forEach((tr) => tr.remove());
-    }
     runFeatures(queue, ctx);
-    if (r.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
-    learnFlags();
-    labelFlags(document, flagsHere(), settings.flagLabels);
     runFeatures(look, ctx);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
-
-  // A decision or recommendation the person sends with Submit or Commit
-  // Decision. Noted at the press and kept once MC answers with a new page,
-  // so a press MC refuses (or one the guards above stop) isn't kept. MC's
-  // Recommendations box never shows an immediate decision made without an AE.
-  const commitSubmitted = () => {
-    const pending = tabTake<EicItem & { at: number }>(window, 'submittedChoice');
-    if (!pending || Date.now() - pending.at > 3 * 60_000) return;
-    const { at: _at, ...item } = pending;
-    send({ type: 'eic', set: item });
-    send({ type: 'log', level: 'info', event: 'decision recorded at submit', data: { kind: item.kind, choice: item.recommendation } });
-  };
-  const watchSubmitted = () =>
-    clicks.add('record', (e) => {
-        if (!chrome.runtime?.id || !enabled() || !isRecommendationSubmit(e.target)) return;
-        if (settings.oneButtonReject) noteAeSubmit(document, obHooks);
-        const m = last?.manuscript;
-        const control = recommendationSubmitControl(e.target);
-        const choice = pickedChoice(document);
-        if (!m || !control || !choice) return;
-        const item: EicItem = {
-          id: m.id,
-          baseId: m.baseId,
-          site: last?.site ?? null,
-          title: m.title,
-          recommendation: choice,
-          seen: today(),
-          kind: isDecisionPress(control, openedTask(document, m.id)) ? 'decision' : 'recommendation',
-          source: 'submit',
-        };
-        tabSet(window, 'submittedChoice', { ...item, at: Date.now() });
-    });
-
-  // One-button reject (lib/onebutton.ts): the controls next to Assign, and
-  // each step of a run as its pages load.
-  const obHooks = {
-    openBySearch: (id: string) => openManuscript(document, id),
-    log: (event: string, data?: unknown) => send({ type: 'log', level: 'info', event, data }),
-  };
-  const addOneButton = (r: ParseResult) => {
-    const id = r.manuscript?.id;
-    if (!id || readRun(document)) return;
-    addControls(document, pdfViewed(document, id), () => void (async () => {
-      // MC seems to have changed a page part the run needs: don't start (lib/probes.ts).
-      const store = (await chrome.storage.local.get(KEY.probes))[KEY.probes] as ProbeStore | undefined;
-      const blocked = blockedBy(store, currentPage(document), 'oneButtonReject');
-      if (blocked.length) {
-        showBanner(document, `One-button reject didn't start: MC seems to have changed this page (${blocked.join(', ')} not found lately). Do it by hand.`, 'stop');
-        return;
-      }
-      const why = startRun(document, id, readIdentity(document));
-      if (why) showBanner(document, `One-button reject didn't start: ${why}`, 'stop');
-      else obHooks.log('one-button reject started', {});
-    })());
-  };
-  const oneButton = (r: ParseResult) => {
-    const id = r.pageType === 'manuscript' ? r.manuscript?.id : undefined;
-    if (!readRun(document)) forgetPdfUnless(document, id);
-    // A popup MC opens (an e-mail window) inherits this tab's sessionStorage; leave it alone.
-    if (!settings.oneButtonReject || window.opener) return;
-    stepRun(document, { manuscript: id, isDetails: r.pageType === 'manuscript' }, editorBlock(document.body).get('ae'), obHooks);
-    if (r.pageType === 'manuscript') addOneButton(r);
-  };
-  clicks.add('record', (e) => {
-    if (!chrome.runtime?.id || !enabled() || !settings.oneButtonReject) return;
-    const id = last?.pageType === 'manuscript' ? last.manuscript?.id : undefined;
-    if (id && isPdfLink(e.target)) {
-      notePdfViewed(document, id);
-      refreshControls(document, true);
-    }
-  });
-
-  // The icon-to-label map from the Flag This Manuscript panel, sent when new.
-  const learnFlags = () => {
-    const panel = flagPanel(document);
-    if (!panel) return;
-    const found = readFlagPanel(panel);
-    const known = flagsHere();
-    const fresh = Object.fromEntries(Object.entries(found).filter(([k, v]) => known[k] !== v));
-    if (!Object.keys(fresh).length) return;
-    send({ type: 'flags', journal: journalKey(location.href), map: fresh });
-    send({ type: 'log', level: 'info', event: 'flags learned', data: { count: Object.keys(fresh).length } });
-  };
-
-  // The person's own recommendation to the EIC, from the Recommendations box
-  // on the details page. It leaves the To EIC list when it's gone from the
-  // box (rescinded or acted on) or a decision letter has gone out.
-  const recordRecommendation = (r: ParseResult) => {
-    commitSubmitted();
-    const m = r.manuscript;
-    if (!m) return;
-    const box = recommendationsBox(document);
-    const mine = box && myRecommendation(readRecommendations(box), editorBlock(document.body).get('cc'));
-    const had = eicItems[m.id];
-    if (mine) {
-      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today(), kind: had?.kind ?? 'recommendation', source: 'box' };
-      if (!had || had.recommendation !== item.recommendation || had.title !== item.title || had.source !== 'box') {
-        send({ type: 'eic', set: item });
-        send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
-      }
-    } else if (had && ((box && had.source !== 'submit') || lettersHere().has(m.id))) {
-      send({ type: 'eic', remove: m.id });
-      send({ type: 'log', level: 'info', event: 'recommendation to EIC cleared', data: { reason: box ? 'no longer in Recommendations' : 'decision sent' } });
-    }
-  };
-
-  // MC's AE-assignment pull-down shows each editor's current number of
-  // manuscripts; keep the latest counts for the Opinions matrix.
-  let aeLoadKey = '';
-  const recordAeLoad = () => {
-    const entries = readAeLoad(document);
-    if (!entries) return;
-    const key = JSON.stringify(entries);
-    if (key === aeLoadKey) return;
-    aeLoadKey = key;
-    send({ type: 'ae-load', journal: journalKey(location.href), entries });
-  };
-
-  // Every manuscript page, original or revision, records its own version's
-  // AE and dates, so a later revision can show them without leaving the page.
-  let recorded = '';
-  const recordThisVersion = (r: ParseResult) => {
-    const m = r.manuscript;
-    if (!m) return;
-    const read = versionInfoFrom(document, m.id);
-    // "AE: Not Assigned" means unknown, never a name to remember.
-    const named = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
-    const info: VersionInfo = { ...read, ae: read.ae ?? named, responded: lettersHere().get(m.id) ?? read.responded };
-    const key = JSON.stringify(info);
-    if (key === recorded) return;
-    recorded = key;
-    send({ type: 'version-info', baseId: m.baseId, id: m.id, ae: info.ae, info, source: 'page' });
-  };
-
-  // Earlier versions: show each one's AE in the Version History table, and
-  // add the previous version's dates and editors to Peer Review Milestones,
-  // from what was recorded when those versions were viewed. Once per manuscript
-  // per page.
-  const looked = new Set<string>();
-  let milestones: { on: string; info: VersionInfo } | null = null;
-  const earlierVersions = async (r: ParseResult) => {
-    const m = r.manuscript!;
-    if (looked.has(m.id)) return;
-    const links = findVersionLinks(document, m, settings.idPattern);
-    if (!links.length) {
-      // MC may draw Version History later; the next parse tries again.
-      if (!noLinksLogged) send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
-      noLinksLogged = true;
-      return;
-    }
-    looked.add(m.id);
-    const idCol = (row: HTMLTableRowElement) => Array.from(row.cells).findIndex((c) => c.textContent?.includes(m.baseId));
-    const got = await chrome.storage.local.get(KEY.seen);
-    const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
-    const infos: VersionInfo[] = links.map((v) => {
-      const info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
-      info.ae ??= known?.aeByVersion?.[v.ref.id];
-      info.submitted ??= v.submitted;
-      info.responded ??= lettersHere().get(v.ref.id);
-      return info;
-    });
-    const show = (missingNote: string) =>
-      links.forEach((v, i) => {
-        const info = infos[i]!;
-        annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : missingNote);
-        if (i === 0) {
-          milestones = { on: m.id, info };
-          if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
-        }
-      });
-    // Versions not opened yet have no AE here. They are never looked up in
-    // the background: loading MC pages beside the person's tab logged them
-    // out (0.0.26 to 0.0.33).
-    show('AE: open this version once to record it');
-  };
-  let noLinksLogged = false;
-
-  // Any Audit Trail on screen tells us when decisions were sent; keep them.
-  const recordLetters = (r: ParseResult) => {
-    const bases = new Set(r.manuscriptIds.map((m) => m.baseId));
-    for (const [id, responded] of lettersHere()) {
-      const baseId = id.replace(/\.R\d+$/, '');
-      if (!bases.has(baseId) || sentLetters.get(id) === responded) continue;
-      sentLetters.set(id, responded);
-      send({ type: 'version-info', baseId, id, info: { id, responded }, source: 'page' });
-      if (milestones?.info.id === id && milestones.info.responded !== responded) {
-        milestones.info = { ...milestones.info, responded };
-        addMilestoneRows(document, milestones.info);
-      }
-    }
-  };
-  const sentLetters = new Map<string, string>();
 
   // After a search: press Take Action when it found exactly one manuscript,
   // either because the side panel asked for that ID or because the person
@@ -471,13 +198,12 @@ async function start() {
     observer?.disconnect();
     clearTimeout(timer);
     titles.restore();
-    featuresOff([...recorders, ...queue, ...look], document);
-    clearAeMenu(document);
-    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
+    featuresOff(features, document);
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
     last = null;
+    current = null;
     send({ type: 'disabled' });
   };
 
@@ -507,9 +233,6 @@ async function start() {
   watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
     send({ type: 'log', level: 'info', event: 'no comment to author', data }),
   clicks);
-
-  // Note the choice in each press that gets past the guards (record phase).
-  watchSubmitted();
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
   watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance, clicks);
@@ -579,20 +302,9 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && (changes[KEY.aeMenu] || changes[KEY.team])) {
-      if (changes[KEY.aeMenu]) aeMenu = changes[KEY.aeMenu]!.newValue as AeMenuStore | undefined;
-      if (changes[KEY.team]) team = (changes[KEY.team]!.newValue as Team | undefined) ?? null;
-      if (enabled()) styleAeMenu();
-      return;
-    }
-    if (area === 'local' && changes[KEY.flags]) {
-      flagMaps = (changes[KEY.flags]!.newValue as Record<string, FlagMap> | undefined) ?? {};
-      if (enabled()) labelFlags(document, flagsHere(), settings.flagLabels);
-      return;
-    }
-    if (area === 'local' && changes[KEY.eic]) {
-      eicItems = (changes[KEY.eic]!.newValue as Record<string, EicItem> | undefined) ?? {};
-      if (enabled() && last?.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
+    if (area === 'local' && watched.some((k) => changes[k])) {
+      const values = Object.fromEntries(watched.filter((k) => changes[k]).map((k) => [k, changes[k]!.newValue]));
+      deliverStored(features, values, live(), send);
       return;
     }
     if (area !== SETTINGS_AREA || !changes[KEY.settings]) return;
@@ -611,12 +323,6 @@ async function start() {
   });
 }
 
-
-/** Today as yyyy-mm-dd, local time. */
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function idsKey(r: ParseResult): string {
   return r.manuscriptIds.map((m) => m.id).join(',');
