@@ -1,8 +1,10 @@
 // Page classification. Manuscript Central navigates with form posts and
-// opaque URLs, so the page type comes from what is on the page, not the URL.
+// opaque URLs, so the page type comes from what is on the page, not the URL:
+// above all MC's own page name in the hidden CURRENT_PAGE field.
 // Each page type collects weighted signals; the highest total wins. Every
 // signal is returned so the debug log shows why a page was classified.
 
+import { currentPage, pageTypeOf } from '../lib/mcpage';
 import { findManuscriptIds } from '../lib/ids';
 import { labelKey, normalize, ownText, textOf, isLayoutRow } from '../lib/text';
 import { breadcrumb, dataTables, headings, labeledValues } from './dom';
@@ -42,6 +44,14 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   const heads = headings(doc);
   const heading = heads[0] ?? '';
   const ids = findManuscriptIds(text, idPattern);
+
+  // MC's own name for the page (the hidden CURRENT_PAGE field) says what it
+  // is outright, where it says anything (lib/mcpage.ts). On real pages the
+  // other signals alone called about 6% of manuscript pages queue lists (a
+  // details page with a table of other manuscripts) and missed some queues.
+  const mcName = currentPage(doc);
+  const named = pageTypeOf(mcName);
+  if (named) add(named, 'mc page name', 8, mcName ?? undefined);
 
   // login
   if (doc.querySelector('input[type=password]')) add('login', 'password input', 3);

@@ -14,7 +14,8 @@ describe('MC page names', () => {
     expect(pageTypeOf('ASSOCIATE_EDITOR_VIEW_MANUSCRIPTS')).toBe('queue-list');
     expect(pageTypeOf('ASSOCIATE_EDITOR_VIEW_MANUSCRIPTS_SR')).toBe('queue-list');
     expect(pageTypeOf('ASSOCIATE_EDITOR_DASHBOARD')).toBe('role-center');
-    expect(pageTypeOf('REVIEWER_VIEW_MANUSCRIPT_DETAILS_POPUP_RECOMM')).toBe('popup');
+    expect(pageTypeOf('REVIEWER_VIEW_MANUSCRIPT_DETAILS_POPUP_RECOMM')).toBe('manuscript');
+    expect(pageTypeOf('UPLOAD_PROGRESS_POPUP')).toBe('popup');
     expect(pageTypeOf('COGNOS_POP_UP')).toBe('popup');
     expect(pageTypeOf('LOGIN')).toBe('login');
     expect(pageTypeOf('HOME')).toBeNull();
