@@ -121,8 +121,18 @@ export const DECIDED_COLOR = '#1d4ed8';
 const CSS = `table tr[${ROW_ATTR}] > td, table tr[${ROW_ATTR}] > th { background-color: rgba(220, 38, 38, 0.1) !important; }`;
 
 /** The note for one manuscript. */
+/**
+ * Whether the paper now waits for the EIC. The workflow is AE recommends,
+ * then co-chair recommends, then the EIC decides: a recommendation made as
+ * AE waits for the co-chair's own, not for the EIC.
+ */
+export function waitsForEic(item: EicItem): boolean {
+  return item.kind === 'decision' || item.role !== 'ae';
+}
+
 export function eicNote(item: EicItem): string {
   if (!item.recommendation) return 'E-MC: decision made; MC still lists it until the EIC acts';
+  if (!waitsForEic(item)) return `E-MC: you recommended ${item.recommendation} as AE (seen ${item.seen}); next, the co-chair recommendation`;
   const as = item.role === 'ae' ? ' as AE' : item.role === 'cc' ? ' as co-chair' : '';
   return item.kind === 'decision'
     ? `E-MC: you decided ${item.recommendation}${as} (${item.seen}); MC still lists it until the EIC acts`

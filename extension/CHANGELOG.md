@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.86 (2026-11-20)
+
+- Fixed: after a Reject recommended as AE, the co-chair's queue said "you recommended Reject as AE …; waiting for the EIC", and the side panel listed it under Waiting for the EIC. A recommendation made as AE waits for the co-chair's own recommendation: the note now says "next, the co-chair recommendation", and only recommendations made as co-chair (or decisions) are listed as waiting for the EIC.
+
 ## 0.0.85 (2026-11-20)
 
 - New: a setting for MC's Web of Science Reviewer Locator box (Settings, Page layout): closed (E-MC's default; MC shows it open), open, or removed. Closing and opening press MC's own +/- toggle once per page, so a box you open again by hand stays open. The "View full interactive search on reviewerlocator.webofscience.com" line shows only when the setting is open.

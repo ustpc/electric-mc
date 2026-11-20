@@ -166,7 +166,7 @@ describe('decisions made without an AE', () => {
     // The AE's recommendation: the note, no shading.
     document.body.innerHTML = withAe;
     annotateEicRows(document, { [ITEM.id]: { ...ITEM, kind: 'recommendation', role: 'ae', noAe: false } });
-    expect(note()).toBe('E-MC: you recommended Reject as AE (seen 2026-10-23); waiting for the EIC');
+    expect(note()).toBe('E-MC: you recommended Reject as AE (seen 2026-10-23); next, the co-chair recommendation');
     expect(shaded()).toBe(0);
     // An older build's "decision" on a row with an AE: shown as a recommendation, not shaded.
     document.body.innerHTML = withAe;
@@ -232,5 +232,18 @@ describe('decisions made without an AE', () => {
     expect(annotateEicRows(document, {})).toBe(1);
     expect(document.querySelector('tr[data-emc-decided]')!.getAttribute('data-emc-decided')).toBe('XYZJ-26-10-9012');
     expect(document.querySelector('[data-electric-mc="eic-note"]')!.textContent).toBe('E-MC: decision made; MC still lists it until the EIC acts');
+  });
+});
+
+describe('who the paper waits for', () => {
+  it('a recommendation as AE waits for the co-chair; as co-chair, or a decision, for the EIC', async () => {
+    const { waitsForEic, eicNote } = await import('../lib/recommend');
+    const base = { id: 'XYZJ-26-01-1000', baseId: 'XYZJ-26-01-1000', site: 'xyzj', recommendation: 'Reject', seen: '2026-11-20', kind: 'recommendation' as const, source: 'box' as const };
+    expect(waitsForEic({ ...base, role: 'ae' })).toBe(false);
+    expect(eicNote({ ...base, role: 'ae' })).toBe('E-MC: you recommended Reject as AE (seen 2026-11-20); next, the co-chair recommendation');
+    expect(waitsForEic({ ...base, role: 'cc' })).toBe(true);
+    expect(eicNote({ ...base, role: 'cc' })).toBe('E-MC: you recommended Reject as co-chair (seen 2026-11-20); waiting for the EIC');
+    expect(waitsForEic({ ...base })).toBe(true);
+    expect(waitsForEic({ ...base, kind: 'decision', role: 'ae' })).toBe(true);
   });
 });

@@ -15,7 +15,7 @@ import { canDelete, canEdit, nowS, sessionNote, titleHash, type Note, type NoteO
 import { authorLabel, mcName, type McIdentity } from '../../lib/identity';
 import { banKey, deleteNote, forgetKeys, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
 import type { KnownRoles } from '../../lib/roles';
-import { eicSummary, type EicItem } from '../../lib/recommend';
+import { eicSummary, waitsForEic, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
 import { AeMenuSettings } from './AeMenuSettings';
@@ -442,7 +442,8 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
  */
 function EicView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (s: string) => void }) {
   const items = useStorage<Record<string, EicItem>>('local', KEY.eic, {});
-  const list = Object.values(items).sort((a, b) => a.seen.localeCompare(b.seen));
+  // A recommendation made as AE waits for the co-chair's, not the EIC.
+  const list = Object.values(items).filter(waitsForEic).sort((a, b) => a.seen.localeCompare(b.seen));
   const open = async (id: string) => {
     if (tabId === undefined || !panelEnabledFor(url)) return flash('Switch to a Manuscript Central tab first.');
     const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
