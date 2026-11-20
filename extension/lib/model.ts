@@ -4,6 +4,7 @@
 // (tests/model.test.ts); the background only reads, applies and writes,
 // inside its storage queue.
 
+import { cleanFlagMap } from './flags';
 import type { EicItem } from './recommend';
 import type { SeenManuscript } from './messages';
 import type { VersionInfo } from './milestones';
@@ -76,7 +77,9 @@ export function mergeVersion(seen: SeenStore, baseId: string, id: string, now: s
 
 /** Flag labels with a journal's new ones merged in; null when nothing changed. */
 export function mergeFlags(all: Record<string, Record<string, string>>, journal: string, map: Record<string, string>): Record<string, Record<string, string>> | null {
-  const merged = { ...(all[journal] ?? {}), ...map };
+  // The panel lists every flag, so what it says replaces what was kept
+  // (which may hold 0.0.78's mistakes, lib/flags.ts).
+  const merged = cleanFlagMap(map);
   return JSON.stringify(merged) === JSON.stringify(all[journal] ?? {}) ? null : { ...all, [journal]: merged };
 }
 

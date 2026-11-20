@@ -21,11 +21,11 @@ export function flagLabels(): Feature {
       const { doc, send } = ctx;
       const panel = flagPanel(doc);
       if (panel) {
-        const known = here(doc);
-        const fresh = Object.fromEntries(Object.entries(readFlagPanel(panel)).filter(([k, v]) => known[k] !== v));
-        if (Object.keys(fresh).length) {
-          send({ type: 'flags', journal: journalKey(doc.location?.href ?? ''), map: fresh });
-          send({ type: 'log', level: 'info', event: 'flags learned', data: { count: Object.keys(fresh).length } });
+        // The panel lists every flag: send all of them when they differ from what's kept.
+        const found = readFlagPanel(panel);
+        if (Object.keys(found).length && JSON.stringify(found) !== JSON.stringify(here(doc))) {
+          send({ type: 'flags', journal: journalKey(doc.location?.href ?? ''), map: found });
+          send({ type: 'log', level: 'info', event: 'flags learned', data: { count: Object.keys(found).length } });
         }
       }
       draw(ctx);

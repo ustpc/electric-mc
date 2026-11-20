@@ -31,10 +31,13 @@ describe('Seen', () => {
 });
 
 describe('flags and the To EIC list', () => {
-  it('merges flag labels per journal, and says when nothing changed', () => {
-    const a = mergeFlags({}, 'xyzj', { 'red.gif': 'one' })!;
+  it('keeps the panel\'s flags per journal, drops old mistakes, and says when nothing changed', () => {
+    const a = mergeFlags({ abcj: { 'x.gif': 'kept' } }, 'xyzj', { 'red.gif': 'one' })!;
     expect(mergeFlags(a, 'xyzj', { 'red.gif': 'one' })).toBeNull();
-    expect(mergeFlags(a, 'xyzj', { 'blue.gif': 'two' })).toEqual({ xyzj: { 'red.gif': 'one', 'blue.gif': 'two' } });
+    expect(mergeFlags(a, 'xyzj', { 'red.gif': 'one', 'blue.gif': 'two' })).toEqual({ abcj: { 'x.gif': 'kept' }, xyzj: { 'red.gif': 'one', 'blue.gif': 'two' } });
+    // A name or a manuscript ID learned by 0.0.78 goes.
+    const bad = { xyzj: { 'red.gif': 'one', 'person.gif': 'Example, Pat', 'arrow.gif': 'XYZJ-26-08-9001.R1' } };
+    expect(mergeFlags(bad, 'xyzj', { 'red.gif': 'one' })).toEqual({ xyzj: { 'red.gif': 'one' } });
   });
 
   it('keeps the first date seen, replaces a changed choice, removes on request', () => {

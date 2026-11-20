@@ -119,7 +119,9 @@ pitch to associate editors.
 - **One team database, with its tree (now).** The EIC and Deputy EIC,
   co-chairs, sections with their heads and AEs, and columns with their
   columnists, shown as a tree of pills above the matrix and edited in its
-  own window. Every person's details, links and photo are editable, and
+  own window. A section can be turned into a column ("Make it a column"),
+  and removing one keeps its people on the tree. Every person's details,
+  links and photo are editable, and
   the matrix, the AE menu and Suggested AEs all use the same record.
 - **An AE menu you can read (now).** MC's Assign Associate Editor
   pull-down is one long alphabetical list of "Last, First". Electric MC
