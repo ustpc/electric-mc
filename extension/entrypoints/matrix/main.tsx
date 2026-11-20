@@ -16,10 +16,11 @@ import { GROUPS, matchesSearch, type Roster, type RosterPerson } from '../../lib
 import { parseAeMenu, type AeMenuStore } from '../../lib/aemenu';
 import { openAeMenuEditor, openTeamEditor } from '../../lib/windows';
 import { newId, teamFromRoster, type Team, type TeamPerson } from '../../lib/team';
-import { currentTeam, storeTeam, teamFromFile } from '../../lib/teamStore';
+import { currentTeam, saveTeamFile, storeTeam, teamFromFile } from '../../lib/teamStore';
 import { TeamTree } from '../../components/TeamTree';
 import { PersonForm } from '../../components/PersonForm';
 import { installQuickTips } from '../../lib/quicktip';
+import { trapFind } from '../../lib/findkey';
 
 function useLocal<T>(key: string, fallback: T): T {
   const [v, setV] = useState<T>(fallback);
@@ -144,6 +145,7 @@ function App() {
         )}
         <button onClick={() => setEditing({ person: { id: '', given: '', family: '', affiliations: [], expertise: '', links: [] }, isNew: true })} title="Add a person to the team">+ person</button>
         <button onClick={() => void openTeamEditor()}>Edit hierarchy…</button>
+        {team && <button onClick={() => saveTeamFile(team)} title="Save the whole team (people, sections, columns) to a file you can load here or in the Team editor">Save team file…</button>}
         <label class="file">{roster ? 'Load a team file…' : 'Load team or roster…'}<input type="file" accept=".json,application/json" onChange={(e) => void loadFile((e.target as HTMLInputElement).files?.[0])} /></label>
       </div>
       <p class="loads">
@@ -252,3 +254,5 @@ function App() {
 
 render(<App />, document.getElementById('app')!);
 installQuickTips();
+// Cmd-F / Ctrl-F goes to the search box (lib/findkey.ts).
+trapFind(document, () => document.querySelector<HTMLInputElement>('.bar input[type=search], input[type=search]'));

@@ -10,8 +10,8 @@
 
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { newId, parseTeam, removePerson, type Team, type TeamPerson } from '../../lib/team';
-import { currentTeam, storeTeam, teamFromFile } from '../../lib/teamStore';
+import { newId, removePerson, type Team, type TeamPerson } from '../../lib/team';
+import { currentTeam, saveTeamFile, storeTeam, teamFromFile } from '../../lib/teamStore';
 import { openMatrix } from '../../lib/windows';
 import { TeamTree } from '../../components/TeamTree';
 import { PersonForm } from '../../components/PersonForm';
@@ -55,14 +55,7 @@ function App() {
       setError((e as Error).message);
     }
   };
-  const exportFile = () => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(parseTeam(team), null, 1) + '\n'], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `team-${(team.name || 'team').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
-  };
+  const exportFile = () => saveTeamFile(team);
   const importFile = async (f: File | undefined) => {
     if (!f) return;
     if (dirty && !window.confirm('Loading a file replaces your unsaved changes. Load it?')) return;

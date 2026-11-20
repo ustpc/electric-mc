@@ -29,3 +29,18 @@ export function teamFromFile(json: unknown): Team {
   if (f === 'electric-mc-roster') return teamFromRoster(parseRoster(json));
   return parseTeam(json);
 }
+
+/** The file name a team is saved under: "team-opinions.json". */
+export function teamFileName(team: Team): string {
+  return `team-${(team.name || 'team').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'team'}.json`;
+}
+
+/** Save the team to a JSON file the person downloads (checked first, as a file loaded back would be). */
+export function saveTeamFile(team: Team, doc: Document = document): void {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(parseTeam(team), null, 1) + '\n'], { type: 'application/json' }));
+  const a = doc.createElement('a');
+  a.href = url;
+  a.download = teamFileName(team);
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}

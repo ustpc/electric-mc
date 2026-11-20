@@ -127,3 +127,25 @@ describe('removing a section', () => {
     expect(sectionToColumn(t, 'nope')).toBe(t);
   });
 });
+
+describe('saving a team file', () => {
+  it('names the file after the team and writes a file that reads back', async () => {
+    const { saveTeamFile, teamFileName } = await import('../lib/teamStore');
+    expect(teamFileName({ ...team(), name: 'Opinions & More' })).toBe('team-opinions-more.json');
+    expect(teamFileName({ ...team(), name: '' })).toBe('team-team.json');
+    let blob: Blob | undefined;
+    const clicked: string[] = [];
+    const urls = { createObjectURL: (b: Blob) => ((blob = b), 'blob:x'), revokeObjectURL: () => {} };
+    const doc = { createElement: () => ({ set href(_v: string) {}, set download(v: string) { clicked.push(v); }, click: () => clicked.push('click') }) } as unknown as Document;
+    const was = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    Object.assign(URL, urls);
+    const t = team();
+    try {
+      saveTeamFile(t, doc);
+    } finally {
+      Object.assign(URL, { createObjectURL: was.create, revokeObjectURL: was.revoke });
+    }
+    expect(clicked).toEqual(['team-test.json', 'click']);
+    expect(parseTeam(JSON.parse(await blob!.text()))).toEqual(t);
+  });
+});

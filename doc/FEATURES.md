@@ -120,7 +120,8 @@ pitch to associate editors.
   co-chairs, sections with their heads and AEs, and columns with their
   columnists, shown as a tree of pills above the matrix and edited in its
   own window. A section can be turned into a column ("Make it a column"),
-  and removing one keeps its people on the tree. Every person's details,
+  and removing one keeps its people on the tree. The matrix can save and load
+  the team as a file, and Cmd-F there goes to its search box. Every person's details,
   links and photo are editable, and
   the matrix, the AE menu and Suggested AEs all use the same record.
 - **An AE menu you can read (now).** MC's Assign Associate Editor
