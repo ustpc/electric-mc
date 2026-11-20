@@ -199,6 +199,21 @@ describe('a whole run', () => {
     expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('reviews required set to 0');
   });
 
+  it('says which piece is missing when it can\'t get to Make Recommendation, and takes an image Save', () => {
+    const h = hooks();
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '');
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('no "reviews required" box');
+    const ids: string[] = [];
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', `<table><tr><td><a href="#" id="save"><img src="/images/en_US/buttons/save.gif"></a></td>
+      <td><table><tr><td># reviews required to make decision</td><td><input type="number" value="2"></td></tr></table></td></tr></table>`);
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids).toEqual(['save']);
+  });
+
   it('stops when the AE step was not Reject', () => {
     const h = hooks();
     writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-form', at: Date.now(), ae: 'Co-Chair, Opinions' });

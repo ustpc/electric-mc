@@ -176,7 +176,8 @@ export function recommendTask(doc: Document, role: 'ae' | 'cc'): HTMLElement | n
  * box in a row that talks about the number of reviewers.
  */
 export function reviewersField(doc: Document): HTMLSelectElement | HTMLInputElement | null {
-  for (const f of Array.from(doc.querySelectorAll<HTMLSelectElement | HTMLInputElement>('select, input[type=text], input:not([type])'))) {
+  for (const f of Array.from(doc.querySelectorAll<HTMLSelectElement | HTMLInputElement>('select, input[type=text], input[type=number], input[type=tel], input:not([type])'))) {
+    if (f.closest('[data-electric-mc]')) continue;
     const row = f.closest('tr') ?? f.parentElement;
     const ctx = labelKey(`${row ? textOf(row) : ''} ${f.name} ${f.id}`);
     if (/(number of reviewers|reviewers? (required|needed)|reviews? required|required reviewers|minimum reviewers|num_?rev)/.test(ctx)) return f;
@@ -191,10 +192,13 @@ export function reviewersField(doc: Document): HTMLSelectElement | HTMLInputElem
 export function reviewersSave(doc: Document): HTMLElement | null {
   const f = reviewersField(doc);
   for (let at: Element | null = f?.parentElement ?? null; at && at !== doc.body; at = at.parentElement) {
-    const hit = Array.from(at.querySelectorAll<HTMLElement>('a, button, input[type=button], input[type=submit], input[type=image]')).find(
-      (e) => !e.closest('[data-electric-mc]') && labelKey(textOf(e) || e.getAttribute('value') || e.getAttribute('alt') || '') === 'save',
-    );
-    if (hit) return hit;
+    const hit = Array.from(at.querySelectorAll<HTMLElement>('a, button, input[type=button], input[type=submit], input[type=image], img')).find((e) => {
+      if (e.closest('[data-electric-mc]')) return false;
+      const file = (e.getAttribute('src') ?? '').split('/').pop() ?? '';
+      return labelKey(textOf(e) || e.getAttribute('value') || e.getAttribute('alt') || e.getAttribute('title') || '') === 'save' || /^save\b|_save\b|\bsave\./i.test(file);
+    });
+    // An image button counts through the link around it, or its own onclick.
+    if (hit) return hit.tagName === 'IMG' ? (hit.closest<HTMLElement>('a, button') ?? hit) : hit;
   }
   return null;
 }
@@ -419,16 +423,19 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
         // MC shows the AE's Make Recommendation task only once the reviews
         // required to make a decision are 0: set it, press its Save, and look
         // again when the page comes back.
-        if (role === 'ae' && s.reviewers !== 'saved' && setReviewersToZero(doc)) {
-          const save = reviewersSave(doc);
-          if (save) {
+        let why = '';
+        if (role === 'ae' && s.reviewers !== 'saved') {
+          const save = reviewersField(doc) ? reviewersSave(doc) : null;
+          if (save && setReviewersToZero(doc)) {
             writeRun(doc, { ...s, reviewers: 'saved', tries: (s.tries ?? 0) + 1 });
             hooks.log('one-button reject reviewers', { reviewers: 'saved' });
             pageClick(save);
             return;
           }
+          why = !reviewersField(doc) ? ' (and no "reviews required" box to set to 0)' : !save ? ' (no Save next to the "reviews required" box)' : ' (the "reviews required" box would not take 0)';
+          hooks.log('one-button reject reviewers', { reviewers: why.trim() });
         }
-        return stopRun(doc, s, `no ${role === 'ae' ? 'Make Recommendation' : 'co-chair recommendation'} task on the paper${role === 'ae' && s.reviewers === 'saved' ? ', even with the reviews required set to 0' : ''}.`, hooks);
+        return stopRun(doc, s, `no ${role === 'ae' ? 'Make Recommendation' : 'co-chair recommendation'} task on the paper${role === 'ae' && s.reviewers === 'saved' ? ', even with the reviews required set to 0' : why}.`, hooks);
       }
       writeRun(doc, { ...s, tries: (s.tries ?? 0) + 1 });
       pageClick(task);
