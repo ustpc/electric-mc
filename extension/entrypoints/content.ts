@@ -120,14 +120,24 @@ async function start() {
     else overlay?.hide();
     // Any page with one password field gets login help, whatever the classifier
     // thought (a maintenance notice can make the login page look like something else).
-    if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
+    // Each step on its own: one that throws is logged and the rest still run
+    // (features guard themselves in runFeatures).
+    const step = (name: string, fn: () => void) => {
+      try {
+        fn();
+      } catch (e) {
+        console.warn('[electric-mc]', name, 'failed:', e);
+        send({ type: 'log', level: 'error', event: `${name} failed`, data: String(e) });
+      }
+    };
+    if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) step('login help', setUpLogin);
     runFeatures(recorders, ctx);
-    if (reason === 'load') followSearch(r);
+    if (reason === 'load') step('follow search', () => followSearch(r));
     runFeatures(actions, ctx);
-    if (reason === 'load') landAfterLogin();
-    if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
-    if (settings.developer && reason === 'load') void samplePage();
-    if (reason === 'load') sendProbes();
+    if (reason === 'load') step('landing after login', landAfterLogin);
+    if (settings.developer && (reason === 'load' || reason === 'bfcache')) step('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
+    if (settings.developer && reason === 'load') samplePage().catch((e) => send({ type: 'log', level: 'error', event: 'page sample failed', data: String(e) }));
+    if (reason === 'load') step('probes', sendProbes);
     runFeatures(navigation, ctx);
     runFeatures(queue, ctx);
     runFeatures(look, ctx);

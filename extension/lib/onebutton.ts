@@ -87,13 +87,23 @@ export function isPdfLink(target: EventTarget | null): boolean {
 
 /** MC's Assign button next to the AE pull-down. */
 export function findAssignButton(select: HTMLSelectElement): HTMLElement | null {
-  const scope = select.closest('tr') ?? select.parentElement;
-  if (!scope) return null;
+  // Usually in the pull-down's own table row; on some pages MC puts it in the
+  // next cell of an enclosing table, so look a few rows out, nearest first.
+  // Each enclosing table row in turn (at most three), then the parent element.
+  let scope: Element | null = select.closest('tr') ?? select.parentElement;
+  for (let i = 0; scope && i < 3; i++, scope = scope.parentElement?.closest('tr') ?? null) {
+    const hit = assignIn(scope);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function assignIn(scope: Element): HTMLElement | null {
   const all = Array.from(scope.querySelectorAll<HTMLElement>('a, button, input[type=button], input[type=submit], input[type=image], img'));
   const hit = all.find((e) => {
     if (e.closest('[data-electric-mc]')) return false;
     const words = `${textOf(e)} ${e.getAttribute('value') ?? ''} ${e.getAttribute('alt') ?? ''} ${e.getAttribute('title') ?? ''} ${(e.getAttribute('src') ?? '').split('/').pop()}`;
-    return /\bassign\b/i.test(words) && !/view details/i.test(words);
+    return /\bassign\b/i.test(words) && !/view details|reviewer/i.test(words);
   });
   return hit ? (hit.tagName === 'IMG' ? (hit.closest<HTMLElement>('a, button') ?? hit) : hit) : null;
 }

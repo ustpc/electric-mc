@@ -4,6 +4,7 @@ Newest first. Every version bump gets an entry here.
 
 ## 0.0.79 (2026-11-20)
 
+- Changed: one-button reject says in the page's Console (and the log) why it isn't shown on a manuscript page: no AE pull-down, no Assign control next to it, a run already in progress, or a popup window. It also finds an Assign control one or two table rows out from the pull-down, never an "Assign Reviewers" one. Each step of a page's run is now guarded on its own, so one that fails is logged (also in the Console) and the rest, such as the full-width styling, still run.
 - Fixed: on real MC pages the classifier never saw MC's page name (CURRENT_PAGE), so pages it alone settles weren't recognized: a co-chair's Assign AE details page was not taken for a manuscript page, and one-button reject didn't appear. The parser classifies a cleaned copy of the page without hidden elements, and in Chrome every hidden input counts as hidden; jsdom, which the tests use, doesn't, so the tests passed. The name is now read from the live page. A new check loads the built extension in real Chromium on a synthetic details page and fails unless it is read as a manuscript page and the one-button controls appear (`npm run test:page`, also in CI).
 - New: in the Editorial matrix, Cmd-F (Ctrl-F on Windows and Linux) goes to the matrix's search box and selects its text, instead of opening Chrome's find bar. Press it again in the box for Chrome's find bar.
 - New: "Save team file…" in the Editorial matrix, beside "Load a team file…", saves the whole team (the same file as the Team editor's Save to file).

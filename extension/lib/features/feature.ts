@@ -47,8 +47,11 @@ export interface Feature {
   off?(doc: Document): void;
 }
 
-const failed = (send: ((m: Msg) => void) | undefined, f: Feature, e: unknown) =>
+const failed = (send: ((m: Msg) => void) | undefined, f: Feature, e: unknown) => {
+  // Also in the page's console, where it's seen even when no log is kept.
+  console.warn('[electric-mc] feature failed:', f.id, e);
   send?.({ type: 'log', level: 'error', event: 'feature failed', data: { feature: f.id, error: String(e) } });
+};
 
 /** Run each feature; one that throws is logged and the rest still run. */
 export function runFeatures(features: Feature[], ctx: PageContext): void {

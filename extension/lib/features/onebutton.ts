@@ -9,6 +9,7 @@ import { currentPage } from '../mcpage';
 import { KEY } from '../messages';
 import { addControls, forgetPdfUnless, isPdfLink, noteAeSubmit, notePdfViewed, pdfViewed, readRun, refreshControls, showBanner, startRun, stepRun, type Hooks } from '../onebutton';
 import { openManuscript } from '../search';
+import { findAeSelect } from '../aeload';
 import { rolesIn as editorBlock } from '../../parsers/dom';
 import type { Feature, PageContext } from './feature';
 
@@ -18,11 +19,23 @@ export function oneButtonReject(): Feature {
     log: (event: string, data?: unknown) => ctx.send({ type: 'log', level: 'info', event, data }),
   });
 
+  // Why the controls aren't on this page, said once per page and reason (in
+  // the console and the log), so a missing button can be explained.
+  let said = '';
+  const skip = (ctx: PageContext, why: string) => {
+    const key = `${ctx.doc.location?.href}|${why}`;
+    if (key === said) return;
+    said = key;
+    console.info('[electric-mc] one-button reject not shown:', why);
+    ctx.send({ type: 'log', level: 'info', event: 'one-button not shown', data: why });
+  };
+
   const add = (ctx: PageContext) => {
     const { doc } = ctx;
     const id = ctx.result.manuscript?.id;
-    if (!id || readRun(doc)) return;
-    addControls(doc, pdfViewed(doc, id), () => void (async () => {
+    if (!id) return skip(ctx, 'no manuscript ID on the page');
+    if (readRun(doc)) return skip(ctx, 'a run is in progress in this tab');
+    const shown = addControls(doc, pdfViewed(doc, id), () => void (async () => {
       const blocked = blockedBy(await ctx.get<ProbeStore>(KEY.probes), currentPage(doc), 'oneButtonReject');
       if (blocked.length) {
         showBanner(doc, `One-button reject didn't start: MC seems to have changed this page (${blocked.join(', ')} not found lately). Do it by hand.`, 'stop');
@@ -32,6 +45,7 @@ export function oneButtonReject(): Feature {
       if (why) showBanner(doc, `One-button reject didn't start: ${why}`, 'stop');
       else hooks(ctx).log('one-button reject started', {});
     })());
+    if (!shown) skip(ctx, findAeSelect(doc) ? 'no Assign control next to the AE pull-down' : 'no AE pull-down on the page');
   };
 
   return {
@@ -58,7 +72,8 @@ export function oneButtonReject(): Feature {
       const id = r.pageType === 'manuscript' ? r.manuscript?.id : undefined;
       if (!readRun(doc)) forgetPdfUnless(doc, id);
       // A popup MC opens (an e-mail window) inherits this tab's sessionStorage; leave it alone.
-      if (!settings.oneButtonReject || doc.defaultView?.opener) return;
+      if (!settings.oneButtonReject) return;
+      if (doc.defaultView?.opener) return skip(ctx, 'this window was opened by another (a popup)');
       stepRun(doc, { manuscript: id, isDetails: r.pageType === 'manuscript' }, editorBlock(doc.body).get('ae'), hooks(ctx));
       if (r.pageType === 'manuscript') add(ctx);
     },

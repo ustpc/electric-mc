@@ -39,6 +39,26 @@ describe('controls next to Assign', () => {
     expect(ownOption(sel, { ...WHO, lastName: 'Nobody' })).toBeNull();
   });
 
+  it('finds an Assign link a table level up, and never an Assign Reviewers one', () => {
+    const opts = '<option>Select...</option><option>Doe, Jane (2)</option><option>Roe, Rick (0)</option><option>Poe, Pat (1)</option>';
+    document.body.innerHTML = `<form><table><tr><td>Assign Associate Editor</td></tr>
+      <tr><td><table><tr><td>Associate Editor:</td><td><select name="XIK_WORKFLOW_ASSIGN_TO_1">${opts}</select></td></tr></table></td>
+      <td><a href="#" id="far">Assign</a></td></tr></table></form>`;
+    expect(findAssignButton(findAeSelect(document)!.select)?.id).toBe('far');
+    document.body.innerHTML = `<form><table><tr><td>Assign Associate Editor</td></tr>
+      <tr><td><select name="XIK_WORKFLOW_ASSIGN_TO_1">${opts}</select></td><td><a href="#">Assign Reviewers</a></td></tr></table></form>`;
+    expect(findAssignButton(findAeSelect(document)!.select)).toBeNull();
+  });
+
+  it('finds an Assign image with its own onclick (no link around it)', () => {
+    const opts = '<option>Select...</option><option>Doe, Jane (2)</option><option>Roe, Rick (0)</option><option>Poe, Pat (1)</option>';
+    document.body.innerHTML = `<table><tr><td>Associate Editor:</td><td><select name="XIK_WORKFLOW_ASSIGN_TO_42">${opts}</select>
+      <img id="img" src="/images/en_US/buttons/assign.gif" onclick="return false"></td></tr></table>`;
+    expect(findAssignButton(findAeSelect(document)!.select)?.id).toBe('img');
+    expect(addControls(document, false, () => {})).toBe(true);
+    expect(document.getElementById('img')!.nextElementSibling?.getAttribute('data-electric-mc')).toBe('one-button');
+  });
+
   it('stays disabled until the PDF was opened and the box is checked', () => {
     document.body.innerHTML = ASSIGN_PAGE;
     const start = vi.fn();
