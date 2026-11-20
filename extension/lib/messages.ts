@@ -75,6 +75,8 @@ export interface Settings {
   autoTakeAction: boolean;
   /** Move MC's left-column page title ("Search Results") to the top of the page and drop the column. */
   hidePageHeader: boolean;
+  /** Tight mode (lib/tight.ts): fold away the journal logo after a second, drop MC's instructions row and empty spacing rows. Off by default. */
+  tightMode: boolean;
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
   /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). On by default. */
@@ -111,6 +113,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 0,
   autoTakeAction: true,
   hidePageHeader: true,
+  tightMode: false,
   autoAttach: true,
   keepAlive: true,
   autoAdvance: true,

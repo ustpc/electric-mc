@@ -805,6 +805,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
         </select>
       </label>
       <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
+      <label class="chk"><input type="checkbox" checked={s.tightMode} onChange={(e) => update({ tightMode: (e.target as HTMLInputElement).checked })} />Tight mode: fold away the journal logo after a second, and drop MC's instructions line and empty space</label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
       {box('oneButtonReject', 'One-button reject next to MC\'s Assign AE button (co-chairs)')}

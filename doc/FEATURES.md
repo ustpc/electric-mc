@@ -24,6 +24,10 @@ pitch to associate editors.
 - **The page title on top.** MC's left-column title ("Search Results",
   "View Manuscripts") can move to the top of the page, so the table gets
   the column's width back.
+- **Tight mode** (off unless you turn it on). The journal logo folds away
+  a second after each page opens, and MC's instructions line ("The tabs
+  below organize…") and its empty spacing rows go, so more of the
+  manuscript fits on the screen.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the

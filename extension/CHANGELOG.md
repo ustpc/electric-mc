@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.84 (2026-11-20)
+
+- New: Tight mode (Settings, Page layout; off by default), for the EIC. On every MC page the journal logo bar folds away after a second, the row with MC's instructions ("The tabs below organize…") goes, and so do MC's empty spacing rows, with less padding around the main column. The instructions stay on MC's popups, where they are the page. A spacing row comes back if MC later puts something in it.
+
 ## 0.0.83 (2026-11-20)
 
 - Changed: one-button reject decides whether MC is showing a Reject choice or Submit button with Chrome's own visibility check, which also catches controls hidden by an enclosing section, not only by their own style.
