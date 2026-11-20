@@ -459,6 +459,13 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
           why = !reviewersField(doc) ? ' (and no "reviews required" box to set to 0)' : !save ? ' (no Save next to the "reviews required" box)' : ' (the "reviews required" box would not take 0)';
           hooks.log('one-button reject reviewers', { reviewers: why.trim() });
         }
+        // The co-chair's task can lag the AE's Submit, and a slow connection
+        // can leave the page short: open the paper again, twice at most.
+        if (role === 'cc' && (s.tries ?? 0) < 2) {
+          writeRun(doc, { ...s, tries: (s.tries ?? 0) + 1 });
+          hooks.log('one-button reject retry', { step: s.step, why: 'no co-chair recommendation task yet' });
+          if (hooks.openBySearch(s.id)) return;
+        }
         return stopRun(doc, s, `no ${role === 'ae' ? 'Make Recommendation' : 'co-chair recommendation'} task on the paper${role === 'ae' && s.reviewers === 'saved' ? ', even with the reviews required set to 0' : why}.`, hooks);
       }
       writeRun(doc, { ...s, tries: (s.tries ?? 0) + 1 });

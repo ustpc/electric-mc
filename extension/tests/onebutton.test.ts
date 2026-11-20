@@ -265,6 +265,19 @@ describe('a whole run', () => {
     expect(readRun(document)).toBeNull();
   });
 
+  it('opens the paper again, twice, when the co-chair task is not there yet', () => {
+    const h = hooks();
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'cc-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '');
+    for (const tries of [1, 2]) {
+      stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+      expect(readRun(document)?.tries).toBe(tries);
+    }
+    expect(h.openBySearch).toHaveBeenCalledTimes(2);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(readRun(document)).toBeNull();
+  });
+
   it('waits for another Submit when MC sends the AE form back', () => {
     const h = hooks();
     const ids: string[] = [];

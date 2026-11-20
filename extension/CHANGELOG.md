@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.88 (2026-11-20)
+
+- Fixed: one-button reject stopped with "no co-chair recommendation task on the paper" when it reached the paper as co-chair before MC showed that task (it can lag the AE's Submit, and a slow connection can leave the page short). It now opens the paper again, up to twice, before stopping.
+
 ## 0.0.87 (2026-11-20)
 
 - Fixed (slow connections): one-button reject could stall when E-MC started on a page MC hadn't finished loading, because MC ignores its own links until then. Each step of a run now waits for the page to finish loading before pressing anything. A run is also kept for 2 hours instead of 30 minutes.
