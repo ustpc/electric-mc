@@ -1,6 +1,7 @@
 import { defineConfig } from 'wxt';
 import preact from '@preact/preset-vite';
 import { defaultClientConditions } from 'vite';
+import { execSync } from 'node:child_process';
 import pkg from './package.json' with { type: 'json' };
 import { localRuntime } from './scripts/local-runtime';
 
@@ -8,6 +9,17 @@ import { localRuntime } from './scripts/local-runtime';
 // STORE=1 builds the Chrome Web Store package: its name and description
 // are the listing's. Without it the build is labeled as a test build.
 const STORE = !!process.env.STORE;
+
+// Test builds carry their commit and build time, shown in the side panel in
+// developer mode, so it's clear which build Chrome is running.
+function commit(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return '';
+  }
+}
+const BUILD = STORE ? null : { commit: commit(), at: new Date().toISOString() };
 
 export default defineConfig({
   // Builds go to build/chrome-mv3 (WXT's default is .output/).
@@ -36,6 +48,7 @@ export default defineConfig({
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';" },
   },
   vite: () => ({
+    define: { __EMC_BUILD__: JSON.stringify(BUILD) },
     // localRuntime() strips the CDN and Hugging Face addresses from
     // Transformers.js (MV3: no remotely hosted code).
     plugins: [preact(), localRuntime()],

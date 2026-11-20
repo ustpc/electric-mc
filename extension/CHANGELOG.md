@@ -2,12 +2,16 @@
 
 Newest first. Every version bump gets an entry here.
 
-## 0.0.79 (2026-11-20)
+## 0.0.80 (2026-11-20)
 
+- New: in developer mode, the side panel's test-build label also shows the build's commit and build time ("test build v0.0.80 · 1898ea0 · 20 Nov 10:17"), so it's clear which build Chrome is running. Store builds carry neither.
 - Fixed: a Reject made as AE (by one-button reject) showed in the queue as "you decided Reject" on a red row. The details page lists a "Make Immediate Decision" task link next to every other task, and that link made any Submit there count as a decision. Now a press on the AE's "… Recommends" form is never a decision, and the task link doesn't count. Each press also records the role it was made in and whether the paper had an AE; the blue note says "as AE" or "as co-chair", and only a decision made as co-chair with no AE shades the row red. An entry from an older build that says "decided" on a row that shows an AE is shown as a recommendation, without the red.
 - Fixed: one-button reject stopped with "no Make Recommendation task" on a paper whose "# reviews required to make decision" was 2. MC shows that task only once the number is 0 and saved; the run didn't recognize MC's wording, and set the box without pressing Save. It now sets it to 0, presses the Save beside the Reviewer List, and opens Make Recommendation when the page comes back.
 - Changed: every feature is on by default (Simson): one-button reject, full window width, page title on top, log in once the password manager fills the form, Take Action after a one-result search, stay logged in, and the grouped Assign AE pull-down (the shipped config until one is saved). Developer mode and Show advanced settings stay off. Saved settings are kept; the defaults matter for a new install, or after the extension is removed and loaded again, which clears its settings.
 - Changed: one-button reject says in the page's Console (and the log) why it isn't shown on a manuscript page: no AE pull-down, no Assign control next to it, a run already in progress, or a popup window. It also finds an Assign control one or two table rows out from the pull-down, never an "Assign Reviewers" one. Each step of a page's run is now guarded on its own, so one that fails is logged (also in the Console) and the rest, such as the full-width styling, still run.
+
+## 0.0.79 (2026-11-20)
+
 - Fixed: on real MC pages the classifier never saw MC's page name (CURRENT_PAGE), so pages it alone settles weren't recognized: a co-chair's Assign AE details page was not taken for a manuscript page, and one-button reject didn't appear. The parser classifies a cleaned copy of the page without hidden elements, and in Chrome every hidden input counts as hidden; jsdom, which the tests use, doesn't, so the tests passed. The name is now read from the live page. A new check loads the built extension in real Chromium on a synthetic details page and fails unless it is read as a manuscript page and the one-button controls appear (`npm run test:page`, also in CI).
 - New: in the Editorial matrix, Cmd-F (Ctrl-F on Windows and Linux) goes to the matrix's search box and selects its text, instead of opening Chrome's find bar. Press it again in the box for Chrome's find bar.
 - New: "Save team file…" in the Editorial matrix, beside "Load a team file…", saves the whole team (the same file as the Team editor's Save to file).

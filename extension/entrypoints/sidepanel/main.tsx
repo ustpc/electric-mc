@@ -214,7 +214,7 @@ function App() {
     <>
       <header>
         <div class="row">
-          <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
+          <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}{dev && buildLabel()}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
           <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
@@ -681,6 +681,14 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
       <p class="muted">{status || (server ? 'Saved as you type and shared with the notes server.' : 'Saved as you type, in this browser only.')} After an hour away, your next note starts fresh.</p>
     </section>
   );
+}
+
+/** " · 1898ea0 · 20 Nov 10:17" for a test build in developer mode: which build Chrome is running. */
+function buildLabel(): string {
+  const b = typeof __EMC_BUILD__ === 'undefined' ? null : __EMC_BUILD__;
+  if (!b) return '';
+  const at = new Date(b.at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return `${b.commit ? ` · ${b.commit}` : ''} · ${at}`;
 }
 
 /** Whether the live log file is being written (test builds, developer mode). */
