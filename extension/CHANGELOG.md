@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.82 (2026-11-20)
+
+- Fixed: one-button reject reached the AE Recommends form, then stopped with "couldn't find the Recommends form with a Reject choice" and pressed Make Recommendation twice more first. It now counts only the Reject choice and Submit that MC shows (a hidden copy of another form's controls made two of each), takes an image Submit button, stops at once when the form is on the page but can't be read, and says in the banner what it counted.
+- Fixed: after E-MC was reloaded, MC tabs left open showed "Uncaught (in promise) Error: Extension context invalidated" in the console. The old copy in those tabs now stays quiet.
+
 ## 0.0.81 (2026-11-20)
 
 - Fixed: the developer log's "title reapplied" entries held the page title, which on a manuscript page includes its title. They now hold only the lengths.

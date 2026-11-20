@@ -341,8 +341,21 @@ function idsKey(r: ParseResult): string {
 }
 
 function send(m: Msg) {
-  chrome.runtime.sendMessage(m).catch(() => {});
+  // After E-MC is reloaded, this copy lives on in open tabs with no extension to talk to.
+  if (!chrome.runtime?.id) return;
+  try {
+    chrome.runtime.sendMessage(m).catch(() => {});
+  } catch {
+    /* extension context invalidated */
+  }
 }
+
+// A stale copy (E-MC reloaded while this tab stayed open) can't reach
+// chrome.* any more; its pending calls reject with "Extension context
+// invalidated". That's expected: keep it out of the page's console.
+window.addEventListener('unhandledrejection', (e) => {
+  if (/extension context invalidated/i.test(String((e.reason as Error | undefined)?.message ?? e.reason))) e.preventDefault();
+});
 
 /** Each load: which of the page parts our features rely on are there (lib/probes.ts). Names and booleans only. */
 function sendProbes(): void {

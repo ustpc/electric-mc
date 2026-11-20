@@ -2,7 +2,7 @@
 // One-button reject: the controls next to Assign and a whole run through
 // synthetic pages. Synthetic markup and names only.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { addControls, findAssignButton, isPdfLink, noteAeSubmit, ownOption, readRun, recommendSubmit, rejectRadio, startRun, stepRun, writeRun } from '../lib/onebutton';
+import { addControls, findAssignButton, formCounts, isPdfLink, noteAeSubmit, ownOption, readRun, recommendSubmit, rejectRadio, startRun, stepRun, writeRun } from '../lib/onebutton';
 import { findAeSelect } from '../lib/aeload';
 
 const WHO = { email: 'cochair@example.org', firstName: 'Opinions', lastName: 'Co-Chair' };
@@ -212,6 +212,26 @@ describe('a whole run', () => {
     clicks(ids);
     stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
     expect(ids).toEqual(['save']);
+  });
+
+  it('ignores a hidden copy of another form\'s Reject and Submit, and takes an image Submit', () => {
+    const hidden = `<div style="display:none"><table><tr><td><b>Immediate Decision</b></td></tr>
+      <tr><td><input type="radio" name="d"></td><td>Reject</td></tr><tr><td><a href="#">Submit</a></td></tr></table></div>`;
+    document.body.innerHTML = FORM('AE Recommends') + hidden;
+    expect(rejectRadio(document)?.id).toBe('rej');
+    expect(recommendSubmit(document, 'ae')?.id).toBe('submit');
+    expect(formCounts(document, 'ae')).toBe('form other (wanted other), Reject choices 1 shown of 2, Submit 1 shown of 2');
+    document.body.innerHTML = FORM('AE Recommends').replace('<a href="#" id="submit">Submit</a>', '<a href="#" id="submit"><img src="/images/en_US/buttons/submit.gif"></a>');
+    expect(recommendSubmit(document, 'ae')?.id).toBe('submit');
+  });
+
+  it('stops at once, with what it counted, when the form is there but unreadable', () => {
+    const h = hooks();
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-details', at: Date.now(), ae: 'Co-Chair, Opinions', tries: 1 });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '<a href="#">Make Recommendation</a>') + FORM('AE Recommends').replace('<a href="#" id="submit">Submit</a>', '');
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(readRun(document)).toBeNull();
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('Submit 0 shown of 0');
   });
 
   it('stops when the AE step was not Reject', () => {

@@ -17,6 +17,7 @@
 // banner.
 
 import { pageClick } from './click';
+import { isShown } from './shown';
 import { findAeSelect, mcText, parseOption } from './aeload';
 import { cancelAdvance, taskLinks } from './advance';
 import { EMC_COLOR } from './ui';
@@ -129,12 +130,17 @@ export function ownOption(select: HTMLSelectElement, who: McIdentity): HTMLOptio
 
 /** The radio button whose row says Reject (not "Reject & Resubmit"), if exactly one. */
 export function rejectRadio(doc: Document): HTMLInputElement | null {
-  const hits = Array.from(doc.querySelectorAll<HTMLInputElement>('input[type=radio]')).filter((r) => {
+  const hits = rejectRadios(doc).filter((r) => isShown(r));
+  return hits.length === 1 ? hits[0]! : null;
+}
+
+/** Every Reject radio on the page, shown or not. */
+function rejectRadios(doc: Document): HTMLInputElement[] {
+  return Array.from(doc.querySelectorAll<HTMLInputElement>('input[type=radio]')).filter((r) => {
     const row = r.closest('tr');
     const t = row ? labelKey(textOf(row)) : '';
     return /^(immediate )?reject\b/.test(t) && !/resubmit|revis/.test(t) && t.length < 40;
   });
-  return hits.length === 1 ? hits[0]! : null;
 }
 
 /**
@@ -145,10 +151,26 @@ export function rejectRadio(doc: Document): HTMLInputElement | null {
 export function recommendSubmit(doc: Document, role: 'ae' | 'cc'): HTMLElement | null {
   const whose = recommendsRole(doc);
   if (!whose || (whose === 'cc') !== (role === 'cc')) return null;
-  const subs = Array.from(doc.querySelectorAll<HTMLElement>('a, button, input[type=submit], input[type=button]')).filter(
-    (e) => !e.closest('[data-electric-mc]') && labelKey(textOf(e) || e.getAttribute('value') || '') === 'submit',
-  );
+  const subs = submitControls(doc).filter((e) => isShown(e));
   return subs.length === 1 ? subs[0]! : null;
+}
+
+/** Every Submit control on the page, shown or not (a text link, a button, or an image button). */
+function submitControls(doc: Document): HTMLElement[] {
+  return Array.from(doc.querySelectorAll<HTMLElement>('a, button, input[type=submit], input[type=button], input[type=image]')).filter((e) => {
+    if (e.closest('[data-electric-mc]')) return false;
+    const img = e.querySelector('img');
+    const label = textOf(e) || e.getAttribute('value') || e.getAttribute('alt') || img?.getAttribute('alt') || img?.getAttribute('title') || '';
+    return labelKey(label) === 'submit' || (!textOf(e) && /(^|[_/-])submit[^/]*\.(gif|png|svg)$/i.test(img?.getAttribute('src') ?? ''));
+  });
+}
+
+/** What the run saw on a page where it couldn't find the form: counts only, for the banner and the log. */
+export function formCounts(doc: Document, role: 'ae' | 'cc'): string {
+  const radios = rejectRadios(doc);
+  const subs = submitControls(doc);
+  const shown = (xs: Element[]) => xs.filter((x) => isShown(x)).length;
+  return `form ${recommendsRole(doc) ?? 'none'} (wanted ${role === 'cc' ? 'cc' : 'other'}), Reject choices ${shown(radios)} shown of ${radios.length}, Submit ${shown(subs)} shown of ${subs.length}`;
 }
 
 /** Whether MC sent the role's Recommends form back, with Reject, after a Submit: it didn't take it. */
@@ -417,7 +439,9 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
         setTimeout(() => pageClick(submit), 600);
         return;
       }
-      if ((s.tries ?? 0) >= 3) return stopRun(doc, s, `couldn't find the Recommends form with a Reject choice.`, hooks);
+      if ((s.tries ?? 0) >= 3) return stopRun(doc, s, `couldn't find the Recommends form with a Reject choice (${formCounts(doc, role)}).`, hooks);
+      // The form is on the page but not readable: pressing the task again won't help.
+      if (recommendsRole(doc) && (s.tries ?? 0) >= 1) return stopRun(doc, s, `couldn't find the Recommends form with a Reject choice (${formCounts(doc, role)}).`, hooks);
       const task = recommendTask(doc, role);
       if (!task) {
         // MC shows the AE's Make Recommendation task only once the reviews
