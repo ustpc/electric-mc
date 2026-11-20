@@ -77,6 +77,8 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Tight mode (lib/tight.ts): fold away the journal logo after a second, drop MC's instructions row and empty spacing rows. Off by default. */
   tightMode: boolean;
+  /** MC's Web of Science Reviewer Locator box (lib/wos.ts): left open, closed (E-MC's default) or removed. */
+  webOfScience: 'open' | 'closed' | 'removed';
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
   /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). On by default. */
@@ -114,6 +116,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTakeAction: true,
   hidePageHeader: true,
   tightMode: false,
+  webOfScience: 'closed',
   autoAttach: true,
   keepAlive: true,
   autoAdvance: true,

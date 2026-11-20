@@ -3,6 +3,7 @@
 
 import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../restyle';
 import { tightMode } from '../tight';
+import { applyWos } from '../wos';
 import type { Feature } from './feature';
 
 export function pageLook(): Feature {
@@ -27,11 +28,14 @@ export function pageLook(): Feature {
         send({ type: 'log', level: pager.arrows ? 'debug' : 'warn', event: 'pager arrows', data: pager });
       }
       emphasizeVersionHistory(doc, true, settings.fontSize, settings.idPattern);
+      const wos = applyWos(doc, settings.webOfScience);
+      if (wos.pressed) send({ type: 'log', level: 'info', event: 'web of science', data: { mode: settings.webOfScience } });
     },
     off(doc) {
       clearRestyle(doc);
       hidePageHeader(doc, false);
       tightMode(doc, false);
+      applyWos(doc, null);
       enlargeNavArrows(doc, false);
       enlargePagerArrows(doc, false);
       emphasizeVersionHistory(doc, false);

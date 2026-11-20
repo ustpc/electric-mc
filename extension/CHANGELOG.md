@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.85 (2026-11-20)
+
+- New: a setting for MC's Web of Science Reviewer Locator box (Settings, Page layout): closed (E-MC's default; MC shows it open), open, or removed. Closing and opening press MC's own +/- toggle once per page, so a box you open again by hand stays open. The "View full interactive search on reviewerlocator.webofscience.com" line shows only when the setting is open.
+
 ## 0.0.84 (2026-11-20)
 
 - New: Tight mode (Settings, Page layout; off by default), for the EIC. On every MC page the journal logo bar folds away after a second, the row with MC's instructions ("The tabs below organize…") goes, and so do MC's empty spacing rows, with less padding around the main column. The instructions stay on MC's popups, where they are the page. A spacing row comes back if MC later puts something in it.

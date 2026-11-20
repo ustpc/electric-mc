@@ -28,6 +28,10 @@ pitch to associate editors.
   a second after each page opens, and MC's instructions line ("The tabs
   below organize…") and its empty spacing rows go, so more of the
   manuscript fits on the screen.
+- **Web of Science, your way.** MC's Web of Science Reviewer Locator box,
+  which pushes the rest of the reviewer page a screen down, starts closed
+  (MC shows it open). A setting keeps it open or removes it entirely; its
+  "View full interactive search" line shows only when the box is open.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the
