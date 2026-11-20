@@ -204,10 +204,18 @@ function App() {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
   };
+  // The panel is set per MC tab (background refreshTab), so it opens on the
+  // browser window's active tab, and only when that tab is an MC page.
   const popIn = async () => {
-    const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
-    if (win.id !== undefined) await chrome.sidePanel.open({ windowId: win.id });
-    window.close();
+    try {
+      const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+      const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
+      if (tab?.id === undefined || !panelEnabledFor(tab.url)) return flash('Switch your browser window to a Manuscript Central tab, then press Pop in again.');
+      await chrome.sidePanel.open({ tabId: tab.id });
+      window.close();
+    } catch (e) {
+      flash(`Couldn't open the side panel there: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   return (
