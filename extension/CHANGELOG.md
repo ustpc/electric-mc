@@ -2,6 +2,12 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.87 (2026-11-20)
+
+- Fixed (slow connections): one-button reject could stall when E-MC started on a page MC hadn't finished loading, because MC ignores its own links until then. Each step of a run now waits for the page to finish loading before pressing anything. A run is also kept for 2 hours instead of 30 minutes.
+- Fixed: while an MC page was still loading, the side panel said "This tab is running an older build". It now waits for the page.
+- Fixed: Pop in threw "No active side panel for windowId" when the browser window's tab wasn't an MC page. It now opens the panel on the window's MC tab, or says to switch to one and leaves the pop-out open.
+
 ## 0.0.86 (2026-11-20)
 
 - Fixed: after a Reject recommended as AE, the co-chair's queue said "you recommended Reject as AE …; waiting for the EIC", and the side panel listed it under Waiting for the EIC. A recommendation made as AE waits for the co-chair's own recommendation: the note now says "next, the co-chair recommendation", and only recommendations made as co-chair (or decisions) are listed as waiting for the EIC.

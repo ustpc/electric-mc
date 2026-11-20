@@ -74,7 +74,15 @@ export function oneButtonReject(): Feature {
       // A popup MC opens (an e-mail window) inherits this tab's sessionStorage; leave it alone.
       if (!settings.oneButtonReject) return;
       if (doc.defaultView?.opener) return skip(ctx, 'this window was opened by another (a popup)');
-      stepRun(doc, { manuscript: id, isDetails: r.pageType === 'manuscript' }, editorBlock(doc.body).get('ae'), hooks(ctx));
+      const step = () => stepRun(doc, { manuscript: id, isDetails: r.pageType === 'manuscript' }, editorBlock(doc.body).get('ae'), hooks(ctx));
+      // On a slow connection E-MC can start before MC's page has finished
+      // loading, and MC ignores its own links until then
+      // (isPageCompletelyLoaded): take the run's next step once it has.
+      if (doc.readyState === 'complete' || !doc.defaultView) step();
+      else {
+        ctx.send({ type: 'log', level: 'info', event: 'one-button reject waits for the page', data: { readyState: doc.readyState } });
+        doc.defaultView.addEventListener('load', step, { once: true });
+      }
       if (r.pageType === 'manuscript') add(ctx);
     },
   };

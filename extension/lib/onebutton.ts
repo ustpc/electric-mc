@@ -43,7 +43,7 @@ export interface RunState {
   reviewers?: 'set' | 'saved' | 'not found';
 }
 
-const RUN_MS = 30 * 60_000;
+const RUN_MS = 2 * 60 * 60_000;
 const UI = 'one-button';
 const BANNER = 'one-button-banner';
 

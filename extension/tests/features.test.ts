@@ -179,6 +179,23 @@ describe('moved features', () => {
   });
 });
 
+describe('one-button reject on a slow connection', () => {
+  it("waits for MC's page to finish loading before taking the run's next step", () => {
+    document.body.innerHTML = '<p>MC page</p>';
+    const send = vi.fn();
+    const f = oneButtonReject();
+    Object.defineProperty(document, 'readyState', { value: 'interactive', configurable: true });
+    try {
+      f.onPage({ ...ctx({ pageType: 'queue-list' } as Partial<ParseResult>), send, settings: { ...DEFAULT_SETTINGS, oneButtonReject: true }, reason: 'load' });
+      const waits = () => send.mock.calls.filter(([m]) => (m as { event?: string }).event === 'one-button reject waits for the page').length;
+      expect(waits()).toBe(1);
+    } finally {
+      delete (document as { readyState?: unknown }).readyState;
+    }
+    expect(document.readyState).toBe('complete');
+  });
+});
+
 function journalKeyHere(): string {
   return journalKey(location.href);
 }

@@ -140,9 +140,12 @@ function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
         .sendMessage(tabId, { type: 'ping' }, TOP)
         .then((r: { version?: string } | undefined) => r?.version ?? Promise.reject(new Error('no version')))
         .then((v: string) => setStale(v === mine ? null : v))
-        .catch(() => {
-          if (triesLeft > 0) timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
-          else setStale('an older build');
+        .catch(async () => {
+          if (triesLeft > 0) return void timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
+          // E-MC starts on a page only once MC has sent all of it; on a slow
+          // connection that can take a while. It's asked again when loaded.
+          const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+          setStale(tab?.status === 'loading' ? null : 'an older build');
         });
     const check = () => {
       timers.splice(0).forEach(clearTimeout);
