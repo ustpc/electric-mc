@@ -36,7 +36,7 @@ import { autoAdvance } from '../lib/features/advance';
 import { queueMarks } from '../lib/features/queuemarks';
 import { recordIdentity, recordRoles } from '../lib/features/recorders';
 import { runProbes } from '../lib/probes';
-import { sampleDue } from '../lib/pagesample';
+import { sampleDue, snapshotHtml } from '../lib/pagesample';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -354,11 +354,7 @@ async function samplePage(): Promise<void> {
 
 /** Page HTML without our overlay, scripts, or anything typed into fields. */
 function snapshot(): string {
-  const clone = document.documentElement.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll(`[${MARK}], script, noscript`).forEach((e) => e.remove());
-  clone.querySelectorAll('input[type=password], input[type=text], input[type=email]').forEach((e) => e.setAttribute('value', ''));
-  clone.querySelectorAll('textarea').forEach((e) => (e.textContent = ''));
-  return '<!doctype html>\n' + clone.outerHTML;
+  return snapshotHtml(document);
 }
 
 /**
