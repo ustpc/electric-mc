@@ -39,7 +39,7 @@ export interface RunState {
   toAuthor?: string;
   toEditor?: string;
   /** Set when the reviewers-needed field was found and set. */
-  reviewers?: 'set' | 'not found';
+  reviewers?: 'set' | 'saved' | 'not found';
 }
 
 const RUN_MS = 30 * 60_000;
@@ -179,7 +179,22 @@ export function reviewersField(doc: Document): HTMLSelectElement | HTMLInputElem
   for (const f of Array.from(doc.querySelectorAll<HTMLSelectElement | HTMLInputElement>('select, input[type=text], input:not([type])'))) {
     const row = f.closest('tr') ?? f.parentElement;
     const ctx = labelKey(`${row ? textOf(row) : ''} ${f.name} ${f.id}`);
-    if (/(number of reviewers|reviewers? (required|needed)|required reviewers|minimum reviewers|num_?rev)/.test(ctx)) return f;
+    if (/(number of reviewers|reviewers? (required|needed)|reviews? required|required reviewers|minimum reviewers|num_?rev)/.test(ctx)) return f;
+  }
+  return null;
+}
+
+/**
+ * The Save control for the reviewers-needed field: the nearest one in the
+ * tables around it (MC puts it beside the Reviewer List).
+ */
+export function reviewersSave(doc: Document): HTMLElement | null {
+  const f = reviewersField(doc);
+  for (let at: Element | null = f?.parentElement ?? null; at && at !== doc.body; at = at.parentElement) {
+    const hit = Array.from(at.querySelectorAll<HTMLElement>('a, button, input[type=button], input[type=submit], input[type=image]')).find(
+      (e) => !e.closest('[data-electric-mc]') && labelKey(textOf(e) || e.getAttribute('value') || e.getAttribute('alt') || '') === 'save',
+    );
+    if (hit) return hit;
   }
   return null;
 }
@@ -398,15 +413,24 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
         setTimeout(() => pageClick(submit), 600);
         return;
       }
-      if ((s.tries ?? 0) >= 2) return stopRun(doc, s, `couldn't find the Recommends form with a Reject choice.`, hooks);
-      let reviewers = s.reviewers;
-      if (role === 'ae' && !reviewers) {
-        reviewers = setReviewersToZero(doc) ? 'set' : 'not found';
-        hooks.log('one-button reject reviewers', { reviewers });
-      }
+      if ((s.tries ?? 0) >= 3) return stopRun(doc, s, `couldn't find the Recommends form with a Reject choice.`, hooks);
       const task = recommendTask(doc, role);
-      if (!task) return stopRun(doc, s, `no ${role === 'ae' ? 'Make Recommendation' : 'co-chair recommendation'} task on the paper.`, hooks);
-      writeRun(doc, { ...s, reviewers, tries: (s.tries ?? 0) + 1 });
+      if (!task) {
+        // MC shows the AE's Make Recommendation task only once the reviews
+        // required to make a decision are 0: set it, press its Save, and look
+        // again when the page comes back.
+        if (role === 'ae' && s.reviewers !== 'saved' && setReviewersToZero(doc)) {
+          const save = reviewersSave(doc);
+          if (save) {
+            writeRun(doc, { ...s, reviewers: 'saved', tries: (s.tries ?? 0) + 1 });
+            hooks.log('one-button reject reviewers', { reviewers: 'saved' });
+            pageClick(save);
+            return;
+          }
+        }
+        return stopRun(doc, s, `no ${role === 'ae' ? 'Make Recommendation' : 'co-chair recommendation'} task on the paper${role === 'ae' && s.reviewers === 'saved' ? ', even with the reviews required set to 0' : ''}.`, hooks);
+      }
+      writeRun(doc, { ...s, tries: (s.tries ?? 0) + 1 });
       pageClick(task);
       return;
     }

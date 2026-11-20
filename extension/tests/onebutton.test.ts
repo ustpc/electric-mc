@@ -174,6 +174,31 @@ describe('a whole run', () => {
     expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('stopped');
   });
 
+  it('with no Make Recommendation task, sets the reviews required to 0 and presses Save, then opens the task', () => {
+    const h = hooks();
+    const ids: string[] = [];
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    const reviewers = (n: string, task = '') => DETAILS('Co-Chair, Opinions', `${task}<table><tr><td><table><tr><td>Reviewer List</td></tr><tr><td><a href="#" id="save">Save</a></td></tr></table></td>
+      <td><table><tr><td>Progress</td></tr><tr><td># reviews required to make decision</td><td><input type="text" id="req" value="${n}"></td></tr></table></td></tr></table>`);
+    document.body.innerHTML = reviewers('2');
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect((document.getElementById('req') as HTMLInputElement).value).toBe('0');
+    expect(ids).toEqual(['save']);
+    expect(readRun(document)?.reviewers).toBe('saved');
+    // MC comes back with the task.
+    document.body.innerHTML = reviewers('0', '<a href="#" id="task">Make Recommendation</a>');
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids).toEqual(['save', 'task']);
+    // Still no task after Save: stop, saying so.
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-details', at: Date.now(), ae: 'Co-Chair, Opinions', reviewers: 'saved' });
+    document.body.innerHTML = reviewers('0');
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(readRun(document)).toBeNull();
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('reviews required set to 0');
+  });
+
   it('stops when the AE step was not Reject', () => {
     const h = hooks();
     writeRun(document, { id: 'XYZJ-26-09-9011', step: 'ae-form', at: Date.now(), ae: 'Co-Chair, Opinions' });
