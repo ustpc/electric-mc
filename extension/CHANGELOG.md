@@ -5,6 +5,7 @@ Newest first. Every version bump gets an entry here.
 ## 0.0.83 (2026-11-20)
 
 - Changed: one-button reject decides whether MC is showing a Reject choice or Submit button with Chrome's own visibility check, which also catches controls hidden by an enclosing section, not only by their own style.
+- Fixed: "Extension context invalidated" could still reach the console from MC tabs left open after E-MC was reloaded. Every storage read and write in those tabs now checks first that E-MC is still there and never throws, and settings changes, the keepalive and the login page do the same. Old errors stay listed on the Extensions page until you press Clear all there.
 
 ## 0.0.82 (2026-11-20)
 

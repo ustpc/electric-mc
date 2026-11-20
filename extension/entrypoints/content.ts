@@ -89,10 +89,10 @@ async function start() {
   // The latest run's context, for click handlers and stored-value changes.
   let current: PageContext | null = null;
   const live = () => (chrome.runtime?.id && enabled() ? current : null);
-  const getStored = async <T,>(key: string) => (await chrome.storage.local.get(key))[key] as T | undefined;
+  const getStored = async <T,>(key: string) => (await stored(key))[key] as T | undefined;
   startFeatures(features, { doc: document, clicks, current: live }, send);
   const watched = watchedKeys(features);
-  deliverStored(features, await chrome.storage.local.get(watched), null, send);
+  deliverStored(features, await stored(watched), null, send);
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
     // until they are reloaded. Stop it so it can't fight the new version.
@@ -258,14 +258,15 @@ async function start() {
   const onActivity = () => {
     if (!chrome.runtime?.id || Date.now() - activityWritten < 60_000) return;
     activityWritten = Date.now();
-    void chrome.storage.local.set({ [KEY.lastActivity]: activityWritten }).catch(() => {});
+    void store({ [KEY.lastActivity]: activityWritten });
   };
   for (const t of ['keydown', 'mousedown', 'mousemove', 'wheel', 'touchstart']) window.addEventListener(t, onActivity, { passive: true, capture: true });
   onActivity();
   const keepalive = async (trigger: 'idle' | 'hotkey') => {
-    await chrome.storage.local.set({ [KEY.lastKeepalive]: Date.now() });
+    if (!alive()) return;
+    await store({ [KEY.lastKeepalive]: Date.now() });
     const r = await sendKeepalive(document);
-    const got = await chrome.storage.local.get(KEY.lastActivity).catch(() => ({}) as Record<string, unknown>);
+    const got = await stored(KEY.lastActivity);
     const activity = got[KEY.lastActivity] as number | undefined;
     // Minutes since the person last used MC and since this page loaded, to
     // compare with when MC logs them out.
@@ -276,7 +277,7 @@ async function start() {
   };
   window.setInterval(() => {
     if (!chrome.runtime?.id || !enabled() || !settings.keepAlive) return;
-    void chrome.storage.local.get([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
+    void stored([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
       const activity = (got[KEY.lastActivity] as number | undefined) ?? Date.now();
       const sent = (got[KEY.lastKeepalive] as number | undefined) ?? 0;
       // Only a tab whose page has the "+ Search" toggle sends; the others
@@ -299,7 +300,7 @@ async function start() {
     if (msg.type === 'open') {
       reply({ ok: openManuscript(document, msg.id) });
     } else if (msg.type === 'ping') {
-      reply({ version: chrome.runtime.getManifest().version });
+      reply({ version: alive() ? chrome.runtime.getManifest().version : null });
     } else if (msg.type === 'reparse') {
       run('manual');
       reply({ ok: enabled() });
@@ -331,7 +332,7 @@ async function start() {
         stopLogin = null;
       }
       run('settings');
-    });
+    }, () => {});
   });
 }
 
@@ -340,9 +341,38 @@ function idsKey(r: ParseResult): string {
   return r.manuscriptIds.map((m) => m.id).join(',');
 }
 
+/** Whether this copy can still reach E-MC (not left behind by a reload of the extension). */
+function alive(): boolean {
+  try {
+    return !!chrome.runtime?.id;
+  } catch {
+    return false;
+  }
+}
+
+/** chrome.storage.local.get that never rejects: {} once this copy is stale. */
+async function stored(keys: string | string[]): Promise<Record<string, unknown>> {
+  if (!alive()) return {};
+  try {
+    return await chrome.storage.local.get(keys);
+  } catch {
+    return {};
+  }
+}
+
+/** chrome.storage.local.set that never rejects. */
+async function store(items: Record<string, unknown>): Promise<void> {
+  if (!alive()) return;
+  try {
+    await chrome.storage.local.set(items);
+  } catch {
+    /* extension context invalidated */
+  }
+}
+
 function send(m: Msg) {
   // After E-MC is reloaded, this copy lives on in open tabs with no extension to talk to.
-  if (!chrome.runtime?.id) return;
+  if (!alive()) return;
   try {
     chrome.runtime.sendMessage(m).catch(() => {});
   } catch {
@@ -369,10 +399,10 @@ function sendProbes(): void {
  * real-data tests (lib/pagesample.ts). The background checks again.
  */
 async function samplePage(): Promise<void> {
-  if (!chrome.runtime.getManifest().permissions?.includes('nativeMessaging')) return;
+  if (!alive() || !chrome.runtime.getManifest().permissions?.includes('nativeMessaging')) return;
   const name = currentPage(document);
   if (!name) return;
-  const last = (await chrome.storage.local.get(KEY.pageSamples))[KEY.pageSamples] as Record<string, number> | undefined;
+  const last = (await stored(KEY.pageSamples))[KEY.pageSamples] as Record<string, number> | undefined;
   if (!sampleDue(last, name, Date.now())) return;
   send({ type: 'page-sample', name, url: location.origin + location.pathname, html: snapshot() });
 }
