@@ -87,6 +87,8 @@ export interface Settings {
   displayName: string;
   /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
   notesServer: string;
+  /** Developer mode, test builds: the Back-link experiment (lib/backexp.ts). Off unless turned on. */
+  backLinkExperiment: boolean;
   /** Show the advanced settings in the side panel's Settings tab. */
   showAdvanced: boolean;
   /** Zoom for PDFs opened from MC, in percent; 0 leaves Chrome's own fit-to-width. */
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   displayName: '',
   notesServer: '',
   showAdvanced: false,
+  backLinkExperiment: false,
   pdfZoom: 0,
   pdfWordCount: true,
 };

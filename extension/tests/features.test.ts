@@ -184,7 +184,7 @@ function journalKeyHere(): string {
 }
 
 describe('defaults', () => {
-  it('turns every feature on, and leaves developer mode and advanced settings off', () => {
-    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) if (typeof v === 'boolean') expect(v, k).toBe(!['developer', 'showAdvanced'].includes(k));
+  it('turns every feature on, and leaves developer mode, advanced settings and the Back-link experiment off', () => {
+    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) if (typeof v === 'boolean') expect(v, k).toBe(!['developer', 'showAdvanced', 'backLinkExperiment'].includes(k));
   });
 });

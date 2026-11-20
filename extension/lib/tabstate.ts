@@ -27,6 +27,14 @@ export const TAB_KEYS = {
   autoLoginAt: 'emc-auto-login-at',
   /** entrypoints/content.ts: a decision noted at Submit, kept once MC answers. */
   submittedChoice: 'emc-submitted-choice',
+  /** lib/backexp.ts: the latest live page's name and hidden fields. */
+  backExpLatest: 'emc-backexp-latest',
+  /** lib/backexp.ts: a press on a page shown by Back, until MC answers. */
+  backExpTrial: 'emc-backexp-trial',
+  /** lib/backexp.ts: presses so far in this tab. */
+  backExpCount: 'emc-backexp-count',
+  /** lib/backexp.ts: how the next press on a Back page goes out. */
+  backExpVariant: 'emc-backexp-variant',
 } as const;
 
 export type TabKey = keyof typeof TAB_KEYS;

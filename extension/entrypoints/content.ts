@@ -33,6 +33,7 @@ import { eicList } from '../lib/features/eic';
 import { flagLabels } from '../lib/features/flags';
 import { pageLook } from '../lib/features/look';
 import { autoAdvance } from '../lib/features/advance';
+import { backLinkExperiment } from '../lib/features/backexp';
 import { queueMarks } from '../lib/features/queuemarks';
 import { recordIdentity, recordRoles } from '../lib/features/recorders';
 import { runProbes } from '../lib/probes';
@@ -80,7 +81,7 @@ async function start() {
   // those that change how the page looks last.
   const recorders: Feature[] = [versionHistory(), aeAssignMenu(), recordRoles(), recordIdentity()];
   const actions: Feature[] = [oneButtonReject()];
-  const navigation: Feature[] = [autoAdvance()];
+  const navigation: Feature[] = [autoAdvance(), backLinkExperiment()];
   const queue: Feature[] = [queueMarks(), eicList()];
   const look: Feature[] = [flagLabels(), pageLook()];
   const features = [...recorders, ...actions, ...navigation, ...queue, ...look];

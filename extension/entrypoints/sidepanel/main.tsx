@@ -784,7 +784,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'flagLabels' | 'oneButtonReject' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'flagLabels' | 'oneButtonReject' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount' | 'backLinkExperiment', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   const adv = s.showAdvanced;
@@ -835,6 +835,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
         </label>
         <h2 style="margin-top:12px">Developer</h2>
         {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
+        {s.developer && canKeepBackPages() && box('backLinkExperiment', 'Back-link experiment: mark pages shown by Back and log what MC does with their links (needs "Back shows the page as it was")')}
         {s.developer && <label>
           Manuscript ID pattern (blank for default)
           <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />
