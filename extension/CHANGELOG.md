@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.83 (2026-11-20)
+
+- Changed: one-button reject decides whether MC is showing a Reject choice or Submit button with Chrome's own visibility check, which also catches controls hidden by an enclosing section, not only by their own style.
+
 ## 0.0.82 (2026-11-20)
 
 - Fixed: one-button reject reached the AE Recommends form, then stopped with "couldn't find the Recommends form with a Reject choice" and pressed Make Recommendation twice more first. It now counts only the Reject choice and Submit that MC shows (a hidden copy of another form's controls made two of each), takes an image Submit button, stops at once when the form is on the page but can't be read, and says in the banner what it counted.
