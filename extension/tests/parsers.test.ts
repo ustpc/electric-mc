@@ -233,6 +233,21 @@ describe("MC's own page name", () => {
     expect(r.signals.find((s) => s.name === 'mc page name')).toMatchObject({ pageType: 'manuscript', detail: 'ASSOCIATE_EDITOR_MANUSCRIPT_DETAILS' });
   });
 
+  // Chrome computes display:none for every hidden input, so the cleaned copy
+  // the parser classifies has no CURRENT_PAGE; jsdom kept it, which hid the
+  // bug until one-button reject didn't show on a real details page.
+  it('reads the name from the live page, even when the cleaned copy drops it', () => {
+    const r = load('manuscript.html', (d) => {
+      otherManuscripts(d);
+      const f = d.createElement('form');
+      f.style.display = 'none';
+      f.innerHTML = '<input type="hidden" name="CURRENT_PAGE" value="ASSOCIATE_EDITOR_MANUSCRIPT_DETAILS">';
+      d.body.appendChild(f);
+    });
+    expect(r.signals.find((s) => s.name === 'mc page name')).toMatchObject({ pageType: 'manuscript' });
+    expect(r.pageType).toBe('manuscript');
+  });
+
   it('agrees with the other signals on ordinary pages', () => {
     expect(load('role-center.html', withName('ASSOCIATE_EDITOR_DASHBOARD')).pageType).toBe('role-center');
     expect(load('queue-list.html', withName('ASSOCIATE_EDITOR_VIEW_MANUSCRIPTS')).pageType).toBe('queue-list');

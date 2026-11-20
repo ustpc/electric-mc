@@ -5,6 +5,7 @@
 import { findManuscriptIds } from '../lib/ids';
 import { fnv1a, textOf } from '../lib/text';
 import { classify } from './classify';
+import { currentPage } from '../lib/mcpage';
 import { breadcrumb, cleanDocument, freeze, headings, skeleton } from './dom';
 import { extractManuscript, extractQueues, extractRows } from './extract';
 import { PARSER_VERSION, type ParseResult, type ParserConfig } from './types';
@@ -73,7 +74,7 @@ export function parsePage(live: Document, url: string, config: ParserConfig = {}
     base.context = base.breadcrumb[0] ?? h.find((x) => /center|dashboard/i.test(x)) ?? null;
   });
   step('ids', () => (base.manuscriptIds = findManuscriptIds(textOf(doc.body), config.idPattern)));
-  const c = step('classify', () => classify(doc, config.idPattern, live.defaultView));
+  const c = step('classify', () => classify(doc, config.idPattern, live.defaultView, currentPage(live)));
   if (c) Object.assign(base, c);
 
   const merge = (x: { strategies: Record<string, string>; warnings: string[] } | undefined, prefix: string) => {

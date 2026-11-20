@@ -20,6 +20,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:load": "node tools/e2e/load-check.mjs build/chrome-mv3",
+    "test:page": "node tools/e2e/page-check.mjs build/chrome-mv3",
     "validate": "tsx tools/validate.ts",
     "coverage": "vitest run --coverage",
     "ae-profiles": "tsx tools/ae-profiles/build.ts",

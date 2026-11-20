@@ -34,7 +34,12 @@ const MS_LABELS = [
 ];
 const QUEUE_HEADERS = /^(manuscript id|id|title|status|submitted|date submitted|due|due date|take action|action|days|days in folder|associate editor|decision)$/;
 
-export function classify(doc: Document, idPattern?: string, view: Window | null = doc.defaultView): Classification {
+/**
+ * `mcName` is MC's page name read from the live page: the cleaned copy the
+ * parser classifies (parsers/dom.ts cleanDocument) drops CSS-hidden
+ * elements, and in Chrome that includes every hidden input, CURRENT_PAGE too.
+ */
+export function classify(doc: Document, idPattern?: string, view: Window | null = doc.defaultView, mcName: string | null = currentPage(doc)): Classification {
   const signals: Signal[] = [];
   const add = (pageType: PageType, name: string, weight: number, detail?: string) =>
     signals.push({ pageType, name, weight, detail });
@@ -49,7 +54,6 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   // is outright, where it says anything (lib/mcpage.ts). On real pages the
   // other signals alone called about 6% of manuscript pages queue lists (a
   // details page with a table of other manuscripts) and missed some queues.
-  const mcName = currentPage(doc);
   const named = pageTypeOf(mcName);
   if (named) add(named, 'mc page name', 8, mcName ?? undefined);
 

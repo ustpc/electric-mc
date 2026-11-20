@@ -55,6 +55,9 @@ jobs:
       # an update does) and fail on any error Chrome records for it.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:load
+      # A synthetic details page in real Chromium: read as a manuscript page,
+      # one-button controls shown (jsdom alone missed a Chrome-only bug).
+      - run: npm run test:page
 
       - uses: actions/upload-artifact@v7
         if: always()
