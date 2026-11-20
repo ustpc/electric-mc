@@ -5,11 +5,23 @@
 import { openedTask, isRecommendationSubmit, recommendationSubmitControl } from '../advance';
 import { KEY } from '../messages';
 import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../recommend';
+import { recommendsRole } from '../recommendform';
 import { tabSet, tabTake } from '../tabstate';
 import { rolesIn as editorBlock } from '../../parsers/dom';
 import type { Feature, PageContext } from './feature';
 
 const SUBMIT_MS = 3 * 60_000;
+
+/**
+ * The role a press is made in and whether the paper had an AE: the AE's
+ * "… Recommends" form is the AE's; the co-chair's form, or an immediate
+ * decision, is the co-chair's.
+ */
+export function pressRole(doc: Document): Pick<EicItem, 'role' | 'noAe'> {
+  const ae = editorBlock(doc.body).get('ae');
+  const noAe = !ae || /^not assigned$/i.test(ae.trim());
+  return { role: recommendsRole(doc) === 'other' ? 'ae' : 'cc', noAe };
+}
 
 /** Today as yyyy-mm-dd, local time. */
 export function today(d = new Date()): string {
@@ -40,7 +52,7 @@ export function eicList(): Feature {
     const mine = box && myRecommendation(readRecommendations(box), editorBlock(doc.body).get('cc'));
     const had = items[m.id];
     if (mine) {
-      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today(), kind: had?.kind ?? 'recommendation', source: 'box' };
+      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today(), kind: had?.kind ?? 'recommendation', source: 'box', ...(had?.role ? { role: had.role } : {}), ...(had?.noAe !== undefined ? { noAe: had.noAe } : {}) };
       if (!had || had.recommendation !== item.recommendation || had.title !== item.title || had.source !== 'box') {
         send({ type: 'eic', set: item });
         send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
@@ -76,6 +88,7 @@ export function eicList(): Feature {
           seen: today(),
           kind: isDecisionPress(control, openedTask(doc, m.id)) ? 'decision' : 'recommendation',
           source: 'submit',
+          ...pressRole(doc),
         };
         tabSet(doc.defaultView!, 'submittedChoice', { ...item, at: Date.now() });
       });

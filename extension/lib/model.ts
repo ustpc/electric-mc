@@ -89,7 +89,7 @@ export function applyEic(all: Record<string, EicItem>, set?: EicItem, remove?: s
   let changed = false;
   if (set) {
     const prev = out[set.id];
-    if (!(prev && prev.recommendation === set.recommendation && prev.title === set.title && prev.kind === set.kind && prev.source === set.source)) {
+    if (!(prev && prev.recommendation === set.recommendation && prev.title === set.title && prev.kind === set.kind && prev.source === set.source && prev.role === set.role && prev.noAe === set.noAe)) {
       out[set.id] = { ...set, seen: prev?.seen ?? set.seen };
       changed = true;
     }

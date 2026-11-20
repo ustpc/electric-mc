@@ -106,8 +106,10 @@ pitch to associate editors.
 - **Decisions you made, marked in the queue (now).** An immediate decision made without
   assigning an AE leaves the manuscript in MC's Assign AE list. The
   extension notes the choice when you press Submit and, in queue lists and
-  search results, shades that manuscript's rows light red and prints your
-  decision in blue under its ID, until the decision letter goes out.
+  search results, prints your choice and the role you made it in (as AE or
+  as co-chair) in blue under its ID until the decision letter goes out. Only
+  a decision made as co-chair with no AE assigned also shades the rows light
+  red.
 - **The editorial matrix, with workloads (in development).** One window lists the
   whole section team (column heads, columnists and associate editors) with
   photos, roles, institutions and expertise, and shows next to each editor

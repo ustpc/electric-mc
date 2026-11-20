@@ -7,11 +7,12 @@
 // until the EIC acts or the recommendation is rescinded. An immediate
 // decision made without an AE doesn't show in that box, and MC goes on
 // listing the manuscript under Assign AE, so we also note the choice when
-// the person presses Submit or Commit Decision. Those rows get a light red
-// background and the choice in blue under the ID. Only the choice is kept, never the
+// the person presses Submit or Commit Decision. Each gets the choice and the
+// role it was made in, in blue under the ID; only a decision made as
+// co-chair with no AE assigned also gets a light red row. Only the choice is kept, never the
 // comments, and it stays in this browser.
 
-import { pickedLabel } from './recommendform';
+import { pickedLabel, recommendsRole } from './recommendform';
 import { labelKey, textOf, cellLines, truncate, isLayoutRow } from './text';
 import { parseManuscriptId } from './ids';
 
@@ -39,6 +40,10 @@ export interface EicItem {
    * gone out, since the box may never show it.
    */
   source?: 'box' | 'submit';
+  /** The role it was made in: the co-chair's own form, or the AE's. */
+  role?: 'cc' | 'ae';
+  /** No AE was assigned when it was made. */
+  noAe?: boolean;
 }
 
 /** The label of the choice picked on the page (its radio button's row), or null. */
@@ -53,11 +58,16 @@ export function pickedChoice(doc: Document): string | null {
  * "… Immediate Decision" heading on the page.
  */
 export function isDecisionPress(control: Element, task: string | null): boolean {
+  const doc = control.ownerDocument;
+  // An "… Recommends" form other than the co-chair's (the AE's) is never a decision.
+  if (recommendsRole(doc) === 'other') return false;
   const label = labelKey(textOf(control) || control.getAttribute('value') || '');
   if (/decision$/.test(label)) return true;
   if (task && /decision/.test(task)) return true;
-  return Array.from(control.ownerDocument.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
-    (e) => e.children.length <= 2 && textOf(e).length < 60 && /immediate decision$/.test(labelKey(textOf(e))),
+  // The form's own heading; not the "Make Immediate Decision" task link that
+  // the details page lists next to every other task.
+  return Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
+    (e) => !e.closest('a') && !e.querySelector('a') && e.children.length <= 2 && textOf(e).length < 60 && /immediate decision$/.test(labelKey(textOf(e))),
   );
 }
 
@@ -113,9 +123,28 @@ const CSS = `table tr[${ROW_ATTR}] > td, table tr[${ROW_ATTR}] > th { background
 /** The note for one manuscript. */
 export function eicNote(item: EicItem): string {
   if (!item.recommendation) return 'E-MC: decision made; MC still lists it until the EIC acts';
+  const as = item.role === 'ae' ? ' as AE' : item.role === 'cc' ? ' as co-chair' : '';
   return item.kind === 'decision'
-    ? `E-MC: you decided ${item.recommendation} (${item.seen}); MC still lists it until the EIC acts`
-    : `E-MC: you recommended ${item.recommendation} (seen ${item.seen}); waiting for the EIC`;
+    ? `E-MC: you decided ${item.recommendation}${as} (${item.seen}); MC still lists it until the EIC acts`
+    : `E-MC: you recommended ${item.recommendation}${as} (seen ${item.seen}); waiting for the EIC`;
+}
+
+/** Whether a queue row's Status names an AE ("AE: Not Assigned" doesn't). */
+export function rowHasAe(status: string): boolean {
+  return status.split('\n').some((l) => /^\s*ae:\s*\S/i.test(l) && !/^\s*ae:\s*not assigned/i.test(l));
+}
+
+/**
+ * Only a decision made as co-chair with no AE assigned gets the colored row
+ * (it lingers in MC's Assign AE queue); a recommendation, or a decision made
+ * as AE or with an AE on the paper, gets the note alone. An item from an
+ * older build that doesn't say its role counts as a recommendation when the
+ * row shows an AE.
+ */
+export function decidedAsCoChairWithoutAe(item: EicItem, status: string): boolean {
+  if (item.kind !== 'decision' || item.role === 'ae') return false;
+  if (item.noAe === false) return false;
+  return !rowHasAe(status);
 }
 
 /**
@@ -162,17 +191,22 @@ export function annotateEicRows(doc: Document, items: Record<string, EicItem>, i
       }
       span = 0;
       const status = tr.cells[col] ? cellLines(tr.cells[col]!).join('\n') : '';
+      const saved = items[ref.id];
       const item: EicItem | undefined =
-        items[ref.id] ??
-        (decidedWithoutAe(status) ? { id: ref.id, baseId: ref.baseId, site: null, recommendation: '', seen: '', kind: 'decision' } : undefined);
+        saved ?? (decidedWithoutAe(status) ? { id: ref.id, baseId: ref.baseId, site: null, recommendation: '', seen: '', kind: 'decision', role: 'cc', noAe: true } : undefined);
       const cell = item && col >= 0 ? (tr.cells[0] ?? null) : null;
       if (!item || !cell) continue;
-      tr.setAttribute(ROW_ATTR, item.id);
-      span = Math.max(1, ...Array.from(tr.cells).map((c) => c.rowSpan || 1)) - 1;
+      const colored = decidedAsCoChairWithoutAe(item, status) || (!saved || decidedWithoutAe(status));
+      // An older item's "decision" on a row with an AE was the AE's recommendation.
+      const shown: EicItem = item.kind === 'decision' && !item.role && rowHasAe(status) ? { ...item, kind: 'recommendation' } : item;
+      if (colored) {
+        tr.setAttribute(ROW_ATTR, item.id);
+        span = Math.max(1, ...Array.from(tr.cells).map((c) => c.rowSpan || 1)) - 1;
+      }
       const note = doc.createElement('div');
       note.setAttribute('data-electric-mc', NOTE);
       note.style.cssText = `margin-top:4px;color:${DECIDED_COLOR} !important;font-weight:700 !important`;
-      note.textContent = eicNote(item);
+      note.textContent = eicNote(shown);
       cell.appendChild(note);
       n++;
     }

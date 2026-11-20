@@ -150,6 +150,40 @@ describe('decisions made without an AE', () => {
     expect(isDecisionPress(go, 'make immediate decision')).toBe(true);
   });
 
+  it('never takes the AE\'s recommendation for a decision, even with the Make Immediate Decision task link on the page', () => {
+    document.body.innerHTML = `<a href="#">Make Immediate Decision</a><table><tr><td><b>Associate Editor Recommends</b></td></tr>
+      <tr><td><input type="radio" name="d" checked></td><td>Reject</td></tr><tr><td><input type="button" value="Submit" id="go"></td></tr></table>`;
+    expect(isDecisionPress(document.getElementById('go')!, null)).toBe(false);
+    document.body.innerHTML = `<p><a href="#">Make Immediate Decision</a></p><table><tr><td><input type="radio" name="d" checked></td><td>Reject</td></tr>
+      <tr><td><input type="button" value="Submit" id="go"></td></tr></table>`;
+    expect(isDecisionPress(document.getElementById('go')!, null)).toBe(false);
+  });
+
+  it('shades a row only for a decision made as co-chair with no AE, and names the role', () => {
+    const withAe = GRID.replace('<td>AE: Not Assigned</td><td><a href="#" id="go1">', '<td>AE: Editor, Pat<br>CC: Chair, Robin</td><td><a href="#" id="go1">');
+    const note = () => document.querySelector('[data-electric-mc="eic-note"]')!.textContent;
+    const shaded = () => document.querySelectorAll('tr[data-emc-decided]').length;
+    // The AE's recommendation: the note, no shading.
+    document.body.innerHTML = withAe;
+    annotateEicRows(document, { [ITEM.id]: { ...ITEM, kind: 'recommendation', role: 'ae', noAe: false } });
+    expect(note()).toBe('E-MC: you recommended Reject as AE (seen 2026-10-23); waiting for the EIC');
+    expect(shaded()).toBe(0);
+    // An older build's "decision" on a row with an AE: shown as a recommendation, not shaded.
+    document.body.innerHTML = withAe;
+    annotateEicRows(document, { [ITEM.id]: DECISION });
+    expect(note()).toBe('E-MC: you recommended Reject (seen 2026-10-23); waiting for the EIC');
+    expect(shaded()).toBe(0);
+    // A co-chair decision made with an AE on the paper: not shaded.
+    document.body.innerHTML = withAe;
+    annotateEicRows(document, { [ITEM.id]: { ...DECISION, role: 'cc', noAe: false } });
+    expect(note()).toBe('E-MC: you decided Reject as co-chair (2026-10-23); MC still lists it until the EIC acts');
+    expect(shaded()).toBe(0);
+    // A co-chair decision with no AE: shaded.
+    document.body.innerHTML = GRID;
+    annotateEicRows(document, { [ITEM.id]: { ...DECISION, role: 'cc', noAe: true } });
+    expect(shaded()).toBe(1);
+  });
+
   it('finds no choice when none is picked', () => {
     document.body.innerHTML = '<table><tr><td><input type="radio" name="d"></td><td>Reject</td></tr></table>';
     expect(pickedChoice(document)).toBeNull();
