@@ -2,6 +2,8 @@
 // names: the person loads a roster.json file, and it stays in this browser's chrome.storage.local.
 // Everything in it is checked here before it is stored or shown.
 
+import { fold } from './text';
+
 export const GROUPS = [
   { id: 'leadership', title: 'Editor-in-chief and co-chairs' },
   { id: 'column_heads', title: 'Column heads' },
@@ -50,10 +52,6 @@ export interface Roster {
 }
 
 /** Lowercase without accents, for comparing names and searching. */
-export function fold(s: string): string {
-  return s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
-}
-
 class Invalid extends Error {}
 
 const str = (v: unknown, what: string, max = 2000): string => {

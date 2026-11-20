@@ -17,11 +17,17 @@ builds can also append the log, in developer mode only, to a file on the
 same computer through a helper you install yourself (`make
 install-log-host`); nothing is sent anywhere else. In developer mode the log
 also records a trace of each click (which control and its label) and each
-page load (address, MC's hidden form fields and page metadata); typed text is
-never recorded.
+page load (address, MC's hidden form fields and page metadata), and each
+request the page's own scripts make (its address and the names, not values,
+of its parameters); typed text is never recorded. Test builds in developer mode with that helper installed also
+save, once a week for each kind of MC page, a copy of the page's HTML (scripts
+and typed text left out) next to the log file, in `var/real-pages/`, replacing
+the previous week's copy; it is read only by local tests on that computer and
+never committed or sent anywhere (extension 0.0.79).
 Manuscripts you haven't viewed in 2 years are removed from that storage
 automatically, with your notes on them, and **Clear all data** in Settings
-removes all of it at once (extension 0.0.30).
+removes all of it at once (extension 0.0.30), including, since 0.0.79, the
+activity times and this browser's note-signing keys.
 
 The one exception is **shared notes** (extension 0.0.40), and only if you
 enter a notes server address in Settings. Without one, notes stay in your
@@ -130,11 +136,46 @@ no manuscript data is part of that. The file is kept in
 `chrome.storage.local` in that browser only. Clear all data removes it.
 
 **The To EIC list and your roles.** The extension keeps, in
-`chrome.storage.local` only, each recommendation you sent to the EIC
-(manuscript ID, title, the recommendation, and when it was first seen) and
+`chrome.storage.local` only, each recommendation you sent to the EIC and
+each decision you submitted (manuscript ID, title, the choice you picked,
+and when it was first seen) and
 which MC roles you have. It never keeps your comments to the EIC or the
 author. Items leave the list when the EIC acts; Clear all data removes the
 list and the roles.
+
+**MC's flag labels** (extension 0.0.78). When a manuscript page shows MC's
+"Flag This Manuscript" panel, the extension keeps each flag icon's file name
+and label, per journal, in `chrome.storage.local`, so it can name the icons
+on other pages. Only MC's own labels are kept, nothing about the manuscript.
+Clear all data removes them.
+
+**Who is logged in** (extension 0.0.40). MC's pages carry the logged-in
+person's name, email address and account ID in the setup call for MC's
+analytics service (Pendo, which MC uses; the extension never contacts it).
+The extension reads them from the page and keeps them per MC site in
+`chrome.storage.local`, whether or not a notes server is set: they sign your
+notes, find your own entry in the AE pull-down for one-button reject, and
+pick the page to land on after login. Clear all data removes them.
+
+**One-button reject** (extension 0.0.78; on by default since 0.0.80). While a run is in
+progress, the comments you wrote to the author and to the editor are kept in
+that tab's `sessionStorage` (cleared when the tab closes) for up to 30
+minutes, so they can be copied from the AE recommendation into the co-chair
+recommendation on the next pages. The log records each step without any text
+from the paper or your comments.
+
+**Page checks** (extension 0.0.79). On each MC page the extension checks
+whether the page parts its features rely on are there, and keeps, per MC page
+name, how often each check passed or failed, in `chrome.storage.local`. Only
+the check names and counts are kept, never page text. Clear all data removes
+them.
+
+**Keepalive** (on by default since 0.0.80; can be turned off). While it is on, after 10 minutes without
+keyboard or mouse activity in any MC tab the extension presses MC's own
+"+ Search" toggle, which sends MC a small request, so MC doesn't log you out;
+it stops after 48 hours without activity. The times of your last activity
+and last keepalive are kept in `chrome.storage.local`; Clear all data
+removes them. Nothing is sent anywhere but MC.
 
 Details: [Technical Stack and Architecture.md](planning/Technical%20Stack%20and%20Architecture.md)
 sections 2 and 6.
@@ -333,3 +374,9 @@ staff will be switched on later, and this page will say so.
 | 2026-11-04 | The team database (names, MC emails, roles, links, photos) replaces the loaded roster and the AE menu's people table; local storage only; Clear all data removes it (extension 0.0.54). |
 | 2026-11-07 | Test builds let Chrome cache MC pages (no-store replaced with private) so Back works; pages stay in Chrome's cache on the computer; a setting turns it off (extension 0.0.59). |
 | 2026-11-12 | Word counts on PDFs: the extension fetches the PDF again and reads its text on-device with pdf.js; text and count stay in the tab, the log keeps numbers only (extension 0.0.75). |
+| 2026-11-18 | The To EIC list also keeps the choice you picked when you press Submit or Commit Decision (no comments), so decisions made without an AE can be marked on queue lists; local storage only (extension 0.0.78). |
+| 2026-11-20 | Test builds in developer mode with the log helper save one HTML copy per kind of MC page each week (scripts and typed text removed) in `var/real-pages/` on the computer, for local tests only. Clear all data now also removes the activity times, the flag labels and this browser's note-signing keys (extension 0.0.79). |
+| 2026-11-20 | Added what was missing from this policy: MC's flag labels (0.0.78), the logged-in identity read from MC's analytics metadata and kept even without a notes server, one-button reject's comments in the tab's sessionStorage for up to 30 minutes, and the keepalive's requests to MC and activity times (from the 2026-11-19 system audit). |
+| 2026-11-20 | Developer mode also logs the requests MC's own page scripts make, by address and parameter names only, in local storage and the local log file (extension 0.0.79). |
+| 2026-11-20 | Page checks: per MC page name, counts of which page parts were found, no page text, local storage only; Clear all data removes them (extension 0.0.79). |
+| 2026-11-20 | Back-link experiment (test builds, developer mode, off unless turned on): this tab's sessionStorage holds the latest MC page's hidden form fields so a press on a page shown by Back can reuse them; the log gets MC page names, field names, a kind of link and yes/no results only (extension 0.0.80). |

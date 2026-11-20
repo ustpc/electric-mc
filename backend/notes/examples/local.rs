@@ -33,7 +33,11 @@ async fn main() -> std::io::Result<()> {
             buf.extend_from_slice(&chunk[..n]);
             if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
                 let head = String::from_utf8_lossy(&buf[..i]).to_lowercase();
-                let len = head.lines().find_map(|l| l.strip_prefix("content-length:")).and_then(|v| v.trim().parse().ok()).unwrap_or(0);
+                let len = head
+                    .lines()
+                    .find_map(|l| l.strip_prefix("content-length:"))
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(0);
                 break (i + 4, len);
             }
         };
@@ -49,12 +53,25 @@ async fn main() -> std::io::Result<()> {
         }
         let is_post = buf.starts_with(b"POST ");
         let (status, body) = if is_post {
-            let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
-            handle(&store, &cfg, &String::from_utf8_lossy(&buf[head_end..(head_end + len).min(buf.len())]), now).await
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64;
+            handle(
+                &store,
+                &cfg,
+                &String::from_utf8_lossy(&buf[head_end..(head_end + len).min(buf.len())]),
+                now,
+            )
+            .await
         } else {
             (204, serde_json::Value::Null)
         };
-        let body = if status == 204 { String::new() } else { body.to_string() };
+        let body = if status == 204 {
+            String::new()
+        } else {
+            body.to_string()
+        };
         let reply = format!(
             "HTTP/1.1 {status} X\r\ncontent-type: application/json\r\naccess-control-allow-origin: *\r\naccess-control-allow-methods: POST\r\naccess-control-allow-headers: content-type\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
             body.len()

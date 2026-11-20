@@ -2,7 +2,7 @@
 // placements and section labels, the roster derived for the matrix, a team
 // made from an older roster, and removing a person everywhere.
 import { describe, expect, it } from 'vitest';
-import { emptyTeam, newId, parseTeam, placementOf, removePerson, rosterFromTeam, sectionLabel, teamFromRoster, unassignedAes, unplaced, type Team, type TeamPerson } from '../lib/team';
+import { emptyTeam, newId, parseTeam, placementOf, removePerson, removeSection, removeSectionText, sectionToColumn, sectionToColumnText, rosterFromTeam, sectionLabel, teamFromRoster, unassignedAes, unplaced, type Team, type TeamPerson } from '../lib/team';
 import type { Roster } from '../lib/roster';
 
 const person = (id: string, given: string, family: string, more: Partial<TeamPerson> = {}): TeamPerson => ({ id, given, family, affiliations: [], expertise: '', links: [], ...more });
@@ -78,5 +78,74 @@ describe('team database', () => {
     expect(() => parseTeam(t)).not.toThrow();
     expect(newId('p', 'Casey Chen', ['p-casey-chen'])).toBe('p-casey-chen-2');
     expect(newId('s', 'Économie & Société', [])).toBe('s-economie-societe');
+  });
+});
+
+describe('removing a section', () => {
+  // A section whose head is on no other part of the tree, like a column set up as a section by mistake.
+  const withLoneSection = (): Team => {
+    const t = team();
+    return { ...t, sections: [...t.sections, { id: 's3', name: 'Bits', heads: ['p5'], aes: ['p3'] }], columns: [...t.columns, { id: 'c3', name: 'Inner', section: 's3', columnists: [] }] };
+  };
+
+  it('keeps its head and AEs on the tree, reporting to the co-chairs, and moves its columns', () => {
+    const t = removeSection(withLoneSection(), 's3');
+    expect(t.sections.map((s) => s.id)).toEqual(['s1', 's2']);
+    expect(unplaced(t).map((p) => p.id)).not.toContain('p5');
+    expect(unassignedAes(t).map((p) => p.id).sort()).toEqual(['p3', 'p5']);
+    expect(t.columns.find((c) => c.id === 'c3')?.section).toBeUndefined();
+    expect(t.columns.find((c) => c.id === 'c1')?.section).toBe('s1');
+  });
+
+  it('leaves alone people who have another place', () => {
+    const t = removeSection(team(), 's1');
+    expect(t.people.find((p) => p.id === 'p1')?.ae).toBe(true); // head only here
+    expect(placementOf(t, 'p2').aeIn.map((s) => s.id)).toEqual(['s2']);
+    expect(removeSectionText(team(), 's1')).toContain('Blair Brown keeps their other places');
+  });
+
+  it('says exactly what happens, and points to making it a column', () => {
+    const text = removeSectionText(withLoneSection(), 's3');
+    expect(text).toContain('Remove the Bits section?');
+    expect(text).toContain('Sam Spare (its head) will be in "AEs in no section", reporting to the co-chairs.');
+    expect(text).toContain('Emery Evans (its AE) will be in "AEs in no section".');
+    expect(text).toContain('Its column Inner will report to the co-chairs.');
+    expect(text).toContain('"Make it a column"');
+    expect(removeSectionText({ ...team(), sections: [{ id: 'e', name: 'Empty', heads: [], aes: [] }] }, 'e')).toContain('no heads, AEs or columns');
+  });
+
+  it('turns a section into a column of the same name with its heads as columnists', () => {
+    const t = sectionToColumn(withLoneSection(), 's3');
+    expect(t.sections.some((s) => s.id === 's3')).toBe(false);
+    const col = t.columns.find((c) => c.name === 'Bits')!;
+    expect(col).toMatchObject({ columnists: ['p5'] });
+    expect(col.section).toBeUndefined();
+    expect(t.people.find((p) => p.id === 'p5')?.ae).toBeUndefined();
+    expect(unplaced(t).map((p) => p.id)).not.toContain('p5');
+    expect(unassignedAes(t).map((p) => p.id)).toContain('p3');
+    expect(sectionToColumnText(withLoneSection(), 's3')).toContain('Sam Spare will be its columnist.');
+    expect(sectionToColumn(t, 'nope')).toBe(t);
+  });
+});
+
+describe('saving a team file', () => {
+  it('names the file after the team and writes a file that reads back', async () => {
+    const { saveTeamFile, teamFileName } = await import('../lib/teamStore');
+    expect(teamFileName({ ...team(), name: 'Opinions & More' })).toBe('team-opinions-more.json');
+    expect(teamFileName({ ...team(), name: '' })).toBe('team-team.json');
+    let blob: Blob | undefined;
+    const clicked: string[] = [];
+    const urls = { createObjectURL: (b: Blob) => ((blob = b), 'blob:x'), revokeObjectURL: () => {} };
+    const doc = { createElement: () => ({ set href(_v: string) {}, set download(v: string) { clicked.push(v); }, click: () => clicked.push('click') }) } as unknown as Document;
+    const was = { create: URL.createObjectURL, revoke: URL.revokeObjectURL };
+    Object.assign(URL, urls);
+    const t = team();
+    try {
+      saveTeamFile(t, doc);
+    } finally {
+      Object.assign(URL, { createObjectURL: was.create, revokeObjectURL: was.revoke });
+    }
+    expect(clicked).toEqual(['team-test.json', 'click']);
+    expect(parseTeam(JSON.parse(await blob!.text()))).toEqual(t);
   });
 });

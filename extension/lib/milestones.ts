@@ -3,13 +3,10 @@
 // Everything we add to MC's pages is bold in the E-MC color so it can't be
 // mistaken for ScholarOne's own content.
 
+import { EMC_STYLE } from './ui';
 import { labeledValues } from '../parsers/dom';
 import { parseManuscriptId } from './ids';
-import { labelKey, textOf, isLayoutRow } from './text';
-
-/** The E-MC color: the brown of the side panel's warning pill. */
-export const EMC_COLOR = '#b45309';
-export const EMC_STYLE = `color:${EMC_COLOR} !important;font-weight:700 !important`;
+import { MC_DATE, labelKey, textOf, isLayoutRow } from './text';
 
 /** What we know about one earlier version. */
 export interface VersionInfo {
@@ -21,7 +18,6 @@ export interface VersionInfo {
   coChair?: string;
 }
 
-const DATE = /\b\d{1,2}-[A-Z][a-z]{2}-\d{4}\b/;
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 // Role links MC prints after a name ("Co-Chair, Opinions AU REV AE CC").
 const ROLE_TAIL = /(\s+(AU|REV|AE|CC|EIC|ADM|PROD|SE|ME|EO))+$/;
@@ -49,7 +45,7 @@ export function versionInfoFrom(doc: Document, id: string): VersionInfo {
           const name = person(v);
           if (name) return name;
         } else {
-          const d = DATE.exec(v)?.[0];
+          const d = MC_DATE.exec(v)?.[0];
           if (d) return d;
         }
       }
@@ -179,7 +175,7 @@ export function decisionLettersIn(root: ParentNode, idPattern?: string): Map<str
       const at = event.search(/Decision on Manuscript ID/i);
       if (at < 0 || !/successfully sent/i.test(event)) continue;
       const ref = parseManuscriptId(event.slice(at).replace(/-\s+/g, '-'), idPattern);
-      const date = DATE.exec(textOf(tr.cells[dateCol + s]))?.[0];
+      const date = MC_DATE.exec(textOf(tr.cells[dateCol + s]))?.[0];
       // Newest first in MC's list; keep the first (latest) letter per version.
       if (ref && date && !out.has(ref.id)) out.set(ref.id, date);
     }

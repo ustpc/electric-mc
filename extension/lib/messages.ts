@@ -8,6 +8,8 @@ import type { VersionInfo } from './milestones';
 import type { EicItem } from './recommend';
 import type { Role } from './roles';
 import type { McIdentity } from './identity';
+import type { NoteOp } from './notes';
+import type { ProbeResults } from './probes';
 
 export type Msg =
   | { type: 'parsed'; result: ParseResult; reason: string; title: string | null }
@@ -17,8 +19,13 @@ export type Msg =
   | { type: 'ae-load'; journal: string; entries: AeLoadEntry[] }
   | { type: 'roles'; site: string; roles: Role[] }
   | { type: 'eic'; set?: EicItem; remove?: string }
+  | { type: 'flags'; journal: string; map: Record<string, string> }
   | { type: 'identity'; site: string; identity: McIdentity }
   | { type: 'pdf-opened' }
+  | { type: 'page-sample'; name: string; url: string; html: string }
+  | { type: 'probes'; page: string; results: ProbeResults }
+  // Side panel → background: change one manuscript's notes; replies { ok } or { error }.
+  | { type: 'notes'; m: string; op: NoteOp }
   // Side panel → content script (via tabs.sendMessage)
   | { type: 'reparse' }
   | { type: 'capture' }
@@ -54,6 +61,10 @@ export interface Settings {
   loginToCoChair: boolean;
   /** Show revisions (.R1, .R2, …) bold on a yellow background in queue lists. */
   highlightRevisions: boolean;
+  /** Put MC's flag labels next to flag icons, as learned from the Flag This Manuscript panel (lib/flags.ts). On by default. */
+  flagLabels: boolean;
+  /** "| [ ] reject [one-button reject]" next to MC's Assign AE button (lib/onebutton.ts). On by default. */
+  oneButtonReject: boolean;
   /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
   lookupEarlierVersions: boolean;
   /** Widen MC's fixed-width column to the window, less half an inch each side. */
@@ -66,7 +77,7 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
-  /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). Off by default. */
+  /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). On by default. */
   keepAlive: boolean;
   /** After a recommendation is submitted, open the next manuscript in the list (lib/advance.ts). */
   autoAdvance: boolean;
@@ -76,6 +87,8 @@ export interface Settings {
   displayName: string;
   /** The notes server (backend/notes function URL). Empty: notes stay in this browser. */
   notesServer: string;
+  /** Developer mode, test builds: the Back-link experiment (lib/backexp.ts). Off unless turned on. */
+  backLinkExperiment: boolean;
   /** Show the advanced settings in the side panel's Settings tab. */
   showAdvanced: boolean;
   /** Zoom for PDFs opened from MC, in percent; 0 leaves Chrome's own fit-to-width. */
@@ -88,21 +101,24 @@ export const DEFAULT_SETTINGS: Settings = {
   developer: false,
   rewriteTitle: true,
   disabledHosts: [],
-  autoLogin: false,
+  autoLogin: true,
   loginToCoChair: true,
   highlightRevisions: true,
+  flagLabels: true,
+  oneButtonReject: true,
   lookupEarlierVersions: true,
-  fullWidth: false,
+  fullWidth: true,
   fontSize: 0,
-  autoTakeAction: false,
-  hidePageHeader: false,
+  autoTakeAction: true,
+  hidePageHeader: true,
   autoAttach: true,
-  keepAlive: false,
+  keepAlive: true,
   autoAdvance: true,
   backPages: true,
   displayName: '',
   notesServer: '',
   showAdvanced: false,
+  backLinkExperiment: false,
   pdfZoom: 0,
   pdfWordCount: true,
 };
@@ -188,6 +204,8 @@ export const KEY = {
   lastKeepalive: 'lastKeepalive',
   /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
   eic: 'eic',
+  /** MC's flag icons and their labels, by journal (lib/flags.ts). */
+  flags: 'flags',
   /** AE expertise profiles the person loaded, as the file was written (lib/match.ts). */
   aeProfiles: 'aeProfiles',
   /** The AE-assignment menu's layout: this browser's copy, the server's, and which is used (lib/aemenu.ts). */
@@ -196,13 +214,27 @@ export const KEY = {
   identity: 'identity',
   /** The matrix's "Hide columnists" checkbox. */
   matrixHideColumnists: 'matrixHideColumnists',
+  /** When each kind of MC page was last saved as a sample, by CURRENT_PAGE (lib/pagesample.ts). Test builds only. */
+  pageSamples: 'pageSamples',
+  /** Probe results learned per MC page name (lib/probes.ts). */
+  probes: 'probes',
   tab: (id: number) => `tab:${id}`,
 } as const;
 
 /**
+ * Every storage.local key that holds data, for Clear all data. Settings live
+ * in storage.sync and are kept. A test checks that each KEY is either here or
+ * deliberately left out, so a new key can't be forgotten.
+ */
+export const LOCAL_DATA_KEYS: string[] = [
+  KEY.log, KEY.seen, KEY.notes, KEY.lastPrune, KEY.aeLoad, KEY.team, KEY.roster, KEY.roles, KEY.lastActivity,
+  KEY.lastKeepalive, KEY.eic, KEY.flags, KEY.aeProfiles, KEY.aeMenu, KEY.identity, KEY.matrixHideColumnists, KEY.pageSamples, KEY.probes,
+];
+
+/**
  * Settings live in chrome.storage.sync, so they follow the person's Chrome
  * profile to every computer they sign in to, with no Electric MC account.
- * Builds before 0.2.6 kept them in storage.local; those are copied over once.
+ * The earliest test builds (0.0.11 and before) kept them in storage.local; those are copied over once.
  */
 export const SETTINGS_AREA = 'sync' as const;
 

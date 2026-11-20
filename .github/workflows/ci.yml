@@ -1,5 +1,6 @@
-# Typechecks, tests (with coverage), builds and load-tests the extension on every push
-# and pull request. The coverage table goes in the run summary and, on pull
+# Typechecks, lints, tests (with coverage), builds and load-tests the extension on every push
+# and pull request, and checks the notes server, the Python tools and the
+# whole repository for real MC data. The coverage table goes in the run summary and, on pull
 # requests, in a comment; the HTML report is the "coverage" artifact.
 name: CI
 
@@ -41,15 +42,22 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
       - run: npm run typecheck
+      - run: npm run lint
       - run: npm run coverage
       - run: npm run build
       # Chrome Web Store policy (MV3): no remotely hosted code. The build runs
       # this check too; it is repeated here so a failure is easy to spot.
       - run: npm run check:remote-code
+      # Every permission the manifest asks for must be in permissions.json
+      # (AGENTS.md: new permissions are flagged first).
+      - run: npm run check:permissions
       # Load the built extension into headless Chromium, reload it twice (as
       # an update does) and fail on any error Chrome records for it.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:load
+      # A synthetic details page in real Chromium: read as a manuscript page,
+      # one-button controls shown (jsdom alone missed a Chrome-only bug).
+      - run: npm run test:page
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -65,3 +73,41 @@ jobs:
           working-directory: extension
           json-summary-path: coverage/coverage-summary.json
           json-final-path: coverage/coverage-final.json
+
+  real-data:
+    # AGENTS.md: real Manuscript Central data never goes in this repository.
+    # The check looks at shapes (IDs outside the synthetic ranges, emails
+    # outside example.org, capture files); it prints where, never what.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node tools/privacy/check-no-real-data.mjs
+
+  notes-server:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend/notes
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend/notes
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+
+  python-tools:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uvx ruff check .
+      - run: uvx --with playwright --with psutil --with keyring --with pytest --with pillow pyright
+      - run: uv run --with pytest --with keyring --with playwright --with psutil pytest -q tools/mc-watch

@@ -3,7 +3,9 @@
 // and clickable IDs. Synthetic markup and names only.
 import { describe, expect, it } from 'vitest';
 import { addRoles, roleLabels, rolesIn } from '../lib/roles';
-import { annotateEicRows, eicSummary, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { annotateEicRows, decidedWithoutAe, eicSummary, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { linkIds, unlinkIds } from '../lib/idlink';
 
 describe('roles', () => {
@@ -63,12 +65,12 @@ const GRID = `<table>
 const ITEM: EicItem = { id: 'XYZJ-26-09-9011', baseId: 'XYZJ-26-09-9011', site: 'xyzj', title: 'A Synthetic Paper', recommendation: 'Reject', seen: '2026-10-23' };
 
 describe('queue grid', () => {
-  it('notes a recommended manuscript in its Status cell', () => {
+  it('notes a recommended manuscript under its ID', () => {
     document.body.innerHTML = GRID;
     expect(annotateEicRows(document, { [ITEM.id]: ITEM })).toBe(1);
     const note = document.querySelector('[data-electric-mc="eic-note"]')!;
     expect(note.textContent).toBe('E-MC: you recommended Reject (seen 2026-10-23); waiting for the EIC');
-    expect(note.closest('td')!.textContent).toContain('AE: Not Assigned');
+    expect(note.closest('td')!.textContent).toContain('XYZJ-26-09-9011');
     // Run again: still one note.
     annotateEicRows(document, { [ITEM.id]: ITEM });
     expect(document.querySelectorAll('[data-electric-mc="eic-note"]')).toHaveLength(1);
@@ -129,5 +131,106 @@ describe('pages with ID links still parse and highlight', () => {
     expect(marked.map((tr) => tr.getAttribute('data-emc-revision'))).toEqual(['TEST-26-03-1111.R2', '']);
     expect(marked[0]!.cells[0]!.querySelector('a[data-electric-mc="id-link"]')?.textContent).toBe('TEST-26-03-1111.R2');
     expect(marked[1]!.previousElementSibling).toBe(marked[0]);
+  });
+});
+
+describe('decisions made without an AE', () => {
+  const DECISION: EicItem = { ...ITEM, recommendation: 'Reject', kind: 'decision', source: 'submit', seen: '2026-10-23' };
+
+  it('reads the picked choice and tells a decision from a recommendation', () => {
+    document.body.innerHTML = `<table><tr><td><b>Co-Chair Immediate Decision</b></td></tr>
+      <tr><td><input type="radio" name="d" value="xik_1"></td><td>Accept</td></tr>
+      <tr><td><input type="radio" name="d" value="xik_2" checked></td><td><table><tr><td>Reject</td></tr></table></td></tr>
+      <tr><td><input type="button" value="Submit" id="go"></td></tr></table>`;
+    expect(pickedChoice(document)).toBe('Reject');
+    const go = document.getElementById('go')!;
+    expect(isDecisionPress(go, null)).toBe(true);
+    document.querySelector('b')!.textContent = 'Co-Chair Recommends';
+    expect(isDecisionPress(go, null)).toBe(false);
+    expect(isDecisionPress(go, 'make immediate decision')).toBe(true);
+  });
+
+  it('never takes the AE\'s recommendation for a decision, even with the Make Immediate Decision task link on the page', () => {
+    document.body.innerHTML = `<a href="#">Make Immediate Decision</a><table><tr><td><b>Associate Editor Recommends</b></td></tr>
+      <tr><td><input type="radio" name="d" checked></td><td>Reject</td></tr><tr><td><input type="button" value="Submit" id="go"></td></tr></table>`;
+    expect(isDecisionPress(document.getElementById('go')!, null)).toBe(false);
+    document.body.innerHTML = `<p><a href="#">Make Immediate Decision</a></p><table><tr><td><input type="radio" name="d" checked></td><td>Reject</td></tr>
+      <tr><td><input type="button" value="Submit" id="go"></td></tr></table>`;
+    expect(isDecisionPress(document.getElementById('go')!, null)).toBe(false);
+  });
+
+  it('shades a row only for a decision made as co-chair with no AE, and names the role', () => {
+    const withAe = GRID.replace('<td>AE: Not Assigned</td><td><a href="#" id="go1">', '<td>AE: Editor, Pat<br>CC: Chair, Robin</td><td><a href="#" id="go1">');
+    const note = () => document.querySelector('[data-electric-mc="eic-note"]')!.textContent;
+    const shaded = () => document.querySelectorAll('tr[data-emc-decided]').length;
+    // The AE's recommendation: the note, no shading.
+    document.body.innerHTML = withAe;
+    annotateEicRows(document, { [ITEM.id]: { ...ITEM, kind: 'recommendation', role: 'ae', noAe: false } });
+    expect(note()).toBe('E-MC: you recommended Reject as AE (seen 2026-10-23); waiting for the EIC');
+    expect(shaded()).toBe(0);
+    // An older build's "decision" on a row with an AE: shown as a recommendation, not shaded.
+    document.body.innerHTML = withAe;
+    annotateEicRows(document, { [ITEM.id]: DECISION });
+    expect(note()).toBe('E-MC: you recommended Reject (seen 2026-10-23); waiting for the EIC');
+    expect(shaded()).toBe(0);
+    // A co-chair decision made with an AE on the paper: not shaded.
+    document.body.innerHTML = withAe;
+    annotateEicRows(document, { [ITEM.id]: { ...DECISION, role: 'cc', noAe: false } });
+    expect(note()).toBe('E-MC: you decided Reject as co-chair (2026-10-23); MC still lists it until the EIC acts');
+    expect(shaded()).toBe(0);
+    // A co-chair decision with no AE: shaded.
+    document.body.innerHTML = GRID;
+    annotateEicRows(document, { [ITEM.id]: { ...DECISION, role: 'cc', noAe: true } });
+    expect(shaded()).toBe(1);
+  });
+
+  it('finds no choice when none is picked', () => {
+    document.body.innerHTML = '<table><tr><td><input type="radio" name="d"></td><td>Reject</td></tr></table>';
+    expect(pickedChoice(document)).toBeNull();
+  });
+
+  it('shades the decided manuscript\'s rows red and notes the decision in blue under the ID', () => {
+    document.body.innerHTML = GRID;
+    expect(annotateEicRows(document, { [DECISION.id]: DECISION })).toBe(1);
+    const note = document.querySelector<HTMLElement>('[data-electric-mc="eic-note"]')!;
+    expect(note.textContent).toBe('E-MC: you decided Reject (2026-10-23); MC still lists it until the EIC acts');
+    expect(note.style.color).toBe('rgb(29, 78, 216)');
+    expect(note.closest('td')!.textContent).toContain('XYZJ-26-09-9011');
+    // The ID row is marked; the other manuscript isn't.
+    const marked = Array.from(document.querySelectorAll('tr[data-emc-decided]'));
+    expect(marked.map((tr) => tr.getAttribute('data-emc-decided'))).toEqual(['XYZJ-26-09-9011']);
+    expect(document.getElementById('emc-decided-style')!.textContent).toContain('rgba(220, 38, 38, 0.1)');
+    // Gone from the list: the rows go back to normal.
+    annotateEicRows(document, {});
+    expect(document.querySelectorAll('tr[data-emc-decided], [data-electric-mc="eic-note"]')).toHaveLength(0);
+  });
+
+  it('shades both rows of a two-row manuscript', () => {
+    document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'queue-rowspan.html'), 'utf8').replace(/^<!doctype html>/i, '');
+    const item = { ...DECISION, id: 'XYZJ-26-09-9005', baseId: 'XYZJ-26-09-9005' };
+    expect(annotateEicRows(document, { [item.id]: item })).toBe(1);
+    const marked = Array.from(document.querySelectorAll('tr[data-emc-decided]'));
+    expect(marked.map((tr) => tr.getAttribute('data-emc-decided'))).toEqual(['XYZJ-26-09-9005', '']);
+    expect(marked[1]!.textContent).toContain('Writer, Sample');
+  });
+
+  it('marks search results too', () => {
+    document.documentElement.innerHTML = readFileSync(join(__dirname, 'fixtures', 'search-results.html'), 'utf8').replace(/^<!doctype html>/i, '');
+    const item = { ...DECISION, id: 'TEST-26-10-9009', baseId: 'TEST-26-10-9009' };
+    expect(annotateEicRows(document, { [item.id]: item })).toBe(1);
+    expect(document.querySelector('[data-electric-mc="eic-note"]')!.closest('td')!.textContent).toContain('TEST-26-10-9009');
+  });
+
+  it('marks a row whose Status has a Make Decision task next to Assign AE', () => {
+    expect(decidedWithoutAe('AE: Not Assigned\nMake Immediate Decision\nAssign AE (Due 20-Oct-2026)\nMake Decision (Due 25-Oct-2026)')).toBe(true);
+    expect(decidedWithoutAe('AE: Not Assigned\nMake Immediate Decision\nAssign AE (Due 20-Oct-2026)')).toBe(false);
+    expect(decidedWithoutAe('Make Decision (Due 25-Oct-2026)')).toBe(false);
+    document.body.innerHTML = GRID.replace(
+      '<td>AE: Not Assigned</td><td><a href="#" id="go2">',
+      '<td>AE: Not Assigned<br>Make Immediate Decision<br>Assign AE (Due 20-Oct-2026)<br>Make Decision (Due 25-Oct-2026)</td><td><a href="#" id="go2">',
+    );
+    expect(annotateEicRows(document, {})).toBe(1);
+    expect(document.querySelector('tr[data-emc-decided]')!.getAttribute('data-emc-decided')).toBe('XYZJ-26-10-9012');
+    expect(document.querySelector('[data-electric-mc="eic-note"]')!.textContent).toBe('E-MC: decision made; MC still lists it until the EIC acts');
   });
 });

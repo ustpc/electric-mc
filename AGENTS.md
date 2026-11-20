@@ -70,3 +70,25 @@ describes what it does.
 
 Every privacy-relevant design decision is recorded in
 `doc/Privacy Policy.md`.
+
+## Checks before every commit
+
+Run `make install-hooks` once per checkout: the pre-commit and commit-msg
+hooks run `tools/privacy/check-no-real-data.mjs` on what you commit. It
+flags manuscript IDs outside the synthetic ranges, email addresses outside
+example.org, capture files, and, on a computer with real data in `var/`,
+anything named there. It prints where, never what.
+
+`make check-all` runs everything CI runs, plus the local-only tests on real
+MC data (`extension/tests-real/`, skipped without `var/`):
+
+- extension: `tsc` (strict), ESLint (`npm run lint`), Vitest with a coverage
+  floor, `npm run test:real`, the real-data scan, and after a build the
+  remote-code check and the permission guard (`extension/permissions.json`:
+  a new permission fails the build until it is added there, after Simson
+  has been told);
+- notes server: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`;
+- Python tools: `ruff`, `pyright` (settings in `pyproject.toml`) and `pytest`.
+
+Tests on real data compare counts and booleans only, so a failure can't
+print a title, name or ID; keep it that way.

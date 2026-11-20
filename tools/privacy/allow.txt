@@ -1,0 +1,14 @@
+# Synthetic examples that look like real data to check-no-real-data.mjs.
+# One manuscript ID (without .Rn) or email address per line. Never add a real one.
+TMI-2026-0123
+IEEE-TSE-2025-01-0042
+CACM-24-04-2000
+CACM-24-05-3000
+XYZJ-24-01-90021
+XYZJ-2026-0001
+JOURNAL-2026-0123
+# Project and service addresses that the docs name on purpose (public).
+simsong@gmail.com
+onbehalfof@manuscriptcentral.com
+robot@sabinok.com
+opinions@cacm.acm.org

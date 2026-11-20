@@ -1,0 +1,15 @@
+{
+  "_comment": "What the built manifest may ask Chrome for (scripts/check-permissions.mjs). A new entry here is a new permission: flag it to Simson first (AGENTS.md) and list it in the Privacy Policy and the store listing if it is in the store build.",
+  "store": {
+    "permissions": ["contextMenus", "downloads", "sidePanel", "storage", "tabs"],
+    "host_permissions": ["https://*.manuscriptcentral.com/*"],
+    "content_script_matches": ["https://*.manuscriptcentral.com/*"],
+    "web_accessible_resources": ["match https://*.manuscriptcentral.com/*", "resource pdfjs/pdf.min.mjs", "resource pdfjs/pdf.worker.min.mjs"]
+  },
+  "test": {
+    "permissions": ["contextMenus", "declarativeNetRequestWithHostAccess", "downloads", "nativeMessaging", "sidePanel", "storage", "tabs"],
+    "host_permissions": ["https://*.manuscriptcentral.com/*"],
+    "content_script_matches": ["https://*.manuscriptcentral.com/*"],
+    "web_accessible_resources": ["match https://*.manuscriptcentral.com/*", "resource pdfjs/pdf.min.mjs", "resource pdfjs/pdf.worker.min.mjs"]
+  }
+}

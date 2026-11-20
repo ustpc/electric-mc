@@ -1,0 +1,22 @@
+# Lint and type-check settings for the repository's Python tools
+# (tools/mc-watch, extension/tools/log-host, extension/scripts). Not a
+# package: each script declares its own dependencies (uv run --script).
+# Run with "make py-check".
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = ["extension/node_modules", "backend/notes/target"]
+
+[tool.ruff.lint]
+# Errors, likely bugs, imports, upgrades, simplifications, and unhandled resources.
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PLW1510", "BLE001", "S110"]
+ignore = ["E501", "SIM105", "SIM108"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = ["BLE001", "S110"]
+
+[tool.pyright]
+include = ["tools/mc-watch", "extension/tools/log-host", "extension/scripts"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"

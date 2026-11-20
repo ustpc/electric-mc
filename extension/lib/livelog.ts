@@ -59,6 +59,18 @@ export function liveLog(entry: object): void {
   }
 }
 
+/** Send one page sample (lib/pagesample.ts); the host saves it, doesn't log it. Whether it went. */
+export function liveLogPage(page: { name: string; url: string; html: string }): boolean {
+  try {
+    const p = open();
+    p?.postMessage({ emc_page: page });
+    return !!p;
+  } catch {
+    port = null;
+    return false;
+  }
+}
+
 /** Close the port, so the host exits (developer mode turned off). */
 export function closeLiveLog(): void {
   port?.disconnect();

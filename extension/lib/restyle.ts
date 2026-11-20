@@ -9,7 +9,7 @@
 
 import { findManuscriptIds } from './ids';
 import { textOf } from './text';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 
 const WIDE = 'data-emc-wide';
 const FONT = 'data-emc-fs';
@@ -115,9 +115,12 @@ function isCentered(el: HTMLElement): boolean {
  * and everything else inherits it. The original size is kept so scaling never
  * compounds and can be undone.
  */
+const scaled = new WeakMap<Document, string>();
+
 function scaleFonts(doc: Document, px: number) {
   const view = doc.defaultView;
   if (!px || px === MC_FONT_PX) {
+    scaled.delete(doc);
     doc.querySelectorAll<HTMLElement>(`[${FONT}]`).forEach((e) => {
       e.style.removeProperty('font-size');
       e.removeAttribute(FONT);
@@ -125,6 +128,11 @@ function scaleFonts(doc: Document, px: number) {
     return;
   }
   if (!view || !doc.body) return;
+  // Every run (each load and DOM change) would read every element's computed
+  // size again; skip when the size and the number of elements are as last time.
+  const stamp = `${px}|${doc.body.getElementsByTagName('*').length}`;
+  if (scaled.get(doc) === stamp) return;
+  scaled.set(doc, stamp);
   const ratio = px / MC_FONT_PX;
   const els = [doc.body, ...Array.from(doc.body.querySelectorAll<HTMLElement>('*'))];
   // Read every original size before writing any, so writes don't skew reads.

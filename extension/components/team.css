@@ -10,6 +10,7 @@
 .tree-card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; gap: 5px; align-content: start; }
 .tree-card h3 { font: 600 14px/1.3 system-ui, sans-serif; margin: 0; display: flex; gap: 6px; align-items: center; }
 .tree-card h3 input { flex: 1; font-weight: 600; }
+.tree-card h3 .to-column { font: 400 12px/1.2 system-ui, sans-serif; padding: 4px 8px; white-space: nowrap; }
 .tree-sub { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .tree-sub > .tree-title { width: 100%; }
 .tree-column { border-top: 1px dashed var(--line); padding-top: 5px; }

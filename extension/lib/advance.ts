@@ -7,16 +7,14 @@
 // arrow in that direction, or open the next manuscript in the grid. MC may
 // show either after a recommendation, so both are handled.
 
+import { onClick, type ClickBus } from './clickbus';
+import { isSubmitWithChoice, submitControl } from './recommendform';
+import { tabGet, tabSet, type TabKey } from './tabstate';
 import { pageClick } from './click';
 import { gridActions } from './idlink';
 import { labelKey, textOf } from './text';
 
-const DIR_KEY = 'emc-nav-dir';
-const PENDING_KEY = 'emc-advance';
-const ORDER_KEY = 'emc-grid-order';
 const PENDING_MS = 3 * 60_000;
-const TASK_KEY = 'emc-carry-task';
-const OPENED_KEY = 'emc-opened-task';
 
 export type Dir = 1 | -1;
 
@@ -56,35 +54,11 @@ export function directionAt(position: number, total: number, last: Dir): Dir {
   return last;
 }
 
-/**
- * A press that sends a recommendation or a decision: Submit in a
- * "… Recommends" table, or Commit Decision in a "… Decision" box (a
- * co-chair's immediate reject), with a choice made on the page.
- */
-export function isRecommendationSubmit(target: EventTarget | null): boolean {
-  const control = recommendationSubmitControl(target);
-  return !!control && !!control.ownerDocument.querySelector('input[type=radio]:checked');
-}
+/** A press that sends a recommendation or a decision with a choice made (lib/recommendform.ts). */
+export const isRecommendationSubmit = isSubmitWithChoice;
 
-/**
- * The Submit or Commit Decision control a press is on, when the page has a
- * matching "… Recommends" or "… Decision" heading, whether or not a choice
- * is made yet; otherwise null.
- */
-export function recommendationSubmitControl(target: EventTarget | null): Element | null {
-  if (!(target instanceof Element)) return null;
-  const control = target.closest('a, button, input[type=submit], input[type=button], input[type=image]');
-  if (!control) return null;
-  const label = labelKey(textOf(control) || control.getAttribute('value') || control.getAttribute('alt') || control.querySelector('img')?.getAttribute('alt') || '');
-  const heading = label === 'submit' ? /recommends$/ : /^(commit|submit) decision$/.test(label) ? /(recommends|decision)$/ : null;
-  if (!heading) return null;
-  // A matching section heading on the page.
-  const doc = control.ownerDocument;
-  const found = Array.from(doc.querySelectorAll('th, td, div, span, b, h2, h3, h4')).some(
-    (e) => e.children.length <= 2 && !control.contains(e) && !e.contains(control) && heading.test(labelKey(textOf(e))) && textOf(e).length < 60,
-  );
-  return found ? control : null;
-}
+/** The Submit or Commit Decision control a press is on (lib/recommendform.ts). */
+export const recommendationSubmitControl = submitControl;
 
 /** The manuscript to open next on a grid, by its order now or as it was. */
 export function nextInGrid(current: string[], from: string, dir: Dir, before: string[]): string | null {
@@ -167,10 +141,10 @@ export interface CarryResult {
  */
 export function carryTask(doc: Document, current: string | undefined): CarryResult | null {
   const view = doc.defaultView!;
-  const carry = read<Carry>(view, TASK_KEY);
+  const carry = read<Carry>(view, 'carryTask');
   if (!carry || !current || current === carry.from) return null;
   if (Date.now() - carry.at > PENDING_MS) {
-    write(view, TASK_KEY, null);
+    write(view, 'carryTask', null);
     return { task: carry.task, done: 'expired' };
   }
   const link = taskLinks(doc).get(carry.task);
@@ -178,13 +152,13 @@ export function carryTask(doc: Document, current: string | undefined): CarryResu
     // MC may draw the header after the load; look again as the page changes.
     const waiting = carry.waiting ?? Date.now();
     if (Date.now() - waiting < LINK_WAIT_MS) {
-      write(view, TASK_KEY, { ...carry, waiting } satisfies Carry);
+      write(view, 'carryTask', { ...carry, waiting } satisfies Carry);
       return null;
     }
-    write(view, TASK_KEY, null);
+    write(view, 'carryTask', null);
     return { task: carry.task, done: 'no link', found: Array.from(taskLinks(doc).keys()) };
   }
-  write(view, TASK_KEY, null);
+  write(view, 'carryTask', null);
   pageClick(link);
   return { task: carry.task, done: 'opened' };
 }
@@ -200,16 +174,21 @@ interface Opened {
  * task links, so the click is what tells.
  */
 function taskOn(view: Window, doc: Document, from: string | undefined): string | null {
-  const opened = read<Opened>(view, OPENED_KEY);
+  const opened = read<Opened>(view, 'openedTask');
   return (opened && opened.from === from ? opened.task : null) ?? currentTask(doc);
+}
+
+/** The task the person is doing on manuscript `from`, if we can tell. */
+export function openedTask(doc: Document, from: string | undefined): string | null {
+  return taskOn(doc.defaultView!, doc, from);
 }
 
 function rememberTask(view: Window, doc: Document, from: string | undefined) {
   const task = taskOn(view, doc, from);
-  if (task && from) write(view, TASK_KEY, { task, from, at: Date.now() } satisfies Carry);
+  if (task && from) write(view, 'carryTask', { task, from, at: Date.now() } satisfies Carry);
   // Our own arrow press after a recommendation, on a page whose task is
   // done: keep the task noted when the recommendation was sent.
-  else if (read<Carry>(view, TASK_KEY)?.from !== from) write(view, TASK_KEY, null);
+  else if (read<Carry>(view, 'carryTask')?.from !== from) write(view, 'carryTask', null);
 }
 
 interface Pending {
@@ -218,30 +197,13 @@ interface Pending {
   at: number;
 }
 
-function store(view: Window) {
-  try {
-    return view.sessionStorage;
-  } catch {
-    return null;
-  }
-}
+const read = <T>(view: Window, key: TabKey): T | null => tabGet<T>(view, key);
+const write = (view: Window, key: TabKey, value: unknown): void => tabSet(view, key, value);
 
-function read<T>(view: Window, key: string): T | null {
-  try {
-    const raw = store(view)?.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-function write(view: Window, key: string, value: unknown) {
-  try {
-    if (value === null) store(view)?.removeItem(key);
-    else store(view)?.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage blocked */
-  }
+/** Forget a pending advance and task carry-over (one-button reject leads elsewhere). */
+export function cancelAdvance(where: Document | Window): void {
+  tabSet(where, 'advance', null);
+  tabSet(where, 'carryTask', null);
 }
 
 export interface AdvanceResult {
@@ -257,20 +219,20 @@ export interface AdvanceResult {
 export function onPageLoad(doc: Document, current: string | undefined, enabled: boolean, idPattern?: string): AdvanceResult | null {
   const view = doc.defaultView!;
   const bar = findNavBar(doc);
-  const last = read<Dir>(view, DIR_KEY) ?? 1;
-  if (bar) write(view, DIR_KEY, directionAt(bar.position, bar.total, last));
+  const last = read<Dir>(view, 'navDir') ?? 1;
+  if (bar) write(view, 'navDir', directionAt(bar.position, bar.total, last));
   const grid = gridActions(doc, idPattern);
-  const before = read<string[]>(view, ORDER_KEY) ?? [];
-  if (grid.length) write(view, ORDER_KEY, grid.map((g) => g.id));
+  const before = read<string[]>(view, 'gridOrder') ?? [];
+  if (grid.length) write(view, 'gridOrder', grid.map((g) => g.id));
 
-  const pending = read<Pending>(view, PENDING_KEY);
+  const pending = read<Pending>(view, 'advance');
   if (!pending || Date.now() - pending.at > PENDING_MS) {
-    if (pending) write(view, PENDING_KEY, null);
+    if (pending) write(view, 'advance', null);
     return null;
   }
   // Wait for a details page or a grid; other pages (confirmations) pass.
   if (!bar && !grid.length) return null;
-  write(view, PENDING_KEY, null);
+  write(view, 'advance', null);
   if (!enabled) return null;
   if (bar) {
     // MC already moved on by itself: leave it there.
@@ -292,7 +254,7 @@ export function onPageLoad(doc: Document, current: string | undefined, enabled: 
  * Watch for Submit on a recommendation (note where we were) and for presses
  * of MC's arrows (they set the direction). Returns a function that stops.
  */
-export function watchRecommendations(doc: Document, current: () => string | undefined, enabled: () => boolean): () => void {
+export function watchRecommendations(doc: Document, current: () => string | undefined, enabled: () => boolean, bus?: ClickBus): () => void {
   const view = doc.defaultView!;
   const listener = (e: MouseEvent) => {
     if (!enabled()) return;
@@ -302,19 +264,18 @@ export function watchRecommendations(doc: Document, current: () => string | unde
     // The first task link opened on this manuscript is the one to carry.
     const link = t?.closest('a');
     const name = link && !link.closest('[data-electric-mc]') ? taskName(textOf(link)) : null;
-    if (name && from && read<Opened>(view, OPENED_KEY)?.from !== from) write(view, OPENED_KEY, { from, task: name } satisfies Opened);
+    if (name && from && read<Opened>(view, 'openedTask')?.from !== from) write(view, 'openedTask', { from, task: name } satisfies Opened);
     if (bar && t) {
       const arrow = bar.next?.contains(t) ? 1 : bar.prev?.contains(t) ? -1 : 0;
       if (arrow) {
-        write(view, DIR_KEY, arrow);
+        write(view, 'navDir', arrow);
         rememberTask(view, doc, from);
       }
     }
     if (from && isRecommendationSubmit(e.target)) {
-      write(view, PENDING_KEY, { from, dir: read<Dir>(view, DIR_KEY) ?? 1, at: Date.now() } satisfies Pending);
+      write(view, 'advance', { from, dir: read<Dir>(view, 'navDir') ?? 1, at: Date.now() } satisfies Pending);
       rememberTask(view, doc, from);
     }
   };
-  doc.addEventListener('click', listener, true);
-  return () => doc.removeEventListener('click', listener, true);
+  return onClick(doc, bus, 'act', listener);
 }

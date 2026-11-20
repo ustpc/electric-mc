@@ -12,6 +12,25 @@ const LABEL_TAGS = 'td,th,span,b,strong,label,dt,div,p,font,li';
  * after a colon.
  */
 export function labeledValues(root: ParentNode): Map<string, string> {
+  const hit = cache.get(root);
+  if (hit) return new Map(hit);
+  const out = labeledValuesOf(root);
+  if (frozen.has(root)) cache.set(root, out);
+  return new Map(out);
+}
+
+// The parser works on a copy of the page that nothing changes (see
+// cleanDocument), so the classifier and the extractors can share one
+// reading of its labels. Only roots marked frozen are cached.
+const frozen = new WeakSet<ParentNode>();
+const cache = new WeakMap<ParentNode, Map<string, string>>();
+
+/** Mark a root that won't change again (the parser's own copy), so its labels are read once. */
+export function freeze(root: ParentNode | null | undefined): void {
+  if (root) frozen.add(root);
+}
+
+function labeledValuesOf(root: ParentNode): Map<string, string> {
   const out = new Map<string, string>();
   // The editor block ("AE: …", "CC: …" one per line) comes first: it's where
   // MC names the manuscript's own AE and co-chair.

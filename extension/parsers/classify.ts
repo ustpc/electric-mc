@@ -1,8 +1,10 @@
 // Page classification. Manuscript Central navigates with form posts and
-// opaque URLs, so the page type comes from what is on the page, not the URL.
+// opaque URLs, so the page type comes from what is on the page, not the URL:
+// above all MC's own page name in the hidden CURRENT_PAGE field.
 // Each page type collects weighted signals; the highest total wins. Every
 // signal is returned so the debug log shows why a page was classified.
 
+import { currentPage, pageTypeOf } from '../lib/mcpage';
 import { findManuscriptIds } from '../lib/ids';
 import { labelKey, normalize, ownText, textOf, isLayoutRow } from '../lib/text';
 import { breadcrumb, dataTables, headings, labeledValues } from './dom';
@@ -32,7 +34,12 @@ const MS_LABELS = [
 ];
 const QUEUE_HEADERS = /^(manuscript id|id|title|status|submitted|date submitted|due|due date|take action|action|days|days in folder|associate editor|decision)$/;
 
-export function classify(doc: Document, idPattern?: string, view: Window | null = doc.defaultView): Classification {
+/**
+ * `mcName` is MC's page name read from the live page: the cleaned copy the
+ * parser classifies (parsers/dom.ts cleanDocument) drops CSS-hidden
+ * elements, and in Chrome that includes every hidden input, CURRENT_PAGE too.
+ */
+export function classify(doc: Document, idPattern?: string, view: Window | null = doc.defaultView, mcName: string | null = currentPage(doc)): Classification {
   const signals: Signal[] = [];
   const add = (pageType: PageType, name: string, weight: number, detail?: string) =>
     signals.push({ pageType, name, weight, detail });
@@ -42,6 +49,13 @@ export function classify(doc: Document, idPattern?: string, view: Window | null 
   const heads = headings(doc);
   const heading = heads[0] ?? '';
   const ids = findManuscriptIds(text, idPattern);
+
+  // MC's own name for the page (the hidden CURRENT_PAGE field) says what it
+  // is outright, where it says anything (lib/mcpage.ts). On real pages the
+  // other signals alone called about 6% of manuscript pages queue lists (a
+  // details page with a table of other manuscripts) and missed some queues.
+  const named = pageTypeOf(mcName);
+  if (named) add(named, 'mc page name', 8, mcName ?? undefined);
 
   // login
   if (doc.querySelector('input[type=password]')) add('login', 'password input', 3);

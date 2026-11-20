@@ -37,7 +37,10 @@ fn get_s(i: &Item, k: &str) -> Option<String> {
 }
 
 fn get_n(i: &Item, k: &str) -> i64 {
-    i.get(k).and_then(|v| v.as_n().ok()).and_then(|v| v.parse().ok()).unwrap_or(0)
+    i.get(k)
+        .and_then(|v| v.as_n().ok())
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0)
 }
 
 fn fail<E: std::fmt::Display>(e: E) -> StoreError {
@@ -76,7 +79,15 @@ fn note_from(i: &Item) -> Option<Note> {
 
 impl Dynamo {
     async fn get(&self, pk: &str, sk: &str) -> Result<Option<Item>, StoreError> {
-        let r = self.client.get_item().table_name(&self.table).key("pk", s(pk)).key("sk", s(sk)).send().await.map_err(fail)?;
+        let r = self
+            .client
+            .get_item()
+            .table_name(&self.table)
+            .key("pk", s(pk))
+            .key("sk", s(sk))
+            .send()
+            .await
+            .map_err(fail)?;
         Ok(r.item)
     }
 }
@@ -84,7 +95,11 @@ impl Dynamo {
 #[async_trait]
 impl Store for Dynamo {
     async fn get_key(&self, key_id: &str) -> Result<Option<KeyRec>, StoreError> {
-        Ok(self.get(&format!("key#{key_id}"), "key").await?.as_ref().and_then(key_from))
+        Ok(self
+            .get(&format!("key#{key_id}"), "key")
+            .await?
+            .as_ref()
+            .and_then(key_from))
     }
 
     async fn put_key(&self, k: &KeyRec) -> Result<(), StoreError> {
@@ -100,7 +115,11 @@ impl Store for Dynamo {
             .item("mcName", s(&k.mc_name))
             .item("spki", s(&k.spki))
             .item("registered", n(k.registered));
-        for (name, v) in [("personId", &k.person_id), ("role", &k.role), ("journal", &k.journal)] {
+        for (name, v) in [
+            ("personId", &k.person_id),
+            ("role", &k.role),
+            ("journal", &k.journal),
+        ] {
             if let Some(v) = v {
                 req = req.item(name, s(v));
             }
@@ -146,7 +165,13 @@ impl Store for Dynamo {
         Ok(self.get("ban", target).await?.is_some())
     }
 
-    async fn set_ban(&self, target: &str, banned: bool, by: &str, at: i64) -> Result<(), StoreError> {
+    async fn set_ban(
+        &self,
+        target: &str,
+        banned: bool,
+        by: &str,
+        at: i64,
+    ) -> Result<(), StoreError> {
         if banned {
             self.client
                 .put_item()
@@ -159,14 +184,23 @@ impl Store for Dynamo {
                 .await
                 .map_err(fail)?;
         } else {
-            self.client.delete_item().table_name(&self.table).key("pk", s("ban")).key("sk", s(target)).send().await.map_err(fail)?;
+            self.client
+                .delete_item()
+                .table_name(&self.table)
+                .key("pk", s("ban"))
+                .key("sk", s(target))
+                .send()
+                .await
+                .map_err(fail)?;
         }
         Ok(())
     }
 
     async fn title_macs(&self, m: &str) -> Result<Vec<String>, StoreError> {
         let item = self.get(&format!("m#{m}"), "#auth").await?;
-        Ok(item.and_then(|i| i.get("macs").and_then(|v| v.as_ss().ok()).cloned()).unwrap_or_default())
+        Ok(item
+            .and_then(|i| i.get("macs").and_then(|v| v.as_ss().ok()).cloned())
+            .unwrap_or_default())
     }
 
     async fn add_title_mac(&self, m: &str, mac: &str) -> Result<(), StoreError> {
@@ -207,7 +241,11 @@ impl Store for Dynamo {
     }
 
     async fn get_note(&self, m: &str, t: i64, email: &str) -> Result<Option<Note>, StoreError> {
-        Ok(self.get(&format!("m#{m}"), &note_sk(t, email)).await?.as_ref().and_then(note_from))
+        Ok(self
+            .get(&format!("m#{m}"), &note_sk(t, email))
+            .await?
+            .as_ref()
+            .and_then(note_from))
     }
 
     async fn put_note(&self, x: &Note) -> Result<(), StoreError> {
@@ -230,7 +268,14 @@ impl Store for Dynamo {
     }
 
     async fn delete_note(&self, m: &str, t: i64, email: &str) -> Result<(), StoreError> {
-        self.client.delete_item().table_name(&self.table).key("pk", s(&format!("m#{m}"))).key("sk", s(&note_sk(t, email))).send().await.map_err(fail)?;
+        self.client
+            .delete_item()
+            .table_name(&self.table)
+            .key("pk", s(&format!("m#{m}")))
+            .key("sk", s(&note_sk(t, email)))
+            .send()
+            .await
+            .map_err(fail)?;
         Ok(())
     }
 }

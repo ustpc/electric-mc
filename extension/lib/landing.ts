@@ -6,9 +6,9 @@
 // uses the mark and clears it, so later visits to the welcome page are left
 // alone.
 
+import { tabGet, tabSet } from './tabstate';
 import { textOf } from './text';
 
-const MARK = 'emc-logged-in-at';
 /** A mark older than this is stale (an abandoned login). */
 const FRESH_MS = 5 * 60_000;
 
@@ -17,11 +17,7 @@ const AE = /\b(associate editor|AE) (center|dashboard)\b/i;
 
 /** Call when the login form is submitted, by the person or the password manager. */
 export function markLoggedIn(win: Window, now = Date.now()): void {
-  try {
-    win.sessionStorage.setItem(MARK, String(now));
-  } catch {
-    /* storage blocked: no redirect */
-  }
+  tabSet(win, 'loggedInAt', now);
 }
 
 /** Mark the tab whenever this login form is submitted. Returns a function that stops watching. */
@@ -54,18 +50,9 @@ function loggingIn(doc: Document): boolean {
 export function coChairLanding(doc: Document, now = Date.now()): HTMLElement | null {
   const win = doc.defaultView;
   if (!win) return null;
-  let at = 0;
-  try {
-    at = Number(win.sessionStorage.getItem(MARK) ?? 0);
-  } catch {
-    return null;
-  }
+  const at = Number(tabGet<number>(win, 'loggedInAt') ?? 0);
   if (!at || loggingIn(doc)) return null;
-  try {
-    win.sessionStorage.removeItem(MARK);
-  } catch {
-    /* ignore */
-  }
+  tabSet(win, 'loggedInAt', null);
   if (now - at > FRESH_MS) return null;
   const links = Array.from(doc.querySelectorAll<HTMLElement>('a')).filter((a) => textOf(a).length < 60);
   const coChair = links.find((a) => CO_CHAIR.test(textOf(a)));

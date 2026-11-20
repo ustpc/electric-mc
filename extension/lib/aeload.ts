@@ -4,7 +4,7 @@
 // page, so the Opinions matrix can show them. Text-anchored: a <select> whose
 // options mostly end in a count, near text that mentions an editor.
 
-import { fold } from './roster';
+import { fold } from './text';
 
 export interface AeLoadEntry {
   /** The editor as MC writes them, usually "Last, First". */

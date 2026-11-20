@@ -4,31 +4,17 @@
 // The click goes through pageClick, since MC's action is a javascript: link.
 
 import { pageClick } from './click';
-import { EMC_STYLE } from './milestones';
-import { parseManuscriptId } from './ids';
-import { labelKey, textOf } from './text';
+import { EMC_STYLE } from './ui';
+import { takeActionGrids } from './grid';
 
 const MARK = 'id-link';
-
-/** The row's Take Action control, under the grid's Take Action column. */
-function actionIn(tr: HTMLTableRowElement, col: number): HTMLElement | null {
-  const cell = tr.cells[col] ?? tr.cells[tr.cells.length - 1];
-  return cell?.querySelector<HTMLElement>('a, button, input[type=image], img[onclick]') ?? null;
-}
 
 /** Link every ID on Take Action grids. Returns how many were linked. */
 export function linkIds(doc: Document, idPattern?: string): number {
   let n = 0;
-  for (const table of Array.from(doc.querySelectorAll('table'))) {
-    const rows = Array.from(table.rows).filter((tr) => tr.closest('table') === table);
-    const header = rows.find((tr) => Array.from(tr.cells).some((c) => labelKey(textOf(c)) === 'take action'));
-    if (!header) continue;
-    const col = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'take action');
-    for (const tr of rows.slice(rows.indexOf(header) + 1)) {
-      const idCell = tr.cells[0];
-      const ref = idCell && parseManuscriptId(textOf(idCell), idPattern);
-      const action = ref && actionIn(tr, col);
-      if (!ref || !action || idCell.querySelector(`[data-electric-mc="${MARK}"]`)) continue;
+  for (const { rows } of takeActionGrids(doc, idPattern)) {
+    for (const { idCell, ref, action } of rows) {
+      if (!action || idCell.querySelector(`[data-electric-mc="${MARK}"]`)) continue;
       if (wrapId(doc, idCell, ref.id, action)) n++;
     }
   }
@@ -68,16 +54,8 @@ export function unlinkIds(doc: Document): void {
 /** Each ID on Take Action grids, in page order, with its row's Take Action control. */
 export function gridActions(doc: Document, idPattern?: string): Array<{ id: string; action: HTMLElement }> {
   const out: Array<{ id: string; action: HTMLElement }> = [];
-  for (const table of Array.from(doc.querySelectorAll('table'))) {
-    const rows = Array.from(table.rows).filter((tr) => tr.closest('table') === table);
-    const header = rows.find((tr) => Array.from(tr.cells).some((c) => labelKey(textOf(c)) === 'take action'));
-    if (!header) continue;
-    const col = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'take action');
-    for (const tr of rows.slice(rows.indexOf(header) + 1)) {
-      const ref = tr.cells[0] && parseManuscriptId(textOf(tr.cells[0]), idPattern);
-      const action = ref && actionIn(tr, col);
-      if (ref && action && !out.some((x) => x.id === ref.id)) out.push({ id: ref.id, action });
-    }
+  for (const { rows } of takeActionGrids(doc, idPattern)) {
+    for (const { ref, action } of rows) if (action && !out.some((x) => x.id === ref.id)) out.push({ id: ref.id, action });
   }
   return out;
 }

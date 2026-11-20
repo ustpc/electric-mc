@@ -69,14 +69,14 @@ def frontmost_app():
     """Bundle ID of the app in front (NSWorkspace; needs no Automation permission)."""
     r = subprocess.run(["osascript", "-l", "JavaScript", "-e",
                         'ObjC.import("AppKit"); $.NSWorkspace.sharedWorkspace.frontmostApplication.bundleIdentifier.js'],
-                       capture_output=True, text=True)
+                       check=False, capture_output=True, text=True)
     return r.stdout.strip() or None
 
 
 def give_back_focus(bundle_id):
     """Re-activate the app that was in front before the browser took over."""
     if bundle_id:
-        subprocess.run(["open", "-b", bundle_id], capture_output=True)
+        subprocess.run(["open", "-b", bundle_id], check=False, capture_output=True)
 
 
 def ensure_chromium(log):
@@ -116,6 +116,7 @@ class Browser:
         return self.page
 
     def _window(self, state):
+        assert self.cdp is not None, "the browser isn't open"
         win = self.cdp.send("Browser.getWindowForTarget")["windowId"]
         bounds = {"windowState": state} if state == "minimized" else {"windowState": "normal", **WINDOW}
         if state == "normal":
@@ -165,8 +166,8 @@ class Browser:
         for step in (lambda: self.context and self.context.close(), lambda: self.pw and self.pw.stop()):
             try:
                 step()
-            except Exception:
-                pass  # already gone, e.g. after ^C
+            except Exception:  # noqa: BLE001, S110 - cleanup: already gone, e.g. after ^C
+                pass
         procs = {}
         for p in self.tree:
             try:

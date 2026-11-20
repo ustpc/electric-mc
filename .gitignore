@@ -225,3 +225,4 @@ __marimo__/
 *.xlsx
 *.csv
 *.docx
+uv.lock

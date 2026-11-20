@@ -60,6 +60,14 @@ describe('log', () => {
     expect(out).toContain('fieldLabels');
     expect(out).toContain('"pageType":"manuscript"');
   });
+  it('hashes manuscript IDs in text, and drops quoted text', () => {
+    // Events that log a bare ID as text (take action after search, no version links found).
+    const out = redactEntry({ ts: 'x', level: 'info', source: 'content', event: 'take action after search', data: 'XYZJ-26-01-1234.R2' }).data as string;
+    expect(out).not.toContain('XYZJ-26-01-1234');
+    expect(out).toMatch(/^ms_[0-9a-f]{8}\.R2$/);
+    const warn = redactEntry({ ts: 'x', level: 'warn', source: 'content', event: 'w', data: 'manuscript: rejected title "A Synthetic Secret" (looks like a label)' }).data as string;
+    expect(warn).not.toContain('Synthetic Secret');
+  });
   it('reduces other data to keys', () => {
     expect(redactEntry({ ts: 'x', level: 'debug', source: 'content', event: 'title', data: { from: 'Secret', to: 'MC · X' } }).data).toEqual({ keys: ['from', 'to'] });
   });

@@ -4,14 +4,12 @@
 // when MC changes the page in place. Nothing runs on sites switched off.
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import { clearHighlights, highlightRevisions } from '../lib/highlight';
-import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../lib/restyle';
 import { openManuscript, singleResultAction, takePending } from '../lib/search';
 import { annotateLogin, findLoginFields, pictureAccountLinks, watchForAutofill } from '../lib/login';
 import { coChairLanding, watchLoginSubmit } from '../lib/landing';
-import { EMC_COLOR, EMC_STYLE, addMilestoneRows, decisionLettersIn, versionInfoFrom, type VersionInfo } from '../lib/milestones';
-import { annotateVersionRow, findVersionLinks } from '../lib/versions';
-import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../lib/messages';
+import { decisionLettersIn } from '../lib/milestones';
+import { toast } from '../lib/ui';
+import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, type CaptureReply, type Msg, type Settings } from '../lib/messages';
 import { TitleKeeper, titleFor } from '../lib/title';
 import { parsePage } from '../parsers';
 import type { ParseResult } from '../parsers/types';
@@ -19,22 +17,27 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
-import { carryTask, onPageLoad, watchRecommendations } from '../lib/advance';
+import { watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
-import { describePage, watchClicks } from '../lib/devtrace';
-import { journalKey, readAeLoad } from '../lib/aeload';
-import { activeAeMenu, aeMenuStatus, clearAeMenu, plainAeMenu, type AeMenuStore, type FirstGroup } from '../lib/aemenu';
-import { earlierIds, markAeList, type EarlierAe } from '../lib/earlierae';
-import { findAeSelect, parseOption } from '../lib/aeload';
-import type { Team } from '../lib/team';
-import { linkIds, unlinkIds } from '../lib/idlink';
-import { roleLabels, rolesIn as rolesNamed } from '../lib/roles';
-import { annotateEicRows, myRecommendation, readRecommendations, recommendationsBox, type EicItem } from '../lib/recommend';
-import { rolesIn as editorBlock } from '../parsers/dom';
+import { describePage, watchClicks, watchRequests } from '../lib/devtrace';
 import { abstractAndKeywords } from '../parsers/extract';
-import { readIdentity } from '../lib/identity';
 import { showPdfWordCount } from '../lib/pdfcount';
+import { currentPage } from '../lib/mcpage';
+import { clickBus } from '../lib/clickbus';
+import { deliverStored, featuresOff, runFeatures, startFeatures, watchedKeys, type Feature, type PageContext } from '../lib/features/feature';
+import { versionHistory } from '../lib/features/versions';
+import { aeAssignMenu } from '../lib/features/aemenu';
+import { oneButtonReject } from '../lib/features/onebutton';
+import { eicList } from '../lib/features/eic';
+import { flagLabels } from '../lib/features/flags';
+import { pageLook } from '../lib/features/look';
+import { autoAdvance } from '../lib/features/advance';
+import { backLinkExperiment } from '../lib/features/backexp';
+import { queueMarks } from '../lib/features/queuemarks';
+import { recordIdentity, recordRoles } from '../lib/features/recorders';
+import { runProbes } from '../lib/probes';
+import { sampleDue, snapshotHtml } from '../lib/pagesample';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -63,7 +66,8 @@ async function start() {
     return;
   }
   let settings: Settings = await getSettings();
-  const titles = new TitleKeeper(document, (from, to) => send({ type: 'log', level: 'debug', event: 'title reapplied', data: { from, to } }));
+  // Only the lengths: a page title can hold a manuscript's title, which the log never shows.
+  const titles = new TitleKeeper(document, (from, to) => send({ type: 'log', level: 'debug', event: 'title reapplied', data: { fromLength: from.length, toLength: to.length } }));
   let last: ParseResult | null = null;
   let overlay: Overlay | null = null;
   let stopLogin: (() => void) | null = null;
@@ -71,66 +75,24 @@ async function start() {
   let timer: number | undefined;
 
   const enabled = () => isEnabledFor(settings, location.href);
-  // Recommendations sent to the EIC, kept up to date from storage.
-  let eicItems = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
-  // The AE-assignment menu's layout (lib/aemenu.ts) and the roster its groups draw on.
-  const menuGot = await chrome.storage.local.get([KEY.aeMenu, KEY.team]);
-  let aeMenu = menuGot[KEY.aeMenu] as AeMenuStore | undefined;
-  let team = (menuGot[KEY.team] as Team | undefined) ?? null;
-  // Logged once per page that has an AE pull-down: whether it was styled, or why not.
-  let aeMenuLogged = '';
-  // The AEs of this revision's earlier versions, for the Assign AE page.
-  let earlier: { on: string; list: EarlierAe[] } | null = null;
-  const loadEarlier = async (r: ParseResult) => {
-    const m = r.manuscript;
-    if (!m || m.revision < 1 || !settings.lookupEarlierVersions) {
-      earlier = null;
-      return;
-    }
-    if (earlier?.on === m.id) return;
-    earlier = { on: m.id, list: [] };
-    const got = await chrome.storage.local.get(KEY.seen);
-    const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
-    const fromBackend = await askBackend(m.baseId);
-    const list = earlierIds(m.baseId, m.revision).map((id) => ({ id, ae: fromBackend?.[id] ?? known?.versionInfo?.[id]?.ae ?? known?.aeByVersion?.[id] }));
-    if (earlier?.on !== m.id) return;
-    earlier = { on: m.id, list };
-    markAeList(document, list);
-    styleAeMenu();
-  };
-  const firstGroup = (): FirstGroup | undefined => {
-    if (!earlier || earlier.on !== last?.manuscript?.id) return undefined;
-    const names = [...new Set(earlier.list.map((v) => v.ae).filter((n): n is string => !!n))];
-    if (!names.length) return undefined;
-    return { label: names.length === 1 && earlier.list.length === 1 ? 'Original AE' : 'Earlier AEs', names };
-  };
-
-  const styleAeMenu = () => {
-    const c = activeAeMenu(aeMenu);
-    const first = firstGroup();
-    let status: string;
-    if (c) status = aeMenuStatus(document, c, team, first);
-    else if (first) {
-      status = aeMenuStatus(document, plainAeMenu(), team, first);
-      if (status === 'styled') status = 'styled (earlier AE only)';
-    }
-    else {
-      clearAeMenu(document);
-      const cfg = aeMenu?.source === 'server' ? aeMenu.server : aeMenu?.local;
-      status = !cfg ? `off: no ${aeMenu?.source === 'server' ? "server" : "browser"} config` : 'off: config not enabled';
-    }
-    if (status === 'no AE pull-down' || (!c && !findAeSelect(document))) {
-      // A pull-down full of "Name (3)" options that wasn't recognized: say so once.
-      const counted = Array.from(document.querySelectorAll('select')).some((sel) => Array.from(sel.options).filter((o) => parseOption(o.text)).length >= 5);
-      if (!counted) return;
-      status = 'not recognized as the AE pull-down';
-    }
-    const key = `${location.href}|${status}`;
-    if (key === aeMenuLogged) return;
-    aeMenuLogged = key;
-    send({ type: 'log', level: 'info', event: 'AE menu', data: { status, source: aeMenu?.source ?? 'none', groups: c?.groups.length ?? 0, teamPeople: team?.people.length ?? 0, earlierAes: first?.names.length ?? 0 } });
-  };
-
+  // Every click handler of ours, in phases (lib/clickbus.ts): trace, guard, record, act.
+  const clicks = clickBus(document);
+  // Features as modules (lib/features/): those that record what the page
+  // says run early in each run, the queue marks where they always did, and
+  // those that change how the page looks last.
+  const recorders: Feature[] = [versionHistory(), aeAssignMenu(), recordRoles(), recordIdentity()];
+  const actions: Feature[] = [oneButtonReject()];
+  const navigation: Feature[] = [autoAdvance(), backLinkExperiment()];
+  const queue: Feature[] = [queueMarks(), eicList()];
+  const look: Feature[] = [flagLabels(), pageLook()];
+  const features = [...recorders, ...actions, ...navigation, ...queue, ...look];
+  // The latest run's context, for click handlers and stored-value changes.
+  let current: PageContext | null = null;
+  const live = () => (chrome.runtime?.id && enabled() ? current : null);
+  const getStored = async <T,>(key: string) => (await stored(key))[key] as T | undefined;
+  startFeatures(features, { doc: document, clicks, current: live }, send);
+  const watched = watchedKeys(features);
+  deliverStored(features, await stored(watched), null, send);
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
     // until they are reloaded. Stop it so it can't fight the new version.
@@ -149,6 +111,10 @@ async function start() {
     }
     const changed = !last || last.fingerprint !== r.fingerprint || last.pageType !== r.pageType || idsKey(last) !== idsKey(r);
     last = r;
+    // The page's decision letters (Audit Trail), read at most once per run: several features use them.
+    let letters: Map<string, string> | undefined;
+    const ctx: PageContext = { doc: document, result: r, reason, settings, send, letters: () => (letters ??= decisionLettersIn(document, settings.idPattern)), get: getStored };
+    current = ctx;
     const title = settings.rewriteTitle ? titleFor(r) : null;
     if (settings.rewriteTitle) titles.set(title);
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
@@ -156,186 +122,29 @@ async function start() {
     else overlay?.hide();
     // Any page with one password field gets login help, whatever the classifier
     // thought (a maintenance notice can make the login page look like something else).
-    if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) setUpLogin();
-    recordLetters(r);
-    recordThisVersion(r);
-    recordAeLoad();
-    void loadEarlier(r);
-    if (earlier?.on === r.manuscript?.id) markAeList(document, earlier?.list ?? []);
-    else markAeList(document, []);
-    styleAeMenu();
-    recordRoles(r);
-    recordIdentity(r);
-    recordRecommendation(r);
-    if (reason === 'load') followSearch(r);
-    if (reason === 'load') landAfterLogin();
-    if (settings.developer && (reason === 'load' || reason === 'bfcache')) send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) });
-    if (reason === 'load' || reason === 'bfcache') {
-      const adv = onPageLoad(document, r.manuscript?.id, settings.autoAdvance, settings.idPattern);
-      if (adv) {
-        send({ type: 'log', level: 'info', event: 'auto-advance after recommendation', data: adv });
-        if (adv.how === 'end') toast('E-MC: that was the last manuscript in this direction');
+    // Each step on its own: one that throws is logged and the rest still run
+    // (features guard themselves in runFeatures).
+    const step = (name: string, fn: () => void) => {
+      try {
+        fn();
+      } catch (e) {
+        console.warn('[electric-mc]', name, 'failed:', e);
+        send({ type: 'log', level: 'error', event: `${name} failed`, data: String(e) });
       }
-    }
-    if (settings.autoAdvance) {
-      const carried = carryTask(document, r.manuscript?.id);
-      if (carried) send({ type: 'log', level: 'info', event: 'same task on the next manuscript', data: carried });
-    }
-    if (r.manuscript && r.manuscript.revision > 0 && settings.lookupEarlierVersions) {
-      void earlierVersions(r);
-      // MC sometimes redraws the section; put our rows back.
-      if (milestones?.on === r.manuscript.id && !document.querySelector('tr[data-electric-mc="milestones"]')) addMilestoneRows(document, milestones.info);
-    } else {
-      document.querySelectorAll('tr[data-electric-mc="milestones"]').forEach((tr) => tr.remove());
-    }
-    if (settings.highlightRevisions && r.pageType === 'queue-list') highlightRevisions(document, settings.idPattern);
-    else clearHighlights(document);
-    if (r.pageType === 'queue-list') {
-      linkIds(document, settings.idPattern);
-      annotateEicRows(document, eicItems, settings.idPattern);
-    }
-    applyRestyle(document, settings);
-    hidePageHeader(document, settings.hidePageHeader);
-    enlargeNavArrows(document, true);
-    const pager = enlargePagerArrows(document, true);
-    const pagerKey = `${location.href}|${pager.holders}|${pager.arrows}`;
-    if ((pager.holders || pager.arrows) && pagerKey !== pagerLogged) {
-      pagerLogged = pagerKey;
-      send({ type: 'log', level: pager.arrows ? 'debug' : 'warn', event: 'pager arrows', data: pager });
-    }
-    emphasizeVersionHistory(document, true, settings.fontSize, settings.idPattern);
+    };
+    if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) step('login help', setUpLogin);
+    runFeatures(recorders, ctx);
+    if (reason === 'load') step('follow search', () => followSearch(r));
+    runFeatures(actions, ctx);
+    if (reason === 'load') step('landing after login', landAfterLogin);
+    if (settings.developer && (reason === 'load' || reason === 'bfcache')) step('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
+    if (settings.developer && reason === 'load') samplePage().catch((e) => send({ type: 'log', level: 'error', event: 'page sample failed', data: String(e) }));
+    if (reason === 'load') step('probes', sendProbes);
+    runFeatures(navigation, ctx);
+    runFeatures(queue, ctx);
+    runFeatures(look, ctx);
     console.debug('[electric-mc]', reason, r.pageType, r.confidence, r);
   };
-
-  // The person's roles, from the role switcher and breadcrumb; sent only when new.
-  const rolesSent = new Set<string>();
-  const recordRoles = (r: ParseResult) => {
-    const found = rolesNamed(roleLabels(document, r.breadcrumb)).filter((x) => !rolesSent.has(x));
-    if (!found.length || !r.site) return;
-    found.forEach((x) => rolesSent.add(x));
-    send({ type: 'roles', site: r.site, roles: found });
-  };
-
-  // Who is logged in, from MC's own page metadata; sent when it changes.
-  let identitySent = '';
-  const recordIdentity = (r: ParseResult) => {
-    const id = r.site ? readIdentity(document) : null;
-    if (!id || !r.site) return;
-    const key = JSON.stringify(id);
-    if (key === identitySent) return;
-    identitySent = key;
-    send({ type: 'identity', site: r.site, identity: id });
-  };
-
-  // The person's own recommendation to the EIC, from the Recommendations box
-  // on the details page. It leaves the To EIC list when it's gone from the
-  // box (rescinded or acted on) or a decision letter has gone out.
-  const recordRecommendation = (r: ParseResult) => {
-    const m = r.manuscript;
-    if (!m) return;
-    const box = recommendationsBox(document);
-    const mine = box && myRecommendation(readRecommendations(box), editorBlock(document.body).get('cc'));
-    if (mine) {
-      const item: EicItem = { id: m.id, baseId: m.baseId, site: r.site, title: m.title, recommendation: mine.recommendation, seen: today() };
-      const had = eicItems[m.id];
-      if (!had || had.recommendation !== item.recommendation || had.title !== item.title) {
-        send({ type: 'eic', set: item });
-        send({ type: 'log', level: 'info', event: 'recommendation to EIC recorded', data: { recommendation: mine.recommendation } });
-      }
-    } else if (eicItems[m.id] && (box || decisionLettersIn(document, settings.idPattern).has(m.id))) {
-      send({ type: 'eic', remove: m.id });
-      send({ type: 'log', level: 'info', event: 'recommendation to EIC cleared', data: { reason: box ? 'no longer in Recommendations' : 'decision sent' } });
-    }
-  };
-
-  // MC's AE-assignment pull-down shows each editor's current number of
-  // manuscripts; keep the latest counts for the Opinions matrix.
-  let aeLoadKey = '';
-  const recordAeLoad = () => {
-    const entries = readAeLoad(document);
-    if (!entries) return;
-    const key = JSON.stringify(entries);
-    if (key === aeLoadKey) return;
-    aeLoadKey = key;
-    send({ type: 'ae-load', journal: journalKey(location.href), entries });
-  };
-
-  // Every manuscript page, original or revision, records its own version's
-  // AE and dates, so a later revision can show them without leaving the page.
-  let recorded = '';
-  const recordThisVersion = (r: ParseResult) => {
-    const m = r.manuscript;
-    if (!m) return;
-    const read = versionInfoFrom(document, m.id);
-    // "AE: Not Assigned" means unknown, never a name to remember.
-    const named = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
-    const info: VersionInfo = { ...read, ae: read.ae ?? named, responded: decisionLettersIn(document, settings.idPattern).get(m.id) ?? read.responded };
-    const key = JSON.stringify(info);
-    if (key === recorded) return;
-    recorded = key;
-    send({ type: 'version-info', baseId: m.baseId, id: m.id, ae: info.ae, info, source: 'page' });
-  };
-
-  // Earlier versions: show each one's AE in the Version History table, and
-  // add the previous version's dates and editors to Peer Review Milestones,
-  // from what was recorded when those versions were viewed. Once per manuscript
-  // per page.
-  const looked = new Set<string>();
-  let milestones: { on: string; info: VersionInfo } | null = null;
-  const earlierVersions = async (r: ParseResult) => {
-    const m = r.manuscript!;
-    if (looked.has(m.id)) return;
-    const links = findVersionLinks(document, m, settings.idPattern);
-    if (!links.length) {
-      // MC may draw Version History later; the next parse tries again.
-      if (!noLinksLogged) send({ type: 'log', level: 'debug', event: 'no version links found', data: m.id });
-      noLinksLogged = true;
-      return;
-    }
-    looked.add(m.id);
-    const idCol = (row: HTMLTableRowElement) => Array.from(row.cells).findIndex((c) => c.textContent?.includes(m.baseId));
-    const got = await chrome.storage.local.get(KEY.seen);
-    const known = (got[KEY.seen] as Record<string, SeenManuscript> | undefined)?.[m.baseId];
-    const fromBackend = await askBackend(m.baseId);
-    const infos: VersionInfo[] = links.map((v) => {
-      const info: VersionInfo = { id: v.ref.id, ...known?.versionInfo?.[v.ref.id] };
-      info.ae = fromBackend?.[v.ref.id] ?? info.ae ?? known?.aeByVersion?.[v.ref.id];
-      info.submitted ??= v.submitted;
-      info.responded ??= decisionLettersIn(document, settings.idPattern).get(v.ref.id);
-      return info;
-    });
-    const show = (missingNote: string) =>
-      links.forEach((v, i) => {
-        const info = infos[i]!;
-        annotateVersionRow(v.row, idCol(v.row), info.ae ? `AE: ${info.ae}` : missingNote);
-        if (i === 0) {
-          milestones = { on: m.id, info };
-          if (!addMilestoneRows(document, info)) send({ type: 'log', level: 'warn', event: 'peer review milestones table not found', data: m.id });
-        }
-      });
-    // Versions not opened yet have no AE here. They are never looked up in
-    // the background: loading MC pages beside the person's tab logged them
-    // out (0.0.26 to 0.0.33).
-    show('AE: open this version once to record it');
-  };
-  let noLinksLogged = false;
-  let pagerLogged = '';
-
-  // Any Audit Trail on screen tells us when decisions were sent; keep them.
-  const recordLetters = (r: ParseResult) => {
-    const bases = new Set(r.manuscriptIds.map((m) => m.baseId));
-    for (const [id, responded] of decisionLettersIn(document, settings.idPattern)) {
-      const baseId = id.replace(/\.R\d+$/, '');
-      if (!bases.has(baseId) || sentLetters.get(id) === responded) continue;
-      sentLetters.set(id, responded);
-      send({ type: 'version-info', baseId, id, info: { id, responded }, source: 'page' });
-      if (milestones?.info.id === id && milestones.info.responded !== responded) {
-        milestones.info = { ...milestones.info, responded };
-        addMilestoneRows(document, milestones.info);
-      }
-    }
-  };
-  const sentLetters = new Map<string, string>();
 
   // After a search: press Take Action when it found exactly one manuscript,
   // either because the side panel asked for that ID or because the person
@@ -401,19 +210,12 @@ async function start() {
     observer?.disconnect();
     clearTimeout(timer);
     titles.restore();
-    clearHighlights(document);
-    clearRestyle(document);
-    clearAeMenu(document);
-    hidePageHeader(document, false);
-    enlargeNavArrows(document, false);
-    enlargePagerArrows(document, false);
-    emphasizeVersionHistory(document, false);
-    unlinkIds(document);
-    document.querySelectorAll(`[${MARK}="milestones"], [${MARK}="version-ae"], [${MARK}="eic-note"]`).forEach((e) => e.remove());
+    featuresOff(features, document);
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
     last = null;
+    current = null;
     send({ type: 'disabled' });
   };
 
@@ -428,26 +230,27 @@ async function start() {
   );
 
   // Developer trace: every click, for replaying a session from the log.
-  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }));
+  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }), clicks);
+  watchRequests(window, () => !!chrome.runtime?.id && enabled() && settings.developer, (r) => send({ type: 'log', level: 'debug', event: 'request', data: r }));
 
   // Stop a recommendation or decision that has no choice picked
-  // (lib/needchoice.ts). First of all, so a stopped press reaches nothing else.
+  // (lib/needchoice.ts). A guard: a stopped press reaches nothing else.
   watchMissingChoice(document, () => !!chrome.runtime?.id && enabled(), (data) =>
     send({ type: 'log', level: 'info', event: 'no recommendation picked', data }),
-  );
+  clicks);
 
   // Ask before a decision or recommendation goes out with no comment to the
-  // author (lib/authorcomment.ts). First, so a cancelled press doesn't count
+  // author (lib/authorcomment.ts). A guard too, so a cancelled press doesn't count
   // as a recommendation for auto-advance.
   watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
     send({ type: 'log', level: 'info', event: 'no comment to author', data }),
-  );
+  clicks);
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
-  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance);
+  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance, clicks);
 
   // Clicking anywhere in a radio-button row picks its radio button.
-  watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }));
+  watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }), clicks);
 
   // Keepalives (lib/keepalive.ts). Activity is shared through storage, at
   // most once a minute; our own clicks fire no mousedown, so they don't count.
@@ -455,25 +258,26 @@ async function start() {
   const onActivity = () => {
     if (!chrome.runtime?.id || Date.now() - activityWritten < 60_000) return;
     activityWritten = Date.now();
-    void chrome.storage.local.set({ [KEY.lastActivity]: activityWritten }).catch(() => {});
+    void store({ [KEY.lastActivity]: activityWritten });
   };
   for (const t of ['keydown', 'mousedown', 'mousemove', 'wheel', 'touchstart']) window.addEventListener(t, onActivity, { passive: true, capture: true });
   onActivity();
   const keepalive = async (trigger: 'idle' | 'hotkey') => {
-    await chrome.storage.local.set({ [KEY.lastKeepalive]: Date.now() });
+    if (!alive()) return;
+    await store({ [KEY.lastKeepalive]: Date.now() });
     const r = await sendKeepalive(document);
-    const got = await chrome.storage.local.get(KEY.lastActivity).catch(() => ({}) as Record<string, unknown>);
+    const got = await stored(KEY.lastActivity);
     const activity = got[KEY.lastActivity] as number | undefined;
     // Minutes since the person last used MC and since this page loaded, to
     // compare with when MC logs them out.
     const idleMin = activity ? Math.round((Date.now() - activity) / 60_000) : undefined;
     const pageMin = Math.round(performance.now() / 60_000);
     send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r, idleMin, pageMin } });
-    if (trigger === 'hotkey') toast(r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
+    if (trigger === 'hotkey') toast(document, r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
   };
   window.setInterval(() => {
     if (!chrome.runtime?.id || !enabled() || !settings.keepAlive) return;
-    void chrome.storage.local.get([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
+    void stored([KEY.lastActivity, KEY.lastKeepalive]).then((got) => {
       const activity = (got[KEY.lastActivity] as number | undefined) ?? Date.now();
       const sent = (got[KEY.lastKeepalive] as number | undefined) ?? 0;
       // Only a tab whose page has the "+ Search" toggle sends; the others
@@ -496,7 +300,7 @@ async function start() {
     if (msg.type === 'open') {
       reply({ ok: openManuscript(document, msg.id) });
     } else if (msg.type === 'ping') {
-      reply({ version: chrome.runtime.getManifest().version });
+      reply({ version: alive() ? chrome.runtime.getManifest().version : null });
     } else if (msg.type === 'reparse') {
       run('manual');
       reply({ ok: enabled() });
@@ -511,15 +315,9 @@ async function start() {
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && (changes[KEY.aeMenu] || changes[KEY.team])) {
-      if (changes[KEY.aeMenu]) aeMenu = changes[KEY.aeMenu]!.newValue as AeMenuStore | undefined;
-      if (changes[KEY.team]) team = (changes[KEY.team]!.newValue as Team | undefined) ?? null;
-      if (enabled()) styleAeMenu();
-      return;
-    }
-    if (area === 'local' && changes[KEY.eic]) {
-      eicItems = (changes[KEY.eic]!.newValue as Record<string, EicItem> | undefined) ?? {};
-      if (enabled() && last?.pageType === 'queue-list') annotateEicRows(document, eicItems, settings.idPattern);
+    if (area === 'local' && watched.some((k) => changes[k])) {
+      const values = Object.fromEntries(watched.filter((k) => changes[k]).map((k) => [k, changes[k]!.newValue]));
+      deliverStored(features, values, live(), send);
       return;
     }
     if (area !== SETTINGS_AREA || !changes[KEY.settings]) return;
@@ -534,50 +332,84 @@ async function start() {
         stopLogin = null;
       }
       run('settings');
-    });
+    }, () => {});
   });
 }
 
-/**
- * What the backend knows about each version's AE, from the assignment
- * emails. The backend isn't built yet, so this always falls through to
- * reading the pages.
- */
-async function askBackend(_baseId: string): Promise<Record<string, string> | null> {
-  return null;
-}
-
-/** A short brown note at the bottom of the page, for a few seconds. */
-function toast(text: string) {
-  const el = document.createElement('div');
-  el.setAttribute(MARK, 'toast');
-  el.textContent = text;
-  el.style.cssText = `position:fixed;right:12px;bottom:12px;z-index:2147483647;background:#fff;border:2px solid ${EMC_COLOR};padding:6px 10px;border-radius:6px;${EMC_STYLE}`;
-  document.documentElement.appendChild(el);
-  setTimeout(() => el.remove(), 4000);
-}
-
-/** Today as yyyy-mm-dd, local time. */
-function today(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 function idsKey(r: ParseResult): string {
   return r.manuscriptIds.map((m) => m.id).join(',');
 }
 
+/** Whether this copy can still reach E-MC (not left behind by a reload of the extension). */
+function alive(): boolean {
+  try {
+    return !!chrome.runtime?.id;
+  } catch {
+    return false;
+  }
+}
+
+/** chrome.storage.local.get that never rejects: {} once this copy is stale. */
+async function stored(keys: string | string[]): Promise<Record<string, unknown>> {
+  if (!alive()) return {};
+  try {
+    return await chrome.storage.local.get(keys);
+  } catch {
+    return {};
+  }
+}
+
+/** chrome.storage.local.set that never rejects. */
+async function store(items: Record<string, unknown>): Promise<void> {
+  if (!alive()) return;
+  try {
+    await chrome.storage.local.set(items);
+  } catch {
+    /* extension context invalidated */
+  }
+}
+
 function send(m: Msg) {
-  chrome.runtime.sendMessage(m).catch(() => {});
+  // After E-MC is reloaded, this copy lives on in open tabs with no extension to talk to.
+  if (!alive()) return;
+  try {
+    chrome.runtime.sendMessage(m).catch(() => {});
+  } catch {
+    /* extension context invalidated */
+  }
+}
+
+// A stale copy (E-MC reloaded while this tab stayed open) can't reach
+// chrome.* any more; its pending calls reject with "Extension context
+// invalidated". That's expected: keep it out of the page's console.
+window.addEventListener('unhandledrejection', (e) => {
+  if (/extension context invalidated/i.test(String((e.reason as Error | undefined)?.message ?? e.reason))) e.preventDefault();
+});
+
+/** Each load: which of the page parts our features rely on are there (lib/probes.ts). Names and booleans only. */
+function sendProbes(): void {
+  const page = currentPage(document);
+  if (page) send({ type: 'probes', page, results: runProbes(document) });
+}
+
+/**
+ * Test builds in developer mode: once a week per kind of page (CURRENT_PAGE),
+ * send this page's snapshot to be saved on this computer for the local
+ * real-data tests (lib/pagesample.ts). The background checks again.
+ */
+async function samplePage(): Promise<void> {
+  if (!alive() || !chrome.runtime.getManifest().permissions?.includes('nativeMessaging')) return;
+  const name = currentPage(document);
+  if (!name) return;
+  const last = (await stored(KEY.pageSamples))[KEY.pageSamples] as Record<string, number> | undefined;
+  if (!sampleDue(last, name, Date.now())) return;
+  send({ type: 'page-sample', name, url: location.origin + location.pathname, html: snapshot() });
 }
 
 /** Page HTML without our overlay, scripts, or anything typed into fields. */
 function snapshot(): string {
-  const clone = document.documentElement.cloneNode(true) as HTMLElement;
-  clone.querySelectorAll(`[${MARK}], script, noscript`).forEach((e) => e.remove());
-  clone.querySelectorAll('input[type=password], input[type=text], input[type=email]').forEach((e) => e.setAttribute('value', ''));
-  clone.querySelectorAll('textarea').forEach((e) => (e.textContent = ''));
-  return '<!doctype html>\n' + clone.outerHTML;
+  return snapshotHtml(document);
 }
 
 /**
