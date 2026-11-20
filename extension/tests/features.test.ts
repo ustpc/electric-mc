@@ -1,3 +1,4 @@
+import { defaultAeMenu } from '../lib/aemenu';
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { featuresOff, runFeatures, type Feature, type PageContext } from '../lib/features/feature';
@@ -148,11 +149,12 @@ describe('moved features', () => {
       <option value="">Select...</option><option>Editor, Pat (3)</option><option>Editor, Robin (0)</option><option>Example, Sam (2)</option><option>Example, Lee (1)</option><option>Example, Kim (4)</option></select></td></tr></table>`;
     const f = aeAssignMenu();
     const send = vi.fn();
-    f.onStored!(KEY.aeMenu, undefined, null);
+    // Turned off in this browser's config (with none saved it's on by default).
+    f.onStored!(KEY.aeMenu, { source: 'local', local: { ...defaultAeMenu(), enabled: false } }, null);
     f.onPage(ctx({}, send));
     f.onPage(ctx({}, send));
     expect(types(send).filter((t) => t === 'ae-load')).toHaveLength(1);
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ event: 'AE menu', data: expect.objectContaining({ status: 'off: no browser config' }) }));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ event: 'AE menu', data: expect.objectContaining({ status: 'off: config not enabled' }) }));
     f.onStored!(KEY.team, { people: [] }, ctx({}, send));
     f.off!(document);
   });
@@ -163,7 +165,7 @@ describe('moved features', () => {
       </select> <a href="#" id="assign"><img src="/images/assign.gif" alt="Assign"></a></td></tr></table><a href="#" id="pdf">PDF</a>`;
     const f = oneButtonReject();
     const page = { pageType: 'manuscript', manuscript: MS } as Partial<ParseResult>;
-    f.onPage({ ...ctx(page), reason: 'mutation' });
+    f.onPage({ ...ctx(page), settings: { ...DEFAULT_SETTINGS, oneButtonReject: false }, reason: 'mutation' });
     expect(document.querySelector('[data-electric-mc="one-button"]')).toBeNull();
     const on = { ...ctx(page), settings: { ...DEFAULT_SETTINGS, oneButtonReject: true } };
     f.onPage(on);
@@ -180,3 +182,9 @@ describe('moved features', () => {
 function journalKeyHere(): string {
   return journalKey(location.href);
 }
+
+describe('defaults', () => {
+  it('turns every feature on, and leaves developer mode and advanced settings off', () => {
+    for (const [k, v] of Object.entries(DEFAULT_SETTINGS)) if (typeof v === 'boolean') expect(v, k).toBe(!['developer', 'showAdvanced'].includes(k));
+  });
+});

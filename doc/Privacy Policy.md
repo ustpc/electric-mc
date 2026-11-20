@@ -157,7 +157,7 @@ The extension reads them from the page and keeps them per MC site in
 notes, find your own entry in the AE pull-down for one-button reject, and
 pick the page to land on after login. Clear all data removes them.
 
-**One-button reject** (extension 0.0.78, off by default). While a run is in
+**One-button reject** (extension 0.0.78; on by default since 0.0.79). While a run is in
 progress, the comments you wrote to the author and to the editor are kept in
 that tab's `sessionStorage` (cleared when the tab closes) for up to 30
 minutes, so they can be copied from the AE recommendation into the co-chair
@@ -170,7 +170,7 @@ name, how often each check passed or failed, in `chrome.storage.local`. Only
 the check names and counts are kept, never page text. Clear all data removes
 them.
 
-**Keepalive** (off by default). If you turn it on, after 10 minutes without
+**Keepalive** (on by default since 0.0.79; can be turned off). While it is on, after 10 minutes without
 keyboard or mouse activity in any MC tab the extension presses MC's own
 "+ Search" toggle, which sends MC a small request, so MC doesn't log you out;
 it stops after 48 hours without activity. The times of your last activity

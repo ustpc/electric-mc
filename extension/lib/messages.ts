@@ -63,7 +63,7 @@ export interface Settings {
   highlightRevisions: boolean;
   /** Put MC's flag labels next to flag icons, as learned from the Flag This Manuscript panel (lib/flags.ts). On by default. */
   flagLabels: boolean;
-  /** "| [ ] reject [one-button reject]" next to MC's Assign AE button (lib/onebutton.ts). Off by default. */
+  /** "| [ ] reject [one-button reject]" next to MC's Assign AE button (lib/onebutton.ts). On by default. */
   oneButtonReject: boolean;
   /** On a revision, show earlier versions' AEs and dates, from versions already opened (no background lookup). */
   lookupEarlierVersions: boolean;
@@ -77,7 +77,7 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Press a file input's Attach control as soon as a file is chosen. */
   autoAttach: boolean;
-  /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). Off by default. */
+  /** After 10 idle minutes, poke MC so it doesn't log the person out (lib/keepalive.ts). On by default. */
   keepAlive: boolean;
   /** After a recommendation is submitted, open the next manuscript in the list (lib/advance.ts). */
   autoAdvance: boolean;
@@ -99,18 +99,18 @@ export const DEFAULT_SETTINGS: Settings = {
   developer: false,
   rewriteTitle: true,
   disabledHosts: [],
-  autoLogin: false,
+  autoLogin: true,
   loginToCoChair: true,
   highlightRevisions: true,
   flagLabels: true,
-  oneButtonReject: false,
+  oneButtonReject: true,
   lookupEarlierVersions: true,
-  fullWidth: false,
+  fullWidth: true,
   fontSize: 0,
-  autoTakeAction: false,
-  hidePageHeader: false,
+  autoTakeAction: true,
+  hidePageHeader: true,
   autoAttach: true,
-  keepAlive: false,
+  keepAlive: true,
   autoAdvance: true,
   backPages: true,
   displayName: '',

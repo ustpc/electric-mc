@@ -43,8 +43,8 @@ export function AeMenuSettings({ flash, advanced }: { flash: (s: string) => void
       const key = s.source === 'server' ? 'server' : 'local';
       const c = s[key];
       if (c) return { ...s, [key]: { ...c, enabled: on } };
-      // No config yet: turning it on starts this browser's from the shipped one.
-      return on ? { ...s, source: 'local', local: { ...defaultAeMenu(), enabled: true } } : s;
+      // No config yet (on by default): start this browser's from the shipped one.
+      return { ...s, source: 'local', local: { ...defaultAeMenu(), enabled: on } };
     });
   const copyServer = async () => {
     if (!server) return;
@@ -56,7 +56,7 @@ export function AeMenuSettings({ flash, advanced }: { flash: (s: string) => void
   return (
     <>
       <label class="chk">
-        <input type="checkbox" checked={!!used?.enabled} onChange={(e) => toggle((e.target as HTMLInputElement).checked)} />
+        <input type="checkbox" checked={used ? used.enabled : true} onChange={(e) => toggle((e.target as HTMLInputElement).checked)} />
         Group and color the Assign Associate Editor pull-down (co-chairs and staff)
       </label>
       {advanced && <>
