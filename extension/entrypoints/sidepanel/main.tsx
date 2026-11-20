@@ -698,7 +698,7 @@ function LiveLogStatus() {
   return (
     <p class="muted">
       Live log file:{' '}
-      {s?.state === 'writing' ? <code>{s.path}</code> : s ? `not available (${s.error ?? 'unknown'}). Run make install-log-host, then reload the extension.` : 'nothing written yet'}
+      {s?.state === 'writing' ? <code>{s.path}</code> : s ? `not available (${s.error ?? 'unknown'}). In Terminal: cd ~/gits/electric-mc/extension && make install-log-host, then reload E-MC in chrome://extensions. Needed again only if the checkout moves or the helper script loses its execute permission.` : 'nothing written yet'}
     </p>
   );
 }

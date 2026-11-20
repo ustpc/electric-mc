@@ -4,6 +4,7 @@ Newest first. Every version bump gets an entry here.
 
 ## 0.0.80 (2026-11-20)
 
+- Fixed: the developer log's "title reapplied" entries held the page title, which on a manuscript page includes its title. They now hold only the lengths.
 - New (test builds, developer mode, off by default): the Back-link experiment, to learn whether a link on a page Back brought up still works later in the session. With it on, a page shown by Back gets a bar at the top to send its links as saved or with the latest live page's tokens (hidden fields other than the page and action ones); each press and MC's answer (page name, logged out, error page) go to the log. Only page names, field names, a kind of link and yes/no results are logged, never values or page text, and nothing is pressed for the person.
 - Changed: when one-button reject can't get to Make Recommendation, its banner says which piece was missing: no "reviews required" box, no Save next to it, or the box wouldn't take 0. It also takes a number box and an image Save button.
 - New: in developer mode, the side panel's test-build label also shows the build's commit and build time ("test build v0.0.80 · 1898ea0 · 20 Nov 10:17"), so it's clear which build Chrome is running. Store builds carry neither.

@@ -39,3 +39,14 @@ describe('no unload handlers', () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe('the log never holds page titles', () => {
+  it('logs only the lengths when it puts the page title back', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const src = readFileSync(join(__dirname, '..', 'entrypoints', 'content.ts'), 'utf8');
+    const line = src.split('\n').find((l) => l.includes("'title reapplied'"))!;
+    expect(line).toContain('fromLength');
+    expect(line).not.toMatch(/data: \{ from, to \}/);
+  });
+});

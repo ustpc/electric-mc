@@ -66,7 +66,8 @@ async function start() {
     return;
   }
   let settings: Settings = await getSettings();
-  const titles = new TitleKeeper(document, (from, to) => send({ type: 'log', level: 'debug', event: 'title reapplied', data: { from, to } }));
+  // Only the lengths: a page title can hold a manuscript's title, which the log never shows.
+  const titles = new TitleKeeper(document, (from, to) => send({ type: 'log', level: 'debug', event: 'title reapplied', data: { fromLength: from.length, toLength: to.length } }));
   let last: ParseResult | null = null;
   let overlay: Overlay | null = null;
   let stopLogin: (() => void) | null = null;
