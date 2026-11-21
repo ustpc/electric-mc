@@ -3,12 +3,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { applyWos, findWos } from '../lib/wos';
 
+// MC's handlers call its page script; here they are comments, and wireToggle() does the work.
 const BOX = (open: boolean) => `
-<div id="other"><table><tr><td><img id="tgl1" src="/images/common/minus.gif" onclick="toggleBranch(1)">Author's Recommended</td></tr></table></div>
+<div id="other"><table><tr><td><img id="tgl1" src="/images/common/minus.gif" onclick="/* toggleBranch(1) */">Author's Recommended</td></tr></table></div>
 <div id="wos"><table id="outer"><tbody>
   <tr><td class="detailsheaderWOSbg"><table><tbody><tr><td class="WoSpadding"><p class="pagecontents">
-    <img id="tgl2" src="/images/common/${open ? 'minus' : 'plus'}.gif" onclick="toggleBranch(2)" title="${open ? 'Collapse' : 'Expand'} Table">
-    <a onclick="toggleBranch(2)"><img src="/images/common/WoS_logo.png"></a></p></td><td class="WoSpadding">Search 5 Years</td></tr></tbody></table></td></tr>
+    <img id="tgl2" src="/images/common/${open ? 'minus' : 'plus'}.gif" onclick="/* toggleBranch(2) */" title="${open ? 'Collapse' : 'Expand'} Table">
+    <a onclick="/* toggleBranch(2) */"><img src="/images/common/WoS_logo.png"></a></p></td><td class="WoSpadding">Search 5 Years</td></tr></tbody></table></td></tr>
   <tr id="link-row"><td><a href="https://reviewerlocator.webofscience.com/x">View full interactive search on reviewerlocator.webofscience.com</a></td></tr>
   <tr id="results"><td>Potential Reviewer Details</td></tr>
 </tbody></table></div>
