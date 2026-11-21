@@ -40,9 +40,18 @@ export const PROBES = {
 export type ProbeName = keyof typeof PROBES;
 export type ProbeResults = Partial<Record<ProbeName, boolean>>;
 
+/**
+ * Parts MC shows on a page only in some states: the Assign AE pull-down only
+ * while a paper waits for an AE, the arrows only when the paper was opened
+ * from a list, a Recommends form or task only when one is due. Their absence
+ * says nothing about MC changing, so they are counted and logged but never
+ * reported as broken.
+ */
+export const CONDITIONAL: ReadonlySet<ProbeName> = new Set<ProbeName>(['aeSelect', 'navBar', 'recommendsForm', 'taskLinks', 'takeActionGrid', 'searchToggle']);
+
 /** Which probes each automation needs, to refuse to run when one is broken. */
 export const NEEDS: Record<string, ProbeName[]> = {
-  oneButtonReject: ['aeSelect', 'editorBlock', 'identity', 'searchForm'],
+  oneButtonReject: ['editorBlock', 'identity', 'searchForm'],
 };
 
 /** Run every probe on the page; a probe that throws counts as not found. */
@@ -72,7 +81,8 @@ export const ESTABLISHED = 20;
 /** Failures in a row after that, before we say MC changed. */
 export const BROKEN_AFTER = 3;
 
-export function isBroken(s: ProbeStat | undefined): boolean {
+export function isBroken(s: ProbeStat | undefined, name?: ProbeName): boolean {
+  if (name && CONDITIONAL.has(name)) return false;
   return !!s && s.pass >= ESTABLISHED && s.failStreak >= BROKEN_AFTER;
 }
 
@@ -85,8 +95,8 @@ export function applyProbes(store: ProbeStore, page: string, results: ProbeResul
   for (const [name, ok] of Object.entries(results) as Array<[ProbeName, boolean]>) {
     const prev = before[name] ?? { pass: 0, fail: 0, failStreak: 0 };
     const next: ProbeStat = ok ? { pass: prev.pass + 1, fail: prev.fail, failStreak: 0 } : { pass: prev.pass, fail: prev.fail + 1, failStreak: prev.failStreak + 1 };
-    if (!isBroken(prev) && isBroken(next)) broke.push(name);
-    if (isBroken(prev) && !isBroken(next)) recovered.push(name);
+    if (!isBroken(prev, name) && isBroken(next, name)) broke.push(name);
+    if (isBroken(prev, name) && !isBroken(next, name)) recovered.push(name);
     after[name] = next;
   }
   return { store: { ...store, [page]: after }, broke, recovered };
@@ -95,12 +105,12 @@ export function applyProbes(store: ProbeStore, page: string, results: ProbeResul
 /** Every broken probe, by page: what the side panel lists. */
 export function brokenProbes(store: ProbeStore): Array<{ page: string; probe: ProbeName }> {
   const out: Array<{ page: string; probe: ProbeName }> = [];
-  for (const [page, stats] of Object.entries(store)) for (const [probe, s] of Object.entries(stats) as Array<[ProbeName, ProbeStat]>) if (isBroken(s)) out.push({ page, probe });
+  for (const [page, stats] of Object.entries(store)) for (const [probe, s] of Object.entries(stats) as Array<[ProbeName, ProbeStat]>) if (isBroken(s, probe)) out.push({ page, probe });
   return out;
 }
 
 /** The probes an automation needs that are broken on this page, if any. */
 export function blockedBy(store: ProbeStore | undefined, page: string | null, automation: keyof typeof NEEDS): ProbeName[] {
   if (!store || !page) return [];
-  return (NEEDS[automation] ?? []).filter((p) => isBroken(store[page]?.[p]));
+  return (NEEDS[automation] ?? []).filter((p) => isBroken(store[page]?.[p], p));
 }

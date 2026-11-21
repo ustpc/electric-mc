@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.89 (2026-11-21)
+
+- Fixed: one-button reject stopped at the co-chair step with "no co-chair recommendation task on the paper" when MC named that task plain "Make Recommendation" on the co-chair's page (it looked only for a task naming the co-chair). The form it opens is still checked to be the co-chair's Recommends form before anything is pressed.
+- Fixed: the side panel said "MC changed: the Assign AE pull-down / the next/previous arrows not found" on manuscript pages, and one-button reject was held back there. MC shows those parts only in some states (the pull-down only while a paper waits for an AE, the arrows only when the paper was opened from a list), so their absence is still counted but no longer reported as a change.
+
 ## 0.0.88 (2026-11-20)
 
 - Fixed: one-button reject stopped with "no co-chair recommendation task on the paper" when it reached the paper as co-chair before MC showed that task (it can lag the AE's Submit, and a slow connection can leave the page short). It now opens the paper again, up to twice, before stopping.

@@ -19,20 +19,29 @@ describe('probes on the fixtures', () => {
 });
 
 describe('learning probes per page', () => {
-  const load = (store: ProbeStore, ok: boolean) => applyProbes(store, 'ASSOCIATE_EDITOR_ASSIGN', { aeSelect: ok, identity: true });
+  const load = (store: ProbeStore, ok: boolean) => applyProbes(store, 'ASSOCIATE_EDITOR_ASSIGN', { editorBlock: ok, identity: true });
 
   it('says MC changed only after an established probe fails several loads in a row, and when it is back', () => {
     let store: ProbeStore = {};
     for (let i = 0; i < ESTABLISHED; i++) store = load(store, true).store;
     let broke: string[] = [];
     for (let i = 0; i < BROKEN_AFTER; i++) ({ store, broke } = load(store, false));
-    expect(broke).toEqual(['aeSelect']);
-    expect(brokenProbes(store)).toEqual([{ page: 'ASSOCIATE_EDITOR_ASSIGN', probe: 'aeSelect' }]);
-    expect(blockedBy(store, 'ASSOCIATE_EDITOR_ASSIGN', 'oneButtonReject')).toEqual(['aeSelect']);
+    expect(broke).toEqual(['editorBlock']);
+    expect(brokenProbes(store)).toEqual([{ page: 'ASSOCIATE_EDITOR_ASSIGN', probe: 'editorBlock' }]);
+    expect(blockedBy(store, 'ASSOCIATE_EDITOR_ASSIGN', 'oneButtonReject')).toEqual(['editorBlock']);
     expect(blockedBy(store, 'OTHER_PAGE', 'oneButtonReject')).toEqual([]);
     const back = load(store, true);
-    expect(back.recovered).toEqual(['aeSelect']);
+    expect(back.recovered).toEqual(['editorBlock']);
     expect(brokenProbes(back.store)).toEqual([]);
+  });
+
+  it("never calls a part broken that MC shows only in some states (the Assign AE pull-down, the arrows)", () => {
+    let store: ProbeStore = {};
+    const page = (ok: boolean) => applyProbes(store, 'ASSOCIATE_EDITOR_MANUSCRIPT_DETAILS', { aeSelect: ok, navBar: ok });
+    for (let i = 0; i < ESTABLISHED; i++) store = page(true).store;
+    for (let i = 0; i < 10; i++) store = page(false).store;
+    expect(store.ASSOCIATE_EDITOR_MANUSCRIPT_DETAILS!.aeSelect!.failStreak).toBe(10);
+    expect(brokenProbes(store)).toEqual([]);
   });
 
   it('never calls a probe broken that was never established', () => {

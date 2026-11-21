@@ -89,10 +89,10 @@ describe('background linkage', () => {
   });
 
   it('learns probes per MC page and logs when MC changed one', async () => {
-    for (let i = 0; i < 20; i++) await send({ type: 'probes', page: 'ASSOCIATE_EDITOR_ASSIGN', results: { aeSelect: true } }, 1);
-    for (let i = 0; i < 3; i++) await send({ type: 'probes', page: 'ASSOCIATE_EDITOR_ASSIGN', results: { aeSelect: false } }, 1);
+    for (let i = 0; i < 20; i++) await send({ type: 'probes', page: 'ASSOCIATE_EDITOR_ASSIGN', results: { editorBlock: true } }, 1);
+    for (let i = 0; i < 3; i++) await send({ type: 'probes', page: 'ASSOCIATE_EDITOR_ASSIGN', results: { editorBlock: false } }, 1);
     await until(() => (local().log ?? []).some((e: { event: string }) => e.event === 'MC changed'));
-    expect(local().probes.ASSOCIATE_EDITOR_ASSIGN.aeSelect).toMatchObject({ pass: 20, fail: 3, failStreak: 3 });
+    expect(local().probes.ASSOCIATE_EDITOR_ASSIGN.editorBlock).toMatchObject({ pass: 20, fail: 3, failStreak: 3 });
   });
 
   it('turns the site off and on from the toolbar menu', async () => {

@@ -188,6 +188,9 @@ export function centerLink(doc: Document, role: 'ae' | 'cc'): HTMLElement | null
 export function recommendTask(doc: Document, role: 'ae' | 'cc'): HTMLElement | null {
   for (const [name, link] of taskLinks(doc)) {
     if (role === 'cc' && /co-?chair/.test(name) && /recommend/.test(name)) return link;
+    // On the co-chair's page MC may name the task plainly; the form it opens
+    // is checked to be the co-chair's before anything is pressed.
+    if (role === 'cc' && name === 'make recommendation') return link;
     if (role === 'ae' && name === 'make recommendation') return link;
   }
   return null;

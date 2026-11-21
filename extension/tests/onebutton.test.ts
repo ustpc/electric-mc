@@ -265,6 +265,17 @@ describe('a whole run', () => {
     expect(readRun(document)).toBeNull();
   });
 
+  it("takes a plain Make Recommendation as the co-chair's task on the co-chair step", () => {
+    const h = hooks();
+    const ids: string[] = [];
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'cc-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '<a href="#" id="imm">Make Immediate Decision</a> <a href="#" id="task">Make Recommendation (Due 27-Nov-2026)</a>');
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids).toEqual(['task']);
+    expect(readRun(document)?.step).toBe('cc-details');
+  });
+
   it('opens the paper again, twice, when the co-chair task is not there yet', () => {
     const h = hooks();
     writeRun(document, { id: 'XYZJ-26-09-9011', step: 'cc-details', at: Date.now(), ae: 'Co-Chair, Opinions' });
