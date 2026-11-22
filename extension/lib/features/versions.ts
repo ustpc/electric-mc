@@ -91,6 +91,8 @@ export function versionHistory(): Feature {
     },
     off(doc) {
       doc.querySelectorAll('[data-electric-mc="milestones"], [data-electric-mc="version-ae"]').forEach((e) => e.remove());
+      // So turning E-MC back on annotates Version History again.
+      looked.clear();
     },
   };
 }

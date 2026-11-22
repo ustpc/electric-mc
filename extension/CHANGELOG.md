@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.93 (2026-11-22)
+
+- Fixed: after E-MC was turned off and on again for the site, Version History lost its earlier-version AE notes until the next paper.
+
 ## 0.0.92 (2026-11-22)
 
 Fixes from a code review of the open pull request:
