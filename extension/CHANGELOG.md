@@ -2,6 +2,18 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.92 (2026-11-22)
+
+Fixes from a code review of the open pull request:
+
+- Fixed: turning off One-button reject (or E-MC for the site) left its controls on the page, and pressing them could still start a run. The controls now go away, and a press checks the setting first.
+- Fixed: the "View full interactive search" line in the Web of Science box now follows the box when you open or close it by hand (it showed or hid by the setting only).
+- Fixed: turning E-MC off for the site left decided rows red on queue lists.
+- Fixed: a Submit or Commit Decision press was added to the To EIC list on any page update, even when MC refused it and showed the form again. It is now added only when MC answers with a new page, and not when that page is the form again.
+- Fixed: font size scaling could miss a panel MC replaced with one of the same size.
+- Privacy: page snapshots (Capture page HTML, weekly samples) now clear every field a person can type into, including search, phone and untyped fields, and keep the manuscript IDs E-MC made clickable. The local tests on real files never print what a file holds, even when it fails to load, and an empty queue no longer fails them.
+- Developer: `make check` now runs what CI runs (coverage floors, a fresh build with its remote-code and permission checks, the Chromium load and page tests).
+
 ## 0.0.91 (2026-11-22)
 
 - Renamed: the Matrix is now the Team window (the side panel's Team button), and the window that edits the tree is Edit team.

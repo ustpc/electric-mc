@@ -2,7 +2,8 @@
 // selection page. MC shows it open, which pushes everything under it a
 // screen down. The setting (lib/messages.ts webOfScience) leaves it open,
 // closes it (E-MC's default) or removes it; the "View full interactive
-// search on reviewerlocator.webofscience.com" line goes unless it's open.
+// search on reviewerlocator.webofscience.com" line shows only while the box
+// is open, also when the person opens or closes it by hand.
 //
 // MC's markup: a div holding a table whose header cell
 // (td.detailsheaderWOSbg) has the WoS_logo.png image and MC's own toggle,
@@ -17,6 +18,7 @@ export type WosMode = 'open' | 'closed' | 'removed';
 const MARK = 'data-emc-wos';
 const ON = 'data-emc-wos-on';
 const APPLIED = 'data-emc-wos-applied';
+const WATCHED = 'data-emc-wos-watched';
 const STYLE_ID = 'emc-wos-style';
 
 const CSS = `html[${ON}] [${MARK}="gone"] { display: none !important; }`;
@@ -50,7 +52,10 @@ export function findWos(doc: Document): { box: HTMLElement; toggle: HTMLImageEle
 
 /** Whether MC shows the box open (its toggle is the minus sign). */
 export function wosOpen(toggle: HTMLImageElement): boolean {
-  return /minus/i.test(toggle.getAttribute('src') ?? '') || /collapse/i.test(toggle.getAttribute('title') ?? '');
+  // The sign image first: MC may leave the title as it was when it toggles.
+  const src = toggle.getAttribute('src') ?? '';
+  if (/minus|plus/i.test(src)) return /minus/i.test(src);
+  return /collapse/i.test(toggle.getAttribute('title') ?? '');
 }
 
 export function applyWos(doc: Document, mode: WosMode | null): { found: boolean; pressed: boolean } {
@@ -70,16 +75,33 @@ export function applyWos(doc: Document, mode: WosMode | null): { found: boolean;
   }
   html.setAttribute(ON, '');
   if (!wos) return { found: false, pressed: false };
-  if (mode === 'removed') wos.box.setAttribute(MARK, 'gone');
-  else if (wos.linkLine && mode === 'closed') wos.linkLine.setAttribute(MARK, 'gone');
+  if (mode === 'removed') {
+    wos.box.setAttribute(MARK, 'gone');
+    return { found: true, pressed: false };
+  }
   let pressed = false;
   const t = wos.toggle;
-  if (t && mode !== 'removed' && t.getAttribute(APPLIED) !== mode) {
+  let open = t ? wosOpen(t) : mode === 'open';
+  if (t && t.getAttribute(APPLIED) !== mode) {
     t.setAttribute(APPLIED, mode);
-    if (wosOpen(t) !== (mode === 'open')) {
+    if (open !== (mode === 'open')) {
       t.click();
       pressed = true;
+      open = mode === 'open';
     }
+  }
+  // The link line goes while the box is closed, following MC's toggle when
+  // the person opens or closes the box by hand.
+  const line = wos.linkLine;
+  const showLine = (isOpen: boolean) => {
+    if (!line) return;
+    if (isOpen) line.removeAttribute(MARK);
+    else line.setAttribute(MARK, 'gone');
+  };
+  showLine(open);
+  if (t && line && !t.hasAttribute(WATCHED)) {
+    t.setAttribute(WATCHED, '');
+    t.addEventListener('click', () => setTimeout(() => showLine(wosOpen(t)), 0));
   }
   return { found: true, pressed };
 }

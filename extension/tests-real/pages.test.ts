@@ -27,7 +27,8 @@ describe.skipIf(!HAVE_VAR || !pages.length)(`real MC pages (${pages.length})`, (
       // The page type agrees with MC's own name for the page, when it says.
       expect(expected === null || r.pageType === expected, `${name}: classified ${r.pageType}, MC says ${expected ?? '?'}`).toBe(true);
       if (r.pageType === 'manuscript') expect(!!r.manuscript, `${name}: no manuscript parsed`).toBe(true);
-      if (r.pageType === 'queue-list') expect((r.rows?.length ?? 0) > 0, `${name}: no rows parsed`).toBe(true);
+      // A queue can be empty; rows are expected only when the page shows manuscript IDs.
+      if (r.pageType === 'queue-list' && leaks(doc.body?.textContent ?? '').ids > 0) expect((r.rows?.length ?? 0) > 0, `${name}: no rows parsed`).toBe(true);
       // The redacted parse (what a shared log export holds) names nothing.
       const red = JSON.stringify(redactResult(r));
       const l = leaks(red);

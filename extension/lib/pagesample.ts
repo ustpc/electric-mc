@@ -32,11 +32,18 @@ export function sampleFileName(name: string): string | null {
  */
 export function snapshotHtml(doc: Document): string {
   const copy = new DOMParser().parseFromString(doc.documentElement.outerHTML, 'text/html');
+  // Clickable manuscript IDs (lib/idlink.ts) wrap MC's own text: keep the text.
+  copy.querySelectorAll('a[data-electric-mc="id-link"]').forEach((a) => a.replaceWith(...Array.from(a.childNodes)));
   copy.querySelectorAll('[data-electric-mc], script, noscript').forEach((e) => e.remove());
   for (const el of Array.from(copy.querySelectorAll('*'))) {
     for (const a of Array.from(el.attributes)) if (/^on/i.test(a.name)) el.removeAttribute(a.name);
   }
-  copy.querySelectorAll('input[type=password], input[type=text], input[type=email]').forEach((e) => e.setAttribute('value', ''));
+  // Every field a person can type into, by its normalized type (a missing or
+  // unknown type is text); MC's hidden fields, buttons and choices stay.
+  const KEEP = new Set(['hidden', 'checkbox', 'radio', 'submit', 'button', 'image', 'reset', 'file']);
+  copy.querySelectorAll('input').forEach((e) => {
+    if (!KEEP.has(e.type)) e.setAttribute('value', '');
+  });
   copy.querySelectorAll('textarea').forEach((e) => (e.textContent = ''));
   return '<!doctype html>\n' + copy.documentElement.outerHTML;
 }

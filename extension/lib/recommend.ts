@@ -120,7 +120,12 @@ export const DECIDED_COLOR = '#1d4ed8';
 // More specific than the revision highlight, so a decided revision shows red.
 const CSS = `table tr[${ROW_ATTR}] > td, table tr[${ROW_ATTR}] > th { background-color: rgba(220, 38, 38, 0.1) !important; }`;
 
-/** The note for one manuscript. */
+/** Take the marks off queue rows (E-MC switched off for the site). */
+export function clearEicRows(doc: Document): void {
+  doc.querySelectorAll(`[${ROW_ATTR}]`).forEach((e) => e.removeAttribute(ROW_ATTR));
+  doc.querySelectorAll(`[data-electric-mc="${NOTE}"]`).forEach((e) => e.remove());
+}
+
 /**
  * Whether the paper now waits for the EIC. The workflow is AE recommends,
  * then co-chair recommends, then the EIC decides: a recommendation made as

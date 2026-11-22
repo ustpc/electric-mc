@@ -37,9 +37,12 @@ coverage: install ## Run the tests and write a coverage report to coverage/index
 typecheck: install ## Check the TypeScript types
 	npm run typecheck
 
-check: typecheck lint test ## Typecheck, lint, test, and check for real data and new permissions
+check: typecheck lint coverage test-real build ## What CI checks: types, lint, tests with coverage floors, a fresh build and its checks, Chromium load and page tests, real data
+	npm run -s check:remote-code
+	npm run -s check:permissions
+	npm run test:load
+	npm run test:page
 	node ../tools/privacy/check-no-real-data.mjs
-	@if [ -f build/chrome-mv3/manifest.json ]; then npm run -s check:permissions; fi
 
 dev: install ## Run WXT in watch mode
 	npm run dev

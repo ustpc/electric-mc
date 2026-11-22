@@ -42,15 +42,21 @@ describe('Web of Science box', () => {
     expect(w.linkLine!.id).toBe('link-row');
   });
 
-  it('closed: presses MC\'s toggle once and drops the link line; a box opened by hand stays open', () => {
+  it('closed: presses MC\'s toggle once and drops the link line; a box opened by hand stays open', async () => {
     document.body.innerHTML = BOX(true);
     const t = wireToggle();
     expect(applyWos(document, 'closed')).toEqual({ found: true, pressed: true });
     expect(t.getAttribute('src')).toContain('plus');
     expect(gone('link-row')).toBe(true);
     t.click(); // the person opens it again
+    await new Promise((r) => setTimeout(r, 0));
+    expect(gone('link-row')).toBe(false); // the link line comes back with it
     expect(applyWos(document, 'closed').pressed).toBe(false);
     expect(t.getAttribute('src')).toContain('minus');
+    expect(gone('link-row')).toBe(false);
+    t.click(); // and closes it
+    await new Promise((r) => setTimeout(r, 0));
+    expect(gone('link-row')).toBe(true);
   });
 
   it('open: opens a closed box and keeps the link line', () => {

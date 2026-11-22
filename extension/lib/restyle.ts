@@ -129,8 +129,10 @@ function scaleFonts(doc: Document, px: number) {
   }
   if (!view || !doc.body) return;
   // Every run (each load and DOM change) would read every element's computed
-  // size again; skip when the size and the number of elements are as last time.
-  const stamp = `${px}|${doc.body.getElementsByTagName('*').length}`;
+  // size again; skip when the size, the number of elements and the number of
+  // scaled ones are as last time (MC replacing a panel with as many elements
+  // drops scaled ones, so it still counts as a change).
+  const stamp = `${px}|${doc.body.getElementsByTagName('*').length}|${doc.querySelectorAll(`[${FONT}]`).length}`;
   if (scaled.get(doc) === stamp) return;
   scaled.set(doc, stamp);
   const ratio = px / MC_FONT_PX;
@@ -156,6 +158,7 @@ function scaleFonts(doc: Document, px: number) {
     el.setAttribute(FONT, String(orig));
     el.style.setProperty('font-size', `${Math.round(orig * ratio * 10) / 10}px`, 'important');
   }
+  scaled.set(doc, `${px}|${doc.body.getElementsByTagName('*').length}|${doc.querySelectorAll(`[${FONT}]`).length}`);
 }
 
 const HIDE = 'data-emc-hide';

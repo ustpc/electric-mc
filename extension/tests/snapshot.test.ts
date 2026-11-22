@@ -12,13 +12,16 @@ describe('page snapshot', () => {
   it('leaves out our marks, scripts, handlers and typed text without cloning the live page', () => {
     document.documentElement.innerHTML = `<head><script>var x = 1;</script></head><body onunload="bye()" onload="hi()">
       <div data-electric-mc="badge">ours</div><a href="#" onclick="go()">XYZJ-26-09-9011</a>
-      <input type="text" value="typed"><input type="password" value="secret"><textarea>draft</textarea></body>`;
+      <input type="text" value="typed"><input type="password" value="secret"><input value="untyped"><input type="search" value="sought"><input type="tel" value="5551234">
+      <input type="hidden" name="CURRENT_PAGE" value="KEEP_ME"><a data-electric-mc="id-link" href="#">XYZJ-26-09-9012</a><textarea>draft</textarea></body>`;
     const clone = vi.spyOn(document.documentElement, 'cloneNode');
     const html = snapshotHtml(document);
     expect(clone).not.toHaveBeenCalled();
     expect(html.startsWith('<!doctype html>')).toBe(true);
     expect(html).toContain('XYZJ-26-09-9011');
-    for (const gone of ['onunload', 'onload', 'onclick', '<script', 'data-electric-mc', 'typed', 'secret', 'draft']) expect(html).not.toContain(gone);
+    expect(html).toContain('XYZJ-26-09-9012');
+    expect(html).toContain('KEEP_ME');
+    for (const gone of ['onunload', 'onload', 'onclick', '<script', 'data-electric-mc', 'typed', 'secret', 'untyped', 'sought', '5551234', 'draft']) expect(html).not.toContain(gone);
     // The live page is untouched.
     expect(document.body.getAttribute('onunload')).toBe('bye()');
     expect(document.querySelector('[data-electric-mc]')).toBeTruthy();

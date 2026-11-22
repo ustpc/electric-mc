@@ -24,7 +24,7 @@ install-hooks: ## Check every commit and commit message for real MC data (git ho
 	git config core.hooksPath .githooks
 	@echo "Hooks installed: pre-commit and commit-msg run tools/privacy/check-no-real-data.mjs"
 
-check-all: ## Everything CI runs, plus the local-only real-data tests: extension, notes server, Python tools
+check-all: ## Everything CI runs (extension: fresh build, Chromium tests, coverage), plus the local-only real-data tests, notes server, Python tools
 	@$(MAKE) --no-print-directory -C extension check
 	@$(MAKE) --no-print-directory -C backend/notes test
 	@$(MAKE) --no-print-directory py-check

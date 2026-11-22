@@ -13,7 +13,10 @@ import { findAeSelect } from '../aeload';
 import { rolesIn as editorBlock } from '../../parsers/dom';
 import type { Feature, PageContext } from './feature';
 
+const removeControls = (doc: Document) => doc.querySelector('[data-electric-mc="one-button"]')?.remove();
+
 export function oneButtonReject(): Feature {
+  let latest: () => PageContext | null = () => null;
   const hooks = (ctx: PageContext): Hooks => ({
     openBySearch: (id: string) => openManuscript(ctx.doc, id),
     log: (event: string, data?: unknown) => ctx.send({ type: 'log', level: 'info', event, data }),
@@ -36,6 +39,11 @@ export function oneButtonReject(): Feature {
     if (!id) return skip(ctx, 'no manuscript ID on the page');
     if (readRun(doc)) return skip(ctx, 'a run is in progress in this tab');
     const shown = addControls(doc, pdfViewed(doc, id), () => void (async () => {
+      // The setting (or E-MC on this site) may have been turned off since the controls went up.
+      if (!latest()?.settings.oneButtonReject) {
+        removeControls(doc);
+        return;
+      }
       const blocked = blockedBy(await ctx.get<ProbeStore>(KEY.probes), currentPage(doc), 'oneButtonReject');
       if (blocked.length) {
         showBanner(doc, `One-button reject didn't start: MC seems to have changed this page (${blocked.join(', ')} not found lately). Do it by hand.`, 'stop');
@@ -51,6 +59,7 @@ export function oneButtonReject(): Feature {
   return {
     id: 'one-button',
     start({ doc, clicks, current }) {
+      latest = current;
       clicks.add('record', (e) => {
         const ctx = current();
         if (!ctx?.settings.oneButtonReject) return;
@@ -65,6 +74,7 @@ export function oneButtonReject(): Feature {
     },
     onPage(ctx) {
       const { doc, result: r, settings, reason } = ctx;
+      if (!settings.oneButtonReject) removeControls(doc);
       if (reason !== 'load') {
         if (settings.oneButtonReject && r.pageType === 'manuscript') add(ctx);
         return;
@@ -84,6 +94,9 @@ export function oneButtonReject(): Feature {
         doc.defaultView.addEventListener('load', step, { once: true });
       }
       if (r.pageType === 'manuscript') add(ctx);
+    },
+    off(doc) {
+      removeControls(doc);
     },
   };
 }

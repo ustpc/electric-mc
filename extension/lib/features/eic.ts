@@ -4,8 +4,8 @@
 
 import { openedTask, isRecommendationSubmit, recommendationSubmitControl } from '../advance';
 import { KEY } from '../messages';
-import { annotateEicRows, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../recommend';
-import { recommendsRole } from '../recommendform';
+import { annotateEicRows, clearEicRows, isDecisionPress, myRecommendation, pickedChoice, readRecommendations, recommendationsBox, type EicItem } from '../recommend';
+import { choiceRadios, recommendsRole } from '../recommendform';
 import { tabSet, tabTake } from '../tabstate';
 import { rolesIn as editorBlock } from '../../parsers/dom';
 import type { Feature, PageContext } from './feature';
@@ -34,9 +34,17 @@ export function eicList(): Feature {
   // A press noted at Submit is kept once MC answers with a new page, so a
   // press MC refuses (or a guard stops) isn't kept. MC's Recommendations box
   // never shows an immediate decision made without an AE.
-  const commitSubmitted = ({ doc, send }: PageContext) => {
+  // Only a new page counts as MC's answer (not a change within the page, a
+  // settings change or a reparse), and MC showing the Recommends form again
+  // means it refused the press.
+  const commitSubmitted = ({ doc, send, reason }: PageContext) => {
+    if (reason !== 'load') return;
     const pending = tabTake<EicItem & { at: number }>(doc.defaultView!, 'submittedChoice');
     if (!pending || Date.now() - pending.at > SUBMIT_MS) return;
+    if (recommendsRole(doc) && choiceRadios(doc).length) {
+      send({ type: 'log', level: 'info', event: 'decision not recorded: MC showed the form again', data: { kind: pending.kind } });
+      return;
+    }
     const { at: _at, ...item } = pending;
     send({ type: 'eic', set: item });
     send({ type: 'log', level: 'info', event: 'decision recorded at submit', data: { kind: item.kind, choice: item.recommendation } });
@@ -103,7 +111,7 @@ export function eicList(): Feature {
       mark(ctx);
     },
     off(doc) {
-      doc.querySelectorAll('[data-electric-mc="eic-note"]').forEach((e) => e.remove());
+      clearEicRows(doc);
     },
   };
 }
