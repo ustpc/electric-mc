@@ -57,6 +57,10 @@ describe('Web of Science box', () => {
     t.click(); // and closes it
     await new Promise((r) => setTimeout(r, 0));
     expect(gone('link-row')).toBe(true);
+    // MC's WoS logo toggles the box as well (here: the sign changes without a click on it).
+    t.setAttribute('src', '/images/common/minus.gif');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(gone('link-row')).toBe(false);
   });
 
   it('open: opens a closed box and keeps the link line', () => {

@@ -98,6 +98,8 @@ export function scrub(s: string): string {
   return s
     .replace(EMAIL, '<email>')
     .replace(URL_MASK, '$1<mask>')
+    // A rejected title from older builds, whole: it can hold quotes of its own.
+    .replace(/(rejected title )".*"(?= \(looks like a label\))/g, '$1"<text>"')
     .replace(/"[^"]*"/g, '"<text>"')
     .replace(new RegExp(DEFAULT_ID_PATTERN, 'g'), (_m, base: string, rev?: string) => `${hashId(base)}${rev ? `.R${rev}` : ''}`);
 }

@@ -3,7 +3,7 @@
 // screen down. The setting (lib/messages.ts webOfScience) leaves it open,
 // closes it (E-MC's default) or removes it; the "View full interactive
 // search on reviewerlocator.webofscience.com" line shows only while the box
-// is open, also when the person opens or closes it by hand.
+// is open, also when the person opens or closes it by hand (with the sign or the logo).
 //
 // MC's markup: a div holding a table whose header cell
 // (td.detailsheaderWOSbg) has the WoS_logo.png image and MC's own toggle,
@@ -99,9 +99,11 @@ export function applyWos(doc: Document, mode: WosMode | null): { found: boolean;
     else line.setAttribute(MARK, 'gone');
   };
   showLine(open);
+  // Watch the sign itself, not clicks: the WoS logo toggles the box too.
   if (t && line && !t.hasAttribute(WATCHED)) {
     t.setAttribute(WATCHED, '');
-    t.addEventListener('click', () => setTimeout(() => showLine(wosOpen(t)), 0));
+    const view = doc.defaultView;
+    if (view?.MutationObserver) new view.MutationObserver(() => showLine(wosOpen(t))).observe(t, { attributes: true, attributeFilter: ['src', 'title'] });
   }
   return { found: true, pressed };
 }

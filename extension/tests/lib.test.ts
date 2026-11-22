@@ -67,6 +67,8 @@ describe('log', () => {
     expect(out).toMatch(/^ms_[0-9a-f]{8}\.R2$/);
     const warn = redactEntry({ ts: 'x', level: 'warn', source: 'content', event: 'w', data: 'manuscript: rejected title "A Synthetic Secret" (looks like a label)' }).data as string;
     expect(warn).not.toContain('Synthetic Secret');
+    const quoted = redactEntry({ ts: 'x', level: 'warn', source: 'content', event: 'w', data: 'manuscript: rejected title "On "Quoted" Secrets and More" (looks like a label)' }).data as string;
+    for (const bit of ['Quoted', 'Secrets', 'More']) expect(quoted).not.toContain(bit);
   });
   it('reduces other data to keys', () => {
     expect(redactEntry({ ts: 'x', level: 'debug', source: 'content', event: 'title', data: { from: 'Secret', to: 'MC · X' } }).data).toEqual({ keys: ['from', 'to'] });

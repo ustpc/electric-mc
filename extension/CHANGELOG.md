@@ -2,6 +2,15 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.96 (2026-11-22)
+
+Fixes from Copilot's second review of the open pull request:
+
+- Fixed: one-button reject could still take a step on a slow page after it (or E-MC) was turned off while the page loaded. The step now checks the setting when the page finishes loading.
+- Fixed: turning off "show earlier versions' AEs" (or E-MC) left the earlier AEs in Version History and above the AE pull-down, and a read still in progress could put them back. They now go, and come back when the setting is turned on again. When MC redraws Version History, the notes are put back without another read.
+- Fixed: the "View full interactive search" line now also follows the box when it's opened or closed with the WoS logo.
+- Privacy: a warning about a rejected title no longer quotes the title (it gives its length), and the log export removes old ones whole even when the title holds quotes. The local tests on real pages and PDFs never print a file's path or contents when it fails to load.
+
 ## 0.0.95 (2026-11-22)
 
 - Changed: PDFs from MC now open at 150% by default instead of Chrome's fit to width. A browser that already saved its settings keeps its choice; pick 150% under Settings, Page layout, "Open PDFs at".

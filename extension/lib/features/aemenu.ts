@@ -92,6 +92,9 @@ export function aeAssignMenu(): Feature {
       style(ctx);
     },
     off(doc) {
+      // Dropping `earlier` also stops a pending loadEarlier from drawing again.
+      earlier = null;
+      markAeList(doc, []);
       clearAeMenu(doc);
       last = null;
     },

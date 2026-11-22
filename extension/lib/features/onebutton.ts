@@ -91,7 +91,10 @@ export function oneButtonReject(): Feature {
       if (doc.readyState === 'complete' || !doc.defaultView) step();
       else {
         ctx.send({ type: 'log', level: 'info', event: 'one-button reject waits for the page', data: { readyState: doc.readyState } });
-        doc.defaultView.addEventListener('load', step, { once: true });
+        // Checked again when it fires: the setting (or E-MC on this site) may be off by then.
+        doc.defaultView.addEventListener('load', () => {
+          if (latest()?.settings.oneButtonReject) step();
+        }, { once: true });
       }
       if (r.pageType === 'manuscript') add(ctx);
     },

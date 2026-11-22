@@ -165,7 +165,8 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
 
   let title = take('title');
   if (title && looksLikeLabel(title)) {
-    warnings.push(`manuscript: rejected title "${truncate(title, 40)}" (looks like a label)`);
+    // The title itself never goes into a warning (warnings reach the log); its length does.
+    warnings.push(`manuscript: rejected title (${title.length} chars, looks like a label)`);
     title = undefined;
   }
   if (!title) {

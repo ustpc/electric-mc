@@ -9,19 +9,33 @@ import { files, HAVE_VAR, leaks, read } from './data';
 
 const pages = files(/\.html$/, 'real-pages');
 
-function load(path: string): { doc: Document; url: string } {
-  const html = read(path);
-  const meta = /<!-- electric-mc-capture (\{.*?\}) -->/.exec(html);
-  const url = (meta ? (JSON.parse(meta[1]!) as { url?: string }).url : undefined) ?? 'https://mc.manuscriptcentral.com/xyzj';
-  return { doc: new DOMParser().parseFromString(html, 'text/html'), url };
+/** The saved page, or null when it can't be read; the error is dropped, since it can quote the path or the page. */
+function load(path: string): { doc: Document; url: string } | null {
+  try {
+    const html = read(path);
+    const meta = /<!-- electric-mc-capture (\{.*?\}) -->/.exec(html);
+    const url = (meta ? (JSON.parse(meta[1]!) as { url?: string }).url : undefined) ?? 'https://mc.manuscriptcentral.com/xyzj';
+    return { doc: new DOMParser().parseFromString(html, 'text/html'), url };
+  } catch {
+    return null;
+  }
 }
 
 describe.skipIf(!HAVE_VAR || !pages.length)(`real MC pages (${pages.length})`, () => {
   for (const path of pages) {
     const name = basename(path, '.html');
     it(name, () => {
-      const { doc, url } = load(path);
-      const r = parsePage(doc, url);
+      const page = load(path);
+      expect(!!page, `${name}: couldn't be read`).toBe(true);
+      const { doc, url } = page!;
+      let r: ReturnType<typeof parsePage> | undefined;
+      try {
+        r = parsePage(doc, url);
+      } catch {
+        /* the error can quote the page: reported below without it */
+      }
+      expect(!!r, `${name}: the parser threw`).toBe(true);
+      if (!r) return;
       const mc = currentPage(doc);
       const expected = pageTypeOf(mc);
       // The page type agrees with MC's own name for the page, when it says.
