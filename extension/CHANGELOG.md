@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.90 (2026-11-22)
+
+- Fixed (high priority): with Tight mode on, the login page went blank a second after it opened, so nobody could log in. The login page shows the journal logo a second time inside the box that holds the login form, and Tight mode folded that whole box away along with the logo bar. It now folds away only the logo bar at the top (div.logoBar), and never anything holding a form.
+
 ## 0.0.89 (2026-11-21)
 
 - Fixed: one-button reject stopped at the co-chair step with "no co-chair recommendation task on the paper" when MC named that task plain "Make Recommendation" on the co-chair's page (it looked only for a task naming the co-chair). The form it opens is still checked to be the co-chair's Recommends form before anything is pressed.

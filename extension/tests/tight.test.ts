@@ -48,6 +48,15 @@ describe('tight mode', () => {
     expect(html().hasAttribute('data-emc-tight-on') || html().hasAttribute('data-emc-tight-logo')).toBe(false);
   });
 
+  it('never hides the login form, which shows the logo again inside its own div.container', () => {
+    document.body.innerHTML = PAGE + `<div class="container" id="login"><div class="span4"><a><img src="/societyimages/xyzj/xyzj_banner.png"></a></div>
+      <form><input name="USERID"><input type="password" name="PASSWORD"></form></div>`;
+    tightMode(document, true);
+    expect(document.getElementById('login')!.hasAttribute('data-emc-tight')).toBe(false);
+    expect(document.querySelector('.logoBar')!.getAttribute('data-emc-tight')).toBe('logo');
+    expect(document.querySelectorAll('[data-emc-tight="logo"]')).toHaveLength(1);
+  });
+
   it("leaves the instructions on MC's popups, where they are the page", () => {
     document.body.innerHTML = '<form><input type="hidden" name="CURRENT_PAGE" value="INSTRUCTIONS_POPUP"></form>' + PAGE;
     expect(tightMode(document, true).instructions).toBe(0);

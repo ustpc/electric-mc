@@ -41,10 +41,12 @@ export function tightMode(doc: Document, on: boolean): { logo: boolean; instruct
   }
   const counts = { logo: false, instructions: 0, empty: 0 };
 
-  // The journal logo bar: the div.container holding the journal's logo image.
-  for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>('div.container img[src*="/societyimages/"], div.container img[alt="Journal logo"]'))) {
-    const container = img.closest('div.container')!;
-    const bar = container.parentElement?.closest<HTMLElement>('.logoBar') ?? container;
+  // The journal logo bar (div.logoBar > div.container > the logo) and
+  // nothing else: the login page shows the same logo again inside the
+  // div.container that holds the login form.
+  for (const bar of Array.from(doc.querySelectorAll<HTMLElement>('div.logoBar'))) {
+    if (!bar.querySelector('img[src*="/societyimages/"], img[alt="Journal logo"]')) continue;
+    if (bar.querySelector('form, input:not([type=hidden]), select, textarea, button:not(.btn-navbar)')) continue;
     bar.setAttribute(MARK, 'logo');
     counts.logo = true;
   }
