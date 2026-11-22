@@ -14,6 +14,7 @@ import { filterSeen } from '../../lib/seen';
 import { canDelete, canEdit, nowS, sessionNote, titleHash, type Note, type NoteOp, type NotesStore } from '../../lib/notes';
 import { authorLabel, mcName, type McIdentity } from '../../lib/identity';
 import { banKey, deleteNote, forgetKeys, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
+import { forgetTeamFile } from '../../lib/teamStore';
 import type { KnownRoles } from '../../lib/roles';
 import { eicSummary, waitsForEic, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
@@ -227,7 +228,7 @@ function App() {
         <div class="row">
           <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}{dev && buildLabel()}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
-          <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
+          <button class="act" onClick={() => void openMatrix()} title="The team: each person's role, column and current assignments">Team</button>
           <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
           <button class="act" onClick={() => void (POPOUT ? popIn() : popOut())} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
@@ -781,6 +782,7 @@ async function clearAllData() {
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
   await forgetKeys().catch(() => {});
+  await forgetTeamFile().catch(() => {});
 }
 
 function SettingsView({ flash }: { flash: (s: string) => void }) {

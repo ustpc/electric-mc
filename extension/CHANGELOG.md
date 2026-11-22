@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.91 (2026-11-22)
+
+- Renamed: the Matrix is now the Team window (the side panel's Team button), and the window that edits the tree is Edit team.
+- Changed: saving the team to a file no longer only downloads. The first save opens Chrome's Save dialog so you choose the folder and name; later saves write over that same file without asking, and the button names it ("Save to team-opinions.json"). Save as… picks a different file. The team itself is still kept in the browser; the file is a copy. Which file was chosen is remembered in this browser only.
+
 ## 0.0.90 (2026-11-22)
 
 - Fixed (high priority): with Tight mode on, the login page went blank a second after it opened, so nobody could log in. The login page shows the journal logo a second time inside the box that holds the login form, and Tight mode folded that whole box away along with the logo bar. It now folds away only the logo bar at the top (div.logoBar), and never anything holding a form.

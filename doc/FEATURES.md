@@ -118,7 +118,8 @@ pitch to associate editors.
   as co-chair) in blue under its ID until the decision letter goes out. Only
   a decision made as co-chair with no AE assigned also shades the rows light
   red.
-- **The editorial matrix, with workloads (in development).** One window lists the
+- **The Team window, with workloads (in development).** One window (the side
+  panel's Team button; it used to be called the Matrix) lists the
   whole section team (column heads, columnists and associate editors) with
   photos, roles, institutions and expertise, and shows next to each editor
   how many manuscripts they have right now, as MC's Assign Associate Editor
@@ -128,12 +129,14 @@ pitch to associate editors.
   
 - **One team database, with its tree (now).** The EIC and Deputy EIC,
   co-chairs, sections with their heads and AEs, and columns with their
-  columnists, shown as a tree of pills above the matrix and edited in its
-  own window. A section can be turned into a column ("Make it a column"),
-  and removing one keeps its people on the tree. The matrix can save and load
-  the team as a file, and Cmd-F there goes to its search box. Every person's details,
+  columnists, shown as a tree of pills in the Team window and edited in its
+  own window (Edit team). A section can be turned into a column ("Make it a column"),
+  and removing one keeps its people on the tree. The Team window can save and load
+  the team as a file: the first save asks where, and later saves write over
+  that same file (Save as… picks another). The team is kept in the browser
+  either way; the file is a copy to share or restore, and Cmd-F there goes to its search box. Every person's details,
   links and photo are editable, and
-  the matrix, the AE menu and Suggested AEs all use the same record.
+  the Team window, the AE menu and Suggested AEs all use the same record.
 - **An AE menu you can read (now).** MC's Assign Associate Editor
   pull-down is one long alphabetical list of "Last, First". Electric MC
   regroups it under dividers (for the Opinions co-chair: column heads, then

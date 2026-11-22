@@ -107,13 +107,16 @@ contact links and headshots of the section's editors) is not part of the
 extension. You load it from a file, and it is kept in `chrome.storage.local`
 in that browser only, like the AE counts. Clear all data removes both.
 
-**The team database** (extension 0.0.54). The Matrix window, the AE menu
+**The team database** (extension 0.0.54). The Team window, the AE menu
 and Suggested AEs read one record of the editorial team: names, MC account
 email addresses, roles, sections and columns, affiliations, expertise,
 notes, links and photos. You build it in the extension or load it from a
 file; the extension ships with none. It is kept in `chrome.storage.local` in
 that browser only, and uploaded photos are shrunk to 256 pixels first.
-Clear all data removes it.
+Clear all data removes it. When you save the team to a file (0.0.91), the
+file goes where you choose in Chrome's Save dialog, and the extension keeps
+a handle to that file in the browser's IndexedDB so later saves can write
+over it; the handle holds no team data, and Clear all data forgets it.
 
 **The AE assignment menu's config** (extension 0.0.51). The extension can
 regroup, relabel and color MC's Assign Associate Editor pull-down by a
@@ -380,3 +383,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-20 | Developer mode also logs the requests MC's own page scripts make, by address and parameter names only, in local storage and the local log file (extension 0.0.79). |
 | 2026-11-20 | Page checks: per MC page name, counts of which page parts were found, no page text, local storage only; Clear all data removes them (extension 0.0.79). |
 | 2026-11-20 | Back-link experiment (test builds, developer mode, off unless turned on): this tab's sessionStorage holds the latest MC page's hidden form fields so a press on a page shown by Back can reuse them; the log gets MC page names, field names, a kind of link and yes/no results only (extension 0.0.80). |
+| 2026-11-22 | Saving the team to a file: the file goes where you choose, and a handle to it (no team data) is kept in the browser's IndexedDB so later saves overwrite it; Clear all data forgets it (extension 0.0.91). |

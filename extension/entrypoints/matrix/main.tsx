@@ -1,4 +1,4 @@
-// The Opinions editorial matrix, in its own window. At the top, the team's
+// The Team window (once called the editorial matrix), in its own window. At the top, the team's
 // tree of pills (components/TeamTree.tsx); below, one row per person in four
 // sections, from the team database (lib/team.ts, through the roster derived
 // from it), with each editor's current assignment count read from MC's AE
@@ -16,7 +16,7 @@ import { GROUPS, matchesSearch, type Roster, type RosterPerson } from '../../lib
 import { parseAeMenu, type AeMenuStore } from '../../lib/aemenu';
 import { openAeMenuEditor, openTeamEditor } from '../../lib/windows';
 import { newId, teamFromRoster, type Team, type TeamPerson } from '../../lib/team';
-import { currentTeam, saveTeamFile, storeTeam, teamFromFile } from '../../lib/teamStore';
+import { currentTeam, saveTeamFile, storeTeam, teamFileTarget, teamFromFile } from '../../lib/teamStore';
 import { TeamTree } from '../../components/TeamTree';
 import { PersonForm } from '../../components/PersonForm';
 import { installQuickTips } from '../../lib/quicktip';
@@ -72,6 +72,9 @@ function App() {
   const stored = useLocal<Team | null>(KEY.team, null);
   const hideColumnists = useLocal<boolean>(KEY.matrixHideColumnists, false);
   const [editing, setEditing] = useState<{ person: TeamPerson; isNew: boolean } | null>(null);
+  const [target, setTarget] = useState<string | undefined>();
+  const [saved, setSaved] = useState('');
+  useEffect(() => void teamFileTarget().then(setTarget, () => {}), []);
 
   const journals = Object.keys(loads);
   const shown = journal && loads[journal] ? journal : latestJournal(loads);
@@ -112,7 +115,20 @@ function App() {
     const next = { ...p, id: isNew ? newId('p', `${p.given} ${p.family}`, t.people.map((x) => x.id)) : p.id };
     await storeTeam({ ...t, people: isNew ? [...t.people, next] : t.people.map((x) => (x.id === next.id ? next : x)) });
     setEditing(null);
-    if (isNew) setError(`${next.given} ${next.family} is added. Place them on the tree with Edit hierarchy.`);
+    if (isNew) setError(`${next.given} ${next.family} is added. Place them on the tree with Edit team.`);
+  };
+
+  const saveFile = async (t: Team, pick = false) => {
+    try {
+      const name = await saveTeamFile(t, { pick });
+      if (name) {
+        setSaved(`Saved to ${name}.`);
+        setError(null);
+        void teamFileTarget().then(setTarget, () => {});
+      }
+    } catch (e) {
+      setError(`Couldn't save the file: ${(e as Error).message}`);
+    }
   };
 
   const countOf = (p: RosterPerson) => joined.counts.get(p.id);
@@ -126,7 +142,7 @@ function App() {
   return (
     <div class="wrap">
       <div class="heading">
-        <h1>{roster ? `${roster.section} editorial matrix` : 'Editorial matrix'}</h1>
+        <h1>{roster ? `${roster.section} team` : 'Team'}</h1>
         {roster && <p class="date">{people.length} people · Researched {roster.researchedOn}</p>}
       </div>
       <div class="tools">
@@ -144,8 +160,10 @@ function App() {
           </label>
         )}
         <button onClick={() => setEditing({ person: { id: '', given: '', family: '', affiliations: [], expertise: '', links: [] }, isNew: true })} title="Add a person to the team">+ person</button>
-        <button onClick={() => void openTeamEditor()}>Edit hierarchy…</button>
-        {team && <button onClick={() => saveTeamFile(team)} title="Save the whole team (people, sections, columns) to a file you can load here or in the Team editor">Save team file…</button>}
+        <button onClick={() => void openTeamEditor()}>Edit team…</button>
+        {team && <button onClick={() => void saveFile(team)} title={target ? `Write the whole team (people, sections, columns) over ${target}` : 'Save the whole team (people, sections, columns) to a file you choose; later saves write over it. The team is already kept in this browser.'}>{target ? `Save to ${target}` : 'Save team file…'}</button>}
+        {team && target && <button onClick={() => void saveFile(team, true)} title="Save the team to a different file">Save as…</button>}
+        {saved && <span class="muted">{saved}</span>}
         <label class="file">{roster ? 'Load a team file…' : 'Load team or roster…'}<input type="file" accept=".json,application/json" onChange={(e) => void loadFile((e.target as HTMLInputElement).files?.[0])} /></label>
       </div>
       <p class="loads">
@@ -156,7 +174,7 @@ function App() {
       {error && <p class="error">{error}</p>}
       {!roster && (
         <div class="intro">
-          <p>Load your team to see the full matrix: press <b>Load team or roster…</b> and choose a team file (or an older <code>roster.json</code>), or press <b>Edit hierarchy…</b> to build one. It stays in this browser only.</p>
+          <p>Load your team to see it here: press <b>Load team or roster…</b> and choose a team file (or an older <code>roster.json</code>), or press <b>Edit team…</b> to build one. It stays in this browser only.</p>
         </div>
       )}
       {team && team.people.length > 0 && (

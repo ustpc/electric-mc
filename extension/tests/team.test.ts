@@ -130,7 +130,7 @@ describe('removing a section', () => {
 
 describe('saving a team file', () => {
   it('names the file after the team and writes a file that reads back', async () => {
-    const { saveTeamFile, teamFileName } = await import('../lib/teamStore');
+    const { downloadTeamFile, teamFileName } = await import('../lib/teamStore');
     expect(teamFileName({ ...team(), name: 'Opinions & More' })).toBe('team-opinions-more.json');
     expect(teamFileName({ ...team(), name: '' })).toBe('team-team.json');
     let blob: Blob | undefined;
@@ -141,11 +141,42 @@ describe('saving a team file', () => {
     Object.assign(URL, urls);
     const t = team();
     try {
-      saveTeamFile(t, doc);
+      downloadTeamFile(t, doc);
     } finally {
       Object.assign(URL, { createObjectURL: was.create, revokeObjectURL: was.revoke });
     }
     expect(clicked).toEqual(['team-test.json', 'click']);
     expect(parseTeam(JSON.parse(await blob!.text()))).toEqual(t);
+  });
+  it('saves to a picked file, then over the same file, and downloads where there is no picker', async () => {
+    const { saveTeamFile } = await import('../lib/teamStore');
+    const written: string[] = [];
+    const handle = { name: 'my-team.json', createWritable: async () => ({ write: async (d: string) => void written.push(d), close: async () => {} }) };
+    let asked = 0;
+    let cancel = false;
+    const win = { document, showSaveFilePicker: async () => {
+      asked++;
+      if (cancel) throw Object.assign(new Error('cancelled'), { name: 'AbortError' });
+      return handle;
+    } } as unknown as Window;
+    const store = new Map<string, unknown>();
+    const req = <T,>(v: T) => { const r = { result: v, onsuccess: null as null | (() => void), onerror: null }; queueMicrotask(() => r.onsuccess?.()); return r; };
+    const os = { get: (k: string) => req(store.get(k)), put: (v: unknown, k: string) => req(store.set(k, v)) };
+    const db = { transaction: () => ({ objectStore: () => os }), createObjectStore: () => os };
+    const was = (globalThis as { indexedDB?: unknown }).indexedDB;
+    (globalThis as { indexedDB?: unknown }).indexedDB = { open: () => req(db) };
+    try {
+      const t = team();
+      expect(await saveTeamFile(t, { win })).toBe('my-team.json');
+      expect(await saveTeamFile(t, { win })).toBe('my-team.json');
+      expect(asked).toBe(1);
+      expect(written).toHaveLength(2);
+      expect(parseTeam(JSON.parse(written[1]!))).toEqual(t);
+      cancel = true;
+      expect(await saveTeamFile(t, { win, pick: true })).toBeNull();
+      expect(asked).toBe(2);
+    } finally {
+      (globalThis as { indexedDB?: unknown }).indexedDB = was;
+    }
   });
 });
