@@ -310,4 +310,18 @@ describe('a whole run', () => {
     expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('stopped');
     expect(h.log).toHaveBeenCalledWith('one-button reject stopped', expect.anything());
   });
+  it('goes back to Manuscript Information when MC leaves a task open, then says done', () => {
+    const h = hooks();
+    const ids: string[] = [];
+    writeRun(document, { id: 'XYZJ-26-09-9011', step: 'cc-sent', at: Date.now(), ae: 'Co-Chair, Opinions' });
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', `<a id="info" href="javascript: setDataAndNextPage('MANUSCRIPT_DETAILS_SHOW_TAB','Tdetails','X');"><img src="/images/en_US/details/lefttabs_mss_info_off.gif"></a>`);
+    clicks(ids);
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(ids).toContain('info');
+    expect(readRun(document)?.step).toBe('info-tab');
+    document.body.innerHTML = DETAILS('Co-Chair, Opinions', '<img src="/images/en_US/details/lefttabs_mss_info_on.gif">');
+    stepRun(document, { manuscript: 'XYZJ-26-09-9011', isDetails: true }, 'Co-Chair, Opinions', h);
+    expect(readRun(document)).toBeNull();
+    expect(document.querySelector('[data-electric-mc="one-button-banner"]')!.textContent).toContain('done');
+  });
 });

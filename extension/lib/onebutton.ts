@@ -26,7 +26,7 @@ import { tabGet, tabSet } from './tabstate';
 import { foldName, labelKey, textOf } from './text';
 import type { McIdentity } from './identity';
 
-export type Step = 'assigned' | 'ae-center' | 'ae-details' | 'ae-form' | 'ae-sent' | 'cc-center' | 'cc-details' | 'cc-sent';
+export type Step = 'assigned' | 'ae-center' | 'ae-details' | 'ae-form' | 'ae-sent' | 'cc-center' | 'cc-details' | 'cc-sent' | 'info-tab';
 
 export interface RunState {
   id: string;
@@ -361,6 +361,7 @@ const LABEL: Record<Step, string> = {
   'cc-center': 'opening the paper as co-chair',
   'cc-details': 'filling in and submitting the co-chair recommendation',
   'cc-sent': 'finishing',
+  'info-tab': 'going back to Manuscript Information',
 };
 
 export function bannerText(s: RunState): string {
@@ -498,12 +499,36 @@ export function stepRun(doc: Document, page: Page, aeName: string | undefined, h
       if (formCameBack(doc, page, s.id, 'cc')) {
         return stopRun(doc, s, "MC sent the co-chair form back instead of taking the Submit. Check what it says and press Submit yourself; the AE's Reject is already in.", hooks);
       }
-      writeRun(doc, null);
-      hooks.log('one-button reject done', {});
-      showBanner(doc, `One-button reject done (${s.id}): rejected as AE and as co-chair.`, 'done');
-      return;
+      // MC leaves the paper open on its next task (Make Immediate Decision);
+      // go back to the Manuscript Information tab, and say done there.
+      const info = page.isDetails && !wrongPaper ? infoTabLink(doc) : null;
+      if (info) {
+        next('info-tab');
+        pageClick(info);
+        return;
+      }
+      return finish(doc, s, hooks);
     }
+    case 'info-tab':
+      return finish(doc, s, hooks);
   }
+}
+
+function finish(doc: Document, s: RunState, hooks: Hooks): void {
+  writeRun(doc, null);
+  hooks.log('one-button reject done', {});
+  showBanner(doc, `One-button reject done (${s.id}): rejected as AE and as co-chair.`, 'done');
+}
+
+/**
+ * The Manuscript Information tab on a details page, when another tab (a
+ * task, the Audit Trail) is showing: MC's left tab image
+ * lefttabs_mss_info_off.gif, in a link that shows the 'Tdetails' tab.
+ */
+export function infoTabLink(doc: Document): HTMLElement | null {
+  const img = doc.querySelector<HTMLImageElement>('a img[src*="lefttabs_mss_info_off"]');
+  if (img) return img.closest('a');
+  return Array.from(doc.querySelectorAll<HTMLAnchorElement>('a[href*="MANUSCRIPT_DETAILS_SHOW_TAB"]')).find((a) => /'Tdetails'/.test(a.getAttribute('href') ?? '')) ?? null;
 }
 
 /**
