@@ -95,7 +95,7 @@ export interface Settings {
   backLinkExperiment: boolean;
   /** Show the advanced settings in the side panel's Settings tab. */
   showAdvanced: boolean;
-  /** Zoom for PDFs opened from MC, in percent; 0 leaves Chrome's own fit-to-width. */
+  /** Zoom for PDFs opened from MC, in percent (default 150); 0 leaves Chrome's own fit-to-width. */
   pdfZoom: number;
   /** Count the body words of MC's PDFs and show the count over the viewer (lib/pdfcount.ts). */
   pdfWordCount: boolean;
@@ -125,7 +125,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notesServer: '',
   showAdvanced: false,
   backLinkExperiment: false,
-  pdfZoom: 0,
+  pdfZoom: 150,
   pdfWordCount: true,
 };
 

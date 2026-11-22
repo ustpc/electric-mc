@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.95 (2026-11-22)
+
+- Changed: PDFs from MC now open at 150% by default instead of Chrome's fit to width. A browser that already saved its settings keeps its choice; pick 150% under Settings, Page layout, "Open PDFs at".
+
 ## 0.0.94 (2026-11-22)
 
 - Changed: one-button reject ends on the paper's Manuscript Information tab. MC left it on its next task (Make Immediate Decision), which looked as if something was still to do. "One-button reject done" now shows there.

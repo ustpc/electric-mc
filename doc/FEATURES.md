@@ -62,8 +62,8 @@ pitch to associate editors.
   .R2, …) are bold on light yellow, so the papers coming back to you are easy
   to spot. A switch turns it off.
 - **PDFs at a readable size (now).** Manuscript PDFs open in Chrome's
-  viewer at the zoom you pick in Settings (125 to 200%) instead of fit to
-  width; only that tab is zoomed.
+  viewer at 150% by default, or the zoom you pick in Settings (125 to 200%,
+  or Chrome's fit to width); only that tab is zoomed.
 - **Word counts on PDFs (now).** A manuscript PDF shows its body's word
   count in a box over the viewer: no cover page, line numbers, headers or
   references. A PDF with two copies of the article (clean and marked up) is
