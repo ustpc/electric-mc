@@ -1,0 +1,33 @@
+# Codecov settings (https://docs.codecov.com/docs/codecov-yaml). Coverage is
+# reported, never enforced here: the Vitest thresholds in
+# extension/vitest.config.ts are the floor that fails CI.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "diff, flags, files"
+  require_changes: false
+
+# Each CI job uploads one flag. Carry a flag's last numbers forward when a run
+# doesn't upload it (for example, a job cancelled by a newer push).
+flag_management:
+  default_rules:
+    carryforward: true
+  individual_flags:
+    - name: extension
+      paths: [extension/]
+    - name: notes-server
+      paths: [backend/notes/]
+    - name: python-tools
+      paths: [tools/]
+
+ignore:
+  - "extension/tests/**"
+  - "backend/notes/tests/**"
+  - "tools/**/test_*.py"

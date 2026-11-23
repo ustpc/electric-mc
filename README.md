@@ -2,6 +2,9 @@
 
 **[Install Electric MC from the Chrome Web Store](https://chromewebstore.google.com/detail/jihifdamelimkliohjickcjhcocblaij)**
 
+[![CI](https://github.com/ustpc/electric-mc/actions/workflows/ci.yml/badge.svg)](https://github.com/ustpc/electric-mc/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ustpc/electric-mc/graph/badge.svg)](https://app.codecov.io/gh/ustpc/electric-mc)
+
 Electric Manuscript Central is a Chrome extension that makes ScholarOne
 Manuscripts (Manuscript Central, "MC") easier to use. It runs on
 `*.manuscriptcentral.com` pages, restyles them, and adds a side panel. It

@@ -1,7 +1,10 @@
 # Typechecks, lints, tests (with coverage), builds and load-tests the extension on every push
 # and pull request, and checks the notes server, the Python tools and the
 # whole repository for real MC data. The coverage table goes in the run summary and, on pull
-# requests, in a comment; the HTML report is the "coverage" artifact.
+# requests, in a comment; the HTML report is the "coverage" artifact. Coverage for
+# the extension (Vitest), the notes server (Rust) and the Python tools is also
+# uploaded to Codecov (https://app.codecov.io/gh/ustpc/electric-mc), one flag
+# each; uploads authenticate with GitHub OIDC, so no token secret is needed.
 name: CI
 
 on:
@@ -13,6 +16,8 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  # Codecov uploads authenticate with a GitHub OIDC token.
+  id-token: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -74,6 +79,16 @@ jobs:
           json-summary-path: coverage/coverage-summary.json
           json-final-path: coverage/coverage-final.json
 
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: extension/coverage/lcov.info
+          flags: extension
+          disable_search: true
+          fail_ci_if_error: false
+
   real-data:
     # AGENTS.md: real Manuscript Central data never goes in this repository.
     # The check looks at shapes (IDs outside the synthetic ranges, emails
@@ -95,13 +110,24 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: backend/notes
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      # Runs the tests once, instrumented, and writes an LCOV report.
+      - run: cargo llvm-cov --all-targets --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: backend/notes/lcov.info
+          flags: notes-server
+          disable_search: true
+          fail_ci_if_error: false
 
   python-tools:
     runs-on: ubuntu-24.04
@@ -110,4 +136,15 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uvx ruff check .
       - run: uvx --with playwright --with psutil --with keyring --with pytest --with pillow pyright
-      - run: uv run --with pytest --with keyring --with playwright --with psutil pytest -q tools/mc-watch
+      - run: >-
+          uv run --with pytest --with pytest-cov --with keyring --with playwright --with psutil
+          pytest -q tools/mc-watch --cov=tools/mc-watch --cov-report=xml:coverage.xml
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: coverage.xml
+          flags: python-tools
+          disable_search: true
+          fail_ci_if_error: false
