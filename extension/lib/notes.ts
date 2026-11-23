@@ -79,6 +79,37 @@ export function mergeNotes(local: Note[], server: Note[]): Note[] {
 }
 
 /**
+ * One change to a manuscript's notes, as a message the side panel sends to
+ * the background, which applies it inside its storage queue. So two panels,
+ * the daily cleanup and the notes migration can't overwrite each other.
+ */
+export type NoteOp =
+  | { op: 'upsert'; note: Note }
+  | { op: 'remove'; t: number; email: string }
+  | { op: 'merge'; server: Note[] }
+  | { op: 'synced'; t: number; email: string; updated: number };
+
+export function applyNoteOp(list: Note[], o: NoteOp): Note[] {
+  switch (o.op) {
+    case 'upsert':
+      return upsertNote(list, o.note);
+    case 'remove':
+      return removeNote(list, o.t, o.email);
+    case 'merge':
+      return mergeNotes(list, o.server);
+    case 'synced':
+      return list.map((x) => (x.t === o.t && x.email === o.email && x.updated === o.updated ? { ...x, synced: true } : x));
+  }
+}
+
+/** The store with one manuscript's notes changed; a manuscript left with none is dropped. */
+export function applyNoteOpToStore(all: NotesStore, m: string, o: NoteOp): NotesStore {
+  const next = applyNoteOp(all[m] ?? [], o);
+  const { [m]: _old, ...rest } = all;
+  return next.length ? { ...rest, [m]: next } : rest;
+}
+
+/**
  * Notes as stored. Builds before 0.0.40 kept one text per manuscript ID
  * (Record<string, string>); those become one note each, by `who`, dated now.
  */

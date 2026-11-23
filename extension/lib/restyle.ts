@@ -9,7 +9,7 @@
 
 import { findManuscriptIds } from './ids';
 import { textOf } from './text';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 
 const WIDE = 'data-emc-wide';
 const FONT = 'data-emc-fs';
@@ -115,9 +115,12 @@ function isCentered(el: HTMLElement): boolean {
  * and everything else inherits it. The original size is kept so scaling never
  * compounds and can be undone.
  */
+const scaled = new WeakMap<Document, string>();
+
 function scaleFonts(doc: Document, px: number) {
   const view = doc.defaultView;
   if (!px || px === MC_FONT_PX) {
+    scaled.delete(doc);
     doc.querySelectorAll<HTMLElement>(`[${FONT}]`).forEach((e) => {
       e.style.removeProperty('font-size');
       e.removeAttribute(FONT);
@@ -125,6 +128,13 @@ function scaleFonts(doc: Document, px: number) {
     return;
   }
   if (!view || !doc.body) return;
+  // Every run (each load and DOM change) would read every element's computed
+  // size again; skip when the size, the number of elements and the number of
+  // scaled ones are as last time (MC replacing a panel with as many elements
+  // drops scaled ones, so it still counts as a change).
+  const stamp = `${px}|${doc.body.getElementsByTagName('*').length}|${doc.querySelectorAll(`[${FONT}]`).length}`;
+  if (scaled.get(doc) === stamp) return;
+  scaled.set(doc, stamp);
   const ratio = px / MC_FONT_PX;
   const els = [doc.body, ...Array.from(doc.body.querySelectorAll<HTMLElement>('*'))];
   // Read every original size before writing any, so writes don't skew reads.
@@ -148,6 +158,7 @@ function scaleFonts(doc: Document, px: number) {
     el.setAttribute(FONT, String(orig));
     el.style.setProperty('font-size', `${Math.round(orig * ratio * 10) / 10}px`, 'important');
   }
+  scaled.set(doc, `${px}|${doc.body.getElementsByTagName('*').length}|${doc.querySelectorAll(`[${FONT}]`).length}`);
 }
 
 const HIDE = 'data-emc-hide';

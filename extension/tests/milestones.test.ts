@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { addMilestoneRows, daysBetween, decisionLettersIn, findAuditTrailLink, EMC_COLOR, findMilestonesRow, versionInfoFrom, versionName } from '../lib/milestones';
+import { addMilestoneRows, daysBetween, decisionLettersIn, findAuditTrailLink, findMilestonesRow, versionInfoFrom, versionName } from '../lib/milestones';
+import { EMC_COLOR } from '../lib/ui';
 
 // Synthetic markup shaped like MC's details page (names are made up).
 const MILESTONES = `

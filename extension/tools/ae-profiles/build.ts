@@ -13,7 +13,8 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseRoster, fold, type RosterPerson } from '../../lib/roster';
+import { fold } from '../../lib/text';
+import { parseRoster, type RosterPerson } from '../../lib/roster';
 import { DIMS, MODEL_DTYPE, MODEL_ID, encodeVec, normalize, words, type AeProfilesFile } from '../../lib/match';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -226,7 +227,7 @@ async function main() {
   mailto = o.mailto ?? '';
   if (!mailto) console.warn('Tip: set OPENALEX_MAILTO=you@example.org (or --mailto) to use OpenAlex\'s faster polite pool.');
   const roster = parseRoster(JSON.parse(await readFile(o.roster, 'utf8')));
-  const ids: Record<string, Ids> = o.ids ? JSON.parse(await readFile(o.ids, 'utf8')) : {};
+  const ids = (o.ids ? JSON.parse(await readFile(o.ids, 'utf8')) : {}) as Record<string, Ids>;
   const people = roster.people.filter((p) => (o.only ? p.id === o.only : o.all || p.assignable) && !ids[p.id]?.skip);
   console.log(`${people.length} people from ${o.roster}; loading ${MODEL_ID} (${MODEL_DTYPE})…`);
   const extract = await loadModel();

@@ -2,7 +2,7 @@
 // The developer trace: what a click and a page load record, and that typed
 // text never is. Synthetic markup only.
 import { describe, expect, it } from 'vitest';
-import { describeClick, describePage, watchClicks } from '../lib/devtrace';
+import { describeClick, describePage, describeRequest, watchClicks } from '../lib/devtrace';
 
 const PAGE = `<form><input type="hidden" name="XIK_TAGACT" value="xik_synthetic"><input type="hidden" name="CURRENT_PAGE" value="ASSOCIATE_EDITOR_DASHBOARD">
   <table><tbody><tr><th>Co-Chair Recommends</th></tr>
@@ -53,5 +53,19 @@ describe('watchClicks', () => {
     document.getElementById('rej')!.click();
     stop();
     expect(seen).toHaveLength(1);
+  });
+});
+
+describe('describeRequest', () => {
+  const here = 'https://mc.manuscriptcentral.com/xyzj';
+  it("records the page's scripted requests by path and parameter names only", () => {
+    expect(describeRequest({ name: 'https://mc.manuscriptcentral.com/xyzj/scholaroneAJAXServlet?b=2&a=XYZJ-26-09-9011&a=3', initiatorType: 'xmlhttprequest', duration: 12.6, transferSize: 300, responseStatus: 200 }, here)).toEqual({
+      kind: 'xmlhttprequest', path: '/xyzj/scholaroneAJAXServlet', params: ['a', 'b'], ms: 13, bytes: 300, status: 200,
+    });
+    expect(describeRequest({ name: 'https://metrics.example.org/v1/data?k=1', initiatorType: 'beacon', duration: 1 }, here)).toMatchObject({ path: 'metrics.example.org/v1/data', params: ['k'] });
+  });
+  it('leaves out what the page itself loads', () => {
+    expect(describeRequest({ name: 'https://mc.manuscriptcentral.com/images/x.gif', initiatorType: 'img', duration: 1 }, here)).toBeNull();
+    expect(describeRequest({ name: 'https://mc.manuscriptcentral.com/a.js', initiatorType: 'script', duration: 1 }, here)).toBeNull();
   });
 });

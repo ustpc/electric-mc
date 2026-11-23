@@ -2,6 +2,128 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.96 (2026-11-22)
+
+Fixes from Copilot's second review of the open pull request:
+
+- Fixed: one-button reject could still take a step on a slow page after it (or E-MC) was turned off while the page loaded. The step now checks the setting when the page finishes loading.
+- Fixed: turning off "show earlier versions' AEs" (or E-MC) left the earlier AEs in Version History and above the AE pull-down, and a read still in progress could put them back. They now go, and come back when the setting is turned on again. When MC redraws Version History, the notes are put back without another read.
+- Fixed: the "View full interactive search" line now also follows the box when it's opened or closed with the WoS logo.
+- Privacy: a warning about a rejected title no longer quotes the title (it gives its length), and the log export removes old ones whole even when the title holds quotes. The local tests on real pages and PDFs never print a file's path or contents when it fails to load.
+
+## 0.0.95 (2026-11-22)
+
+- Changed: PDFs from MC now open at 150% by default instead of Chrome's fit to width. A browser that already saved its settings keeps its choice; pick 150% under Settings, Page layout, "Open PDFs at".
+
+## 0.0.94 (2026-11-22)
+
+- Changed: one-button reject ends on the paper's Manuscript Information tab. MC left it on its next task (Make Immediate Decision), which looked as if something was still to do. "One-button reject done" now shows there.
+
+## 0.0.93 (2026-11-22)
+
+- Fixed: after E-MC was turned off and on again for the site, Version History lost its earlier-version AE notes until the next paper.
+
+## 0.0.92 (2026-11-22)
+
+Fixes from a code review of the open pull request:
+
+- Fixed: turning off One-button reject (or E-MC for the site) left its controls on the page, and pressing them could still start a run. The controls now go away, and a press checks the setting first.
+- Fixed: the "View full interactive search" line in the Web of Science box now follows the box when you open or close it by hand (it showed or hid by the setting only).
+- Fixed: turning E-MC off for the site left decided rows red on queue lists.
+- Fixed: a Submit or Commit Decision press was added to the To EIC list on any page update, even when MC refused it and showed the form again. It is now added only when MC answers with a new page, and not when that page is the form again.
+- Fixed: font size scaling could miss a panel MC replaced with one of the same size.
+- Privacy: page snapshots (Capture page HTML, weekly samples) now clear every field a person can type into, including search, phone and untyped fields, and keep the manuscript IDs E-MC made clickable. The local tests on real files never print what a file holds, even when it fails to load, and an empty queue no longer fails them.
+- Developer: `make check` now runs what CI runs (coverage floors, a fresh build with its remote-code and permission checks, the Chromium load and page tests).
+
+## 0.0.91 (2026-11-22)
+
+- Renamed: the Matrix is now the Team window (the side panel's Team button), and the window that edits the tree is Edit team.
+- Changed: saving the team to a file no longer only downloads. The first save opens Chrome's Save dialog so you choose the folder and name; later saves write over that same file without asking, and the button names it ("Save to team-opinions.json"). Save as… picks a different file. The team itself is still kept in the browser; the file is a copy. Which file was chosen is remembered in this browser only.
+
+## 0.0.90 (2026-11-22)
+
+- Fixed (high priority): with Tight mode on, the login page went blank a second after it opened, so nobody could log in. The login page shows the journal logo a second time inside the box that holds the login form, and Tight mode folded that whole box away along with the logo bar. It now folds away only the logo bar at the top (div.logoBar), and never anything holding a form.
+
+## 0.0.89 (2026-11-21)
+
+- Fixed: one-button reject stopped at the co-chair step with "no co-chair recommendation task on the paper" when MC named that task plain "Make Recommendation" on the co-chair's page (it looked only for a task naming the co-chair). The form it opens is still checked to be the co-chair's Recommends form before anything is pressed.
+- Fixed: the side panel said "MC changed: the Assign AE pull-down / the next/previous arrows not found" on manuscript pages, and one-button reject was held back there. MC shows those parts only in some states (the pull-down only while a paper waits for an AE, the arrows only when the paper was opened from a list), so their absence is still counted but no longer reported as a change.
+
+## 0.0.88 (2026-11-20)
+
+- Fixed: one-button reject stopped with "no co-chair recommendation task on the paper" when it reached the paper as co-chair before MC showed that task (it can lag the AE's Submit, and a slow connection can leave the page short). It now opens the paper again, up to twice, before stopping.
+
+## 0.0.87 (2026-11-20)
+
+- Fixed (slow connections): one-button reject could stall when E-MC started on a page MC hadn't finished loading, because MC ignores its own links until then. Each step of a run now waits for the page to finish loading before pressing anything. A run is also kept for 2 hours instead of 30 minutes.
+- Fixed: while an MC page was still loading, the side panel said "This tab is running an older build". It now waits for the page.
+- Fixed: Pop in threw "No active side panel for windowId" when the browser window's tab wasn't an MC page. It now opens the panel on the window's MC tab, or says to switch to one and leaves the pop-out open.
+
+## 0.0.86 (2026-11-20)
+
+- Fixed: after a Reject recommended as AE, the co-chair's queue said "you recommended Reject as AE …; waiting for the EIC", and the side panel listed it under Waiting for the EIC. A recommendation made as AE waits for the co-chair's own recommendation: the note now says "next, the co-chair recommendation", and only recommendations made as co-chair (or decisions) are listed as waiting for the EIC.
+
+## 0.0.85 (2026-11-20)
+
+- New: a setting for MC's Web of Science Reviewer Locator box (Settings, Page layout): closed (E-MC's default; MC shows it open), open, or removed. Closing and opening press MC's own +/- toggle once per page, so a box you open again by hand stays open. The "View full interactive search on reviewerlocator.webofscience.com" line shows only when the setting is open.
+
+## 0.0.84 (2026-11-20)
+
+- New: Tight mode (Settings, Page layout; off by default), for the EIC. On every MC page the journal logo bar folds away after a second, the row with MC's instructions ("The tabs below organize…") goes, and so do MC's empty spacing rows, with less padding around the main column. The instructions stay on MC's popups, where they are the page. A spacing row comes back if MC later puts something in it.
+
+## 0.0.83 (2026-11-20)
+
+- Changed: one-button reject decides whether MC is showing a Reject choice or Submit button with Chrome's own visibility check, which also catches controls hidden by an enclosing section, not only by their own style.
+- Fixed: "Extension context invalidated" could still reach the console from MC tabs left open after E-MC was reloaded. Every storage read and write in those tabs now checks first that E-MC is still there and never throws, and settings changes, the keepalive and the login page do the same. Old errors stay listed on the Extensions page until you press Clear all there.
+
+## 0.0.82 (2026-11-20)
+
+- Fixed: one-button reject reached the AE Recommends form, then stopped with "couldn't find the Recommends form with a Reject choice" and pressed Make Recommendation twice more first. It now counts only the Reject choice and Submit that MC shows (a hidden copy of another form's controls made two of each), takes an image Submit button, stops at once when the form is on the page but can't be read, and says in the banner what it counted.
+- Fixed: after E-MC was reloaded, MC tabs left open showed "Uncaught (in promise) Error: Extension context invalidated" in the console. The old copy in those tabs now stays quiet.
+
+## 0.0.81 (2026-11-20)
+
+- Fixed: the developer log's "title reapplied" entries held the page title, which on a manuscript page includes its title. They now hold only the lengths.
+- Changed: when the live log helper can't start, the side panel says exactly what to type in Terminal and where, and when it's needed again.
+
+## 0.0.80 (2026-11-20)
+
+- New (test builds, developer mode, off by default): the Back-link experiment, to learn whether a link on a page Back brought up still works later in the session. With it on, a page shown by Back gets a bar at the top to send its links as saved or with the latest live page's tokens (hidden fields other than the page and action ones); each press and MC's answer (page name, logged out, error page) go to the log. Only page names, field names, a kind of link and yes/no results are logged, never values or page text, and nothing is pressed for the person.
+- Changed: when one-button reject can't get to Make Recommendation, its banner says which piece was missing: no "reviews required" box, no Save next to it, or the box wouldn't take 0. It also takes a number box and an image Save button.
+- New: in developer mode, the side panel's test-build label also shows the build's commit and build time ("test build v0.0.80 · 1898ea0 · 20 Nov 10:17"), so it's clear which build Chrome is running. Store builds carry neither.
+- Fixed: a Reject made as AE (by one-button reject) showed in the queue as "you decided Reject" on a red row. The details page lists a "Make Immediate Decision" task link next to every other task, and that link made any Submit there count as a decision. Now a press on the AE's "… Recommends" form is never a decision, and the task link doesn't count. Each press also records the role it was made in and whether the paper had an AE; the blue note says "as AE" or "as co-chair", and only a decision made as co-chair with no AE shades the row red. An entry from an older build that says "decided" on a row that shows an AE is shown as a recommendation, without the red.
+- Fixed: one-button reject stopped with "no Make Recommendation task" on a paper whose "# reviews required to make decision" was 2. MC shows that task only once the number is 0 and saved; the run didn't recognize MC's wording, and set the box without pressing Save. It now sets it to 0, presses the Save beside the Reviewer List, and opens Make Recommendation when the page comes back.
+- Changed: every feature is on by default (Simson): one-button reject, full window width, page title on top, log in once the password manager fills the form, Take Action after a one-result search, stay logged in, and the grouped Assign AE pull-down (the shipped config until one is saved). Developer mode and Show advanced settings stay off. Saved settings are kept; the defaults matter for a new install, or after the extension is removed and loaded again, which clears its settings.
+- Changed: one-button reject says in the page's Console (and the log) why it isn't shown on a manuscript page: no AE pull-down, no Assign control next to it, a run already in progress, or a popup window. It also finds an Assign control one or two table rows out from the pull-down, never an "Assign Reviewers" one. Each step of a page's run is now guarded on its own, so one that fails is logged (also in the Console) and the rest, such as the full-width styling, still run.
+
+## 0.0.79 (2026-11-20)
+
+- Fixed: on real MC pages the classifier never saw MC's page name (CURRENT_PAGE), so pages it alone settles weren't recognized: a co-chair's Assign AE details page was not taken for a manuscript page, and one-button reject didn't appear. The parser classifies a cleaned copy of the page without hidden elements, and in Chrome every hidden input counts as hidden; jsdom, which the tests use, doesn't, so the tests passed. The name is now read from the live page. A new check loads the built extension in real Chromium on a synthetic details page and fails unless it is read as a manuscript page and the one-button controls appear (`npm run test:page`, also in CI).
+- New: in the Editorial matrix, Cmd-F (Ctrl-F on Windows and Linux) goes to the matrix's search box and selects its text, instead of opening Chrome's find bar. Press it again in the box for Chrome's find bar.
+- New: "Save team file…" in the Editorial matrix, beside "Load a team file…", saves the whole team (the same file as the Team editor's Save to file).
+- Fixed: in developer mode, Chrome listed "Permissions policy violation: unload is not allowed in this document" on MC pages, again on every load. The page snapshot (for weekly page samples and Capture page HTML) cloned the whole live page, and cloning MC's body, which carries an onunload attribute, registered an unload handler in the page. The snapshot is now made in a separate, inert document, and also leaves out event-handler attributes. A test fails if any source adds an unload listener, sets onunload or clones the whole page.
+- Fixed: flag labels went on the wrong things. Reading the "Flag This Manuscript" panel took any icon near its heading, so MC's bullets, "req" marks, expanders and person icons were learned as flags, and pages showed "(flagged: …)" with a name, a manuscript ID, checklist text or "Reviewer Locator", in large type in Version History. Now only flag icons (an image with "flag" in its address) are learned and labeled, a label is taken from the words beside the icon or its tooltip or alt text, and names and manuscript IDs are never labels. Reading the panel again replaces the journal's flags, so the bad entries go; until then they're ignored. Labels are 12px, go after the icon's link instead of inside it, and are never added in Version History.
+- Fixed: in the Team editor, removing a section left its head off the tree ("Not on the tree") though the confirm said only that its columns would report to the co-chairs. Its heads and AEs who are nowhere else now become AEs in no section, reporting to the co-chairs, and the confirm says by name what happens to each of them and to its columns. New: "Make it a column" turns a section into a column of the same name that reports to the co-chairs, with its heads as the columnists.
+- Fixed: the redacted log export (the one meant for sharing) kept manuscript IDs that some events log as plain text ("take action after search", "no version links found", "search did not find exactly that manuscript"), and the quoted text of a rejected title in parse warnings. Text in a redacted export now has its manuscript IDs replaced by the same hashes as the rest of the export, and quoted text replaced by "<text>". Found by the new local tests on real data, which redact the whole live log and look for IDs, emails and titles (counts only).
+- Safer one-button reject: each step now goes on only once MC has taken the Submit. If MC sends the AE recommendation form back (a required field, an error), the run waits for your next Submit instead of going on to the co-chair step; if it sends the co-chair form back, the run stops and says so instead of reporting "done". And the run presses Submit only on its own role's form: the co-chair step needs "Co-Chair" in the "… Recommends" heading, the AE step needs a heading without it. Before, any "… Recommends" form would do.
+- New: a warning when MC changes its pages. On each page load the extension checks that the parts its features rely on are there (the AE/CC lines, task links, the Assign AE pull-down, the Recommends form, the Take Action list, the search bar, who is logged in, and so on), and learns, per MC page name, which ones that page always has. When one that had been found at least 20 times is missing three loads in a row, the side panel says in E-MC brown "MC changed: … not found on …", the log records it ("MC changed"), and one-button reject won't start on that page until it's back. Only the check names and found/not found are kept, in local storage; Clear all data removes them (`lib/probes.ts`).
+- Development: every click handler of ours now runs from one listener in fixed phases (trace, guard, record, act; `lib/clickbus.ts`), so a guard that stops a press is sure to stop everything after it.
+- Development: the content script's features are now modules in `lib/features/` (versions and milestones, the AE menu, the To EIC list, flag labels, one-button reject, auto-advance, queue marks, the page look, and the role and identity recorders). The content script parses, builds each run's context and runs them in order; features follow the stored values they name instead of reading storage themselves. It went from 722 to about 430 lines, and the moved code is now tested on its own. No change in behavior.
+- Better page recognition: the classifier now reads MC's own name for each page (the hidden CURRENT_PAGE field, such as ASSOCIATE_EDITOR_MANUSCRIPT_DETAILS) and gives it the most weight (parser 0.3.0). Checked against the live log, the old signals alone had called 22 of 377 manuscript details pages queue lists (a details page that also lists other manuscripts with Take Action), so the side panel, notes and the page features saw no manuscript there; a few queue pages came out unknown and two dashboards as manuscripts. A manuscript's details in a popup (a reviewer's view) now counts as a manuscript page. A local test on real data checks that MC's page names and the classifier agree.
+- Fixed: a note saved in the side panel could be lost if another panel, the daily cleanup of old manuscripts, or the one-time notes migration wrote at the same moment, since the panel wrote the whole notes store itself. The panel now sends each change (add or edit, delete, merge with the server, mark as sent) to the background, which applies it in the same queue as every other storage write.
+- Fixed: Clear all data left some data behind: the last-activity and keepalive times, the last cleanup time, the matrix's "Hide columnists" choice, and this browser's note-signing keys (in IndexedDB; a new key is made the next time you post a note). Its confirmation now lists everything it removes. A test checks that every storage key is either cleared or deliberately kept, so a new one can't be missed.
+- Development: developer mode logs each request MC's own page scripts make (XHR, fetch, beacons), by path and parameter names, never values ("request" events, from the browser's resource timing), so we can learn which parts of MC run in the browser. The audit found only one so far, the "+ Search" toggle's AJAX servlet.
+- Development: test builds in developer mode save one copy of each kind of MC page (by MC's own page name, CURRENT_PAGE) each week, through the live-log helper, as `var/real-pages/<page>.html`, so the local real-data tests always run on recent pages (`lib/pagesample.ts`). Scripts and anything typed into fields are left out. Reinstall the helper (`make install-log-host`) to get this.
+- Development: ESLint with type-aware rules (`npm run lint`, its own packages in `tools/lint` because typescript-eslint needs the TypeScript 5 API), stricter TypeScript settings (unused locals and parameters, implicit returns), a coverage floor for `lib/` and `parsers/`, a manifest permission guard (`permissions.json`, checked after every build and zip), a scan for real MC data with git hooks (`make install-hooks`), and local-only tests on real data in `../var` (`npm run test:real`, `tests-real/README.md`). `make check-all` runs every check, including the notes server's `cargo fmt`, `clippy` and tests and the Python tools' `ruff`, `pyright` and `pytest`; CI runs the same.
+
+## 0.0.78 (2026-11-18)
+
+- New: decisions you made are marked on queue lists and search results. When a co-chair makes an immediate decision without assigning an AE, MC keeps the manuscript under "Assign AE" until the EIC acts, and MC's Recommendations box doesn't show the decision, so the extension never knew about it. Now it notes your choice when you press Submit (or Commit Decision) with a choice picked, once MC answers with a new page (a press MC refuses, or one the extension's own guards stop, isn't kept). In queue grids and search results, that manuscript's rows get a light red background (10% red) and under its ID, where MC shows "(Resubmitted)", it says in blue "E-MC: you decided Reject (2026-10-23); MC still lists it until the EIC acts". Recommendations from the Recommendations box show the same way ("you recommended …"); that note used to sit in the Status cell in E-MC brown. A decision noted at Submit leaves the list when a decision letter for the manuscript has gone out. Only the choice is kept, in this browser, never the comments. The log records each one ("decision recorded at submit").
+- Decisions made before this version, or in another browser, are found from MC's own list: a row whose Status has a "Make Decision (Due …)" task next to "Assign AE" (MC adds that task after a co-chair's immediate decision) is marked the same way, with "E-MC: decision made; MC still lists it until the EIC acts" (MC's list doesn't say which decision).
+- New: MC's flag icons, named. When a manuscript's details page shows the "Flag This Manuscript" panel, the extension learns each icon and its label (per journal, by the icon's file name) and from then on puts the label beside that icon on lists and details pages, in italic E-MC brown: "(flagged: 3 or more rejections)". Hover for where it came from. Settings → Features → "Name MC's flag icons" is on by default. Only MC's own flag labels are kept, in local storage; Clear all data removes them. The log records how many were learned ("flags learned").
+- New (test it before relying on it): one-button reject for co-chairs. Settings → Features → "One-button reject next to MC's Assign AE button" (off by default) puts "| [ ] reject [one-button reject]" after MC's Assign button in the Associate Editor List. The button works only after you've opened the PDF on this visit to the paper (leaving the paper resets it) and checked "reject". Pressing it picks your own AE entry in the pull-down (found from who is logged in, so it works for any co-chair), presses Assign, switches to the Associate Editor Center, opens the paper by search, sets the reviewers needed to 0 if the page has such a field, opens Make Recommendation, picks Reject and puts the cursor in "Comments to the Author". A banner says you're in one-button reject mode, with a Stop button. Write your comments (and anything for the editor) and press Submit. The extension then switches to the Co-Chair Center, opens the paper by search, opens the co-chair recommendation, picks Reject, copies both comment boxes and presses Submit itself. Every step runs in the tab you're looking at, one page at a time. Anything unexpected (another paper opens, no Reject choice, a missing link, a choice other than Reject at the AE step) stops the run and says why; the comments you wrote are still on MC's AE recommendation. The log records each step ("one-button reject step") with no text from the paper.
+- Known gap: rescinding a decision that MC's Recommendations box never showed doesn't clear it; it stays red until the decision letter goes out.
+
 ## 0.0.77 (2026-11-18)
 
 - Fix for the Chrome Web Store's "Blue Argon" warning (remotely hosted code). Transformers.js, which runs the AE-suggestion model, contains a default that points ONNX's WebAssembly runtime at cdn.jsdelivr.net and models at huggingface.co. The extension always replaced those with its own bundled files before loading the model, and its CSP allows only its own scripts, so nothing was ever loaded from there; but MV3 doesn't allow the address in the package at all. The build now rewrites those defaults to the bundled runtime (`ort/`) and turns off remote models (`scripts/local-runtime.ts`), and stops if a Transformers.js upgrade changes that code. AE suggestions work as before.

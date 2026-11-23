@@ -2,19 +2,21 @@
 // current Manuscript Central tab, the seen-manuscripts index, authored notes,
 // the debug log and its export, and capture of page HTML for the validator.
 
+import { brokenProbes, NEEDS, type ProbeName, type ProbeStore } from '../../lib/probes';
 import { canKeepBackPages } from '../../lib/backcache';
 import { render } from 'preact';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { buildExport, type Level, type LogEntry } from '../../lib/log';
-import { DEFAULT_SETTINGS, KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type SeenManuscript, type Settings } from '../../lib/messages';
+import { DEFAULT_SETTINGS, KEY, LOCAL_DATA_KEYS, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, saveSettings, setHostEnabled, type CaptureReply, type Msg, type SeenManuscript, type Settings } from '../../lib/messages';
 import { FONT_CHOICES, MC_FONT_PX } from '../../lib/restyle';
 import type { ParseResult } from '../../parsers/types';
 import { filterSeen } from '../../lib/seen';
-import { canDelete, canEdit, mergeNotes, nowS, removeNote, sessionNote, titleHash, upsertNote, type Note, type NotesStore } from '../../lib/notes';
+import { canDelete, canEdit, nowS, sessionNote, titleHash, type Note, type NoteOp, type NotesStore } from '../../lib/notes';
 import { authorLabel, mcName, type McIdentity } from '../../lib/identity';
-import { banKey, deleteNote, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
+import { banKey, deleteNote, forgetKeys, listNotes, myKeyId, putNote, type Me } from '../../lib/notesClient';
+import { forgetTeamFile } from '../../lib/teamStore';
 import type { KnownRoles } from '../../lib/roles';
-import { eicSummary, type EicItem } from '../../lib/recommend';
+import { eicSummary, waitsForEic, type EicItem } from '../../lib/recommend';
 import { LIVE_LOG_KEY, type LiveLogState } from '../../lib/livelog';
 import { SuggestedAes } from './SuggestedAes';
 import { AeMenuSettings } from './AeMenuSettings';
@@ -139,9 +141,12 @@ function StaleTab({ tabId, url }: { tabId?: number; url?: string }) {
         .sendMessage(tabId, { type: 'ping' }, TOP)
         .then((r: { version?: string } | undefined) => r?.version ?? Promise.reject(new Error('no version')))
         .then((v: string) => setStale(v === mine ? null : v))
-        .catch(() => {
-          if (triesLeft > 0) timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
-          else setStale('an older build');
+        .catch(async () => {
+          if (triesLeft > 0) return void timers.push(window.setTimeout(() => void ask(triesLeft - 1), 1500));
+          // E-MC starts on a page only once MC has sent all of it; on a slow
+          // connection that can take a while. It's asked again when loaded.
+          const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+          setStale(tab?.status === 'loading' ? null : 'an older build');
         });
     const check = () => {
       timers.splice(0).forEach(clearTimeout);
@@ -203,21 +208,29 @@ function App() {
     await chrome.windows.create({ url: chrome.runtime.getURL('sidepanel.html?popout=1'), type: 'popup', width: 440, height: 820 });
     window.close();
   };
+  // The panel is set per MC tab (background refreshTab), so it opens on the
+  // browser window's active tab, and only when that tab is an MC page.
   const popIn = async () => {
-    const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
-    if (win.id !== undefined) await chrome.sidePanel.open({ windowId: win.id });
-    window.close();
+    try {
+      const win = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+      const [tab] = await chrome.tabs.query({ active: true, windowId: win.id });
+      if (tab?.id === undefined || !panelEnabledFor(tab.url)) return flash('Switch your browser window to a Manuscript Central tab, then press Pop in again.');
+      await chrome.sidePanel.open({ tabId: tab.id });
+      window.close();
+    } catch (e) {
+      flash(`Couldn't open the side panel there: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   return (
     <>
       <header>
         <div class="row">
-          <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}</span></h1>
+          <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}{dev && buildLabel()}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
-          <button class="act" onClick={() => void openMatrix()} title="The Opinions editorial matrix, with each AE's current assignments">Matrix</button>
+          <button class="act" onClick={() => void openMatrix()} title="The team: each person's role, column and current assignments">Team</button>
           <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
-          <button class="act" onClick={POPOUT ? popIn : popOut} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
+          <button class="act" onClick={() => void (POPOUT ? popIn() : popOut())} title={POPOUT ? 'Back into the side panel' : 'Open in its own window'}>
             {POPOUT ? 'Pop in' : 'Pop out'}
           </button>
         </div>
@@ -225,6 +238,7 @@ function App() {
           <SiteSwitch url={url} />
         </div>
         <StaleTab tabId={tabId} url={url} />
+        <McChanged />
         <nav>
           {(['page', 'seen', ...(coChair ? ['eic'] : []), 'notes', ...(dev ? ['log'] : []), 'settings'] as Tab[]).map((t) => (
             <button class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
@@ -245,6 +259,24 @@ function App() {
     </>
   );
 }
+
+/** MC seems to have changed parts of its pages that features rely on (lib/probes.ts). */
+function McChanged() {
+  const store = useStorage<ProbeStore>('local', KEY.probes, {});
+  const broken = brokenProbes(store);
+  if (!broken.length) return null;
+  return (
+    <p class="mc-changed" style="color:#b45309;font-weight:700;margin:6px 0">
+      MC changed: {broken.map((b) => `${PROBE_LABEL[b.probe] ?? b.probe} not found on ${b.page}`).join('; ')}.
+      {broken.some((b) => NEEDS.oneButtonReject!.includes(b.probe)) ? ' One-button reject stays off there until it is back.' : ''}
+    </p>
+  );
+}
+
+const PROBE_LABEL: Partial<Record<ProbeName, string>> = {
+  editorBlock: 'the AE/CC lines', taskLinks: 'the task links', navBar: 'the next/previous arrows', aeSelect: 'the Assign AE pull-down',
+  recommendsForm: 'the Recommends form', takeActionGrid: 'the Take Action list', searchForm: 'the search bar', searchToggle: 'the "+ Search" toggle', identity: 'who is logged in',
+};
 
 function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?: number; flash: (s: string) => void; dev: boolean }) {
   const [raw, setRaw] = useState(false);
@@ -278,7 +310,7 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
       logFromPanel('info', 'captured page', { pageType: c.result.pageType, bytes: body.length });
       flash(`Saved Downloads/electric-mc/${name}. It contains manuscript data: keep it private.`);
     } catch (e) {
-      flash(`Capture failed: ${e}`);
+      flash(`Capture failed: ${String(e)}`);
     }
   };
 
@@ -286,8 +318,8 @@ function PageView({ state, tabId, flash, dev }: { state: TabState | null; tabId?
     <>
       {dev && (
       <section class="row" style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="act" onClick={reparse}>Re-parse</button>
-        <button class="act" onClick={capture}>Capture page HTML</button>
+        <button class="act" onClick={() => void reparse()}>Re-parse</button>
+        <button class="act" onClick={() => void capture()}>Capture page HTML</button>
         <label class="chk"><input type="checkbox" checked={saveAs} onChange={(e) => setSaveAs((e.target as HTMLInputElement).checked)} />Ask where to save</label>
       </section>
       )}
@@ -422,7 +454,8 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
  */
 function EicView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (s: string) => void }) {
   const items = useStorage<Record<string, EicItem>>('local', KEY.eic, {});
-  const list = Object.values(items).sort((a, b) => a.seen.localeCompare(b.seen));
+  // A recommendation made as AE waits for the co-chair's, not the EIC.
+  const list = Object.values(items).filter(waitsForEic).sort((a, b) => a.seen.localeCompare(b.seen));
   const open = async (id: string) => {
     if (tabId === undefined || !panelEnabledFor(url)) return flash('Switch to a Manuscript Central tab first.');
     const r = (await chrome.tabs.sendMessage(tabId, { type: 'open', id }, TOP).catch(() => null)) as { ok?: boolean } | null;
@@ -457,12 +490,10 @@ function EicView({ tabId, url, flash }: { tabId?: number; url?: string; flash: (
 /** The note being typed saves itself shortly after typing stops, on leaving the box, and on switching manuscript. */
 const NOTE_SAVE_MS = 600;
 
-/** Change one manuscript's notes, reading storage just before writing so another window's edits aren't lost. */
-async function updateNotes(m: string, change: (list: Note[]) => Note[]): Promise<void> {
-  const all = ((await chrome.storage.local.get(KEY.notes))[KEY.notes] as NotesStore | undefined) ?? {};
-  const next = change(all[m] ?? []);
-  const { [m]: _old, ...rest } = all;
-  await chrome.storage.local.set({ [KEY.notes]: next.length ? { ...rest, [m]: next } : rest });
+/** Change one manuscript's notes. The background applies it in its storage queue, so no other writer's change is lost. */
+async function updateNotes(m: string, op: NoteOp): Promise<void> {
+  const r = (await chrome.runtime.sendMessage({ type: 'notes', m, op } satisfies Msg)) as { ok?: boolean; error?: string } | undefined;
+  if (!r?.ok) throw new Error(r?.error ?? 'the extension did not answer');
 }
 
 function when(t: number): string {
@@ -509,7 +540,7 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
   const roleMap = useStorage<Record<string, KnownRoles>>('local', KEY.roles, {});
   const saved = useStorage<Partial<Settings>>(SETTINGS_AREA, KEY.settings, {});
   const server = saved.notesServer?.trim() ?? '';
-  const roles: KnownRoles = (site && roleMap[site]) || Object.assign({}, ...Object.values(roleMap));
+  const roles: KnownRoles = (site && roleMap[site]) || (Object.assign({}, ...Object.values(roleMap)) as KnownRoles);
   const knownTitle = title ?? (current ? seen[current]?.title : undefined);
   const [draft, setDraft] = useState('');
   const [status, setStatus] = useState('');
@@ -531,11 +562,11 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
       const h = await titleHash(knownTitle);
       if (n) {
         await putNote(server, who, n, h);
-        await updateNotes(m, (l) => l.map((x) => (x.t === n.t && x.email === n.email && x.updated === n.updated ? { ...x, synced: true } : x)));
+        await updateNotes(m, { op: 'synced', t: n.t, email: n.email, updated: n.updated });
       } else if (del) await deleteNote(server, who, m, h, del.t, del.email);
       setStatus('Saved and shared');
     } catch (e) {
-      setStatus(`Saved here, not shared: ${e instanceof Error ? e.message : e}`);
+      setStatus(`Saved here, not shared: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
@@ -553,14 +584,14 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
       let t = session.current?.m === p.m ? session.current.t : sessionNote(all[p.m] ?? [], email, now)?.t;
       if (!p.text.trim()) {
         if (t === undefined) return;
-        await updateNotes(p.m, (l) => removeNote(l, t!, email));
+        await updateNotes(p.m, { op: 'remove', t, email });
         session.current = null;
         return share(p.m, null, { t, email });
       }
       t ??= now;
       session.current = { m: p.m, t };
       const note: Note = { m: p.m, t, email, author: who.label, text: p.text, updated: now, keyId: await myKeyId(email) };
-      await updateNotes(p.m, (l) => upsertNote(l, note));
+      await updateNotes(p.m, { op: 'upsert', note });
       await share(p.m, note);
     })().catch((e) => setStatus(`Not saved: ${e}`));
   };
@@ -580,7 +611,7 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
     let live = true;
     void titleHash(knownTitle)
       .then((h) => listNotes(server, me, current, h))
-      .then((got) => (live ? updateNotes(current, (l) => mergeNotes(l, got)) : undefined))
+      .then((got) => (live ? updateNotes(current, { op: 'merge', server: got }) : undefined))
       .catch((e) => live && setStatus(`Couldn't fetch shared notes: ${e instanceof Error ? e.message : e}`));
     return () => {
       live = false;
@@ -608,13 +639,13 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
     setEditing(null);
     if (!text.trim()) return remove(n);
     const next: Note = { ...n, text, updated: nowS(), synced: false, keyId: await myKeyId(email) };
-    await updateNotes(current, (l) => upsertNote(l, next));
+    await updateNotes(current, { op: 'upsert', note: next });
     if (session.current?.t === n.t) setDraft(text);
     await share(current, next);
   };
   const remove = async (n: Note) => {
     if (!window.confirm(`Delete this note by ${n.author}?`)) return;
-    await updateNotes(current, (l) => removeNote(l, n.t, n.email));
+    await updateNotes(current, { op: 'remove', t: n.t, email: n.email });
     if (n.email === email && session.current?.t === n.t) {
       session.current = null;
       setDraft('');
@@ -665,6 +696,14 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
   );
 }
 
+/** " · 1898ea0 · 20 Nov 10:17" for a test build in developer mode: which build Chrome is running. */
+function buildLabel(): string {
+  const b = typeof __EMC_BUILD__ === 'undefined' ? null : __EMC_BUILD__;
+  if (!b) return '';
+  const at = new Date(b.at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return `${b.commit ? ` · ${b.commit}` : ''} · ${at}`;
+}
+
 /** Whether the live log file is being written (test builds, developer mode). */
 function LiveLogStatus() {
   const s = useStorage<LiveLogState | null>('session', LIVE_LOG_KEY, null);
@@ -672,7 +711,7 @@ function LiveLogStatus() {
   return (
     <p class="muted">
       Live log file:{' '}
-      {s?.state === 'writing' ? <code>{s.path}</code> : s ? `not available (${s.error ?? 'unknown'}). Run make install-log-host, then reload the extension.` : 'nothing written yet'}
+      {s?.state === 'writing' ? <code>{s.path}</code> : s ? `not available (${s.error ?? 'unknown'}). In Terminal: cd ~/gits/electric-mc/extension && make install-log-host, then reload E-MC in chrome://extensions. Needed again only if the checkout moves or the helper script loses its execute permission.` : 'nothing written yet'}
     </p>
   );
 }
@@ -722,7 +761,7 @@ function LogView({ flash }: { flash: (s: string) => void }) {
 }
 
 function summary(d: unknown): string {
-  if (!d || typeof d !== 'object') return d === undefined ? '' : String(d);
+  if (!d || typeof d !== 'object') return d === undefined ? '' : String(d as string | number | boolean | null);
   const r = d as Partial<ParseResult>;
   if (r.pageType) {
     const n = r.rows ? ` ${r.rows.length} rows` : r.queues ? ` ${r.queues.length} queues` : r.manuscript ? ` ${r.manuscript.id}` : '';
@@ -732,15 +771,18 @@ function summary(d: unknown): string {
 }
 
 /**
- * Remove everything Electric MC stored about manuscripts: Seen, notes, the
- * log, AE workloads, the loaded roster and each tab's latest parse. Settings stay, and so does the record of
- * tabs whose side panel is switched off, which Chrome needs to put it back.
+ * Remove everything Electric MC stored in this browser except the settings:
+ * every storage.local key, each tab's latest parse, and the note-signing keys
+ * in IndexedDB. The record of tabs whose side panel is switched off stays,
+ * since Chrome needs it to put the panel back.
  */
 async function clearAllData() {
-  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles learned, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database and the AE menu config? Your settings are kept. This cannot be undone.')) return;
-  await chrome.storage.local.remove([KEY.seen, KEY.notes, KEY.log, KEY.aeLoad, KEY.roster, KEY.aeProfiles, KEY.eic, KEY.roles, KEY.identity, KEY.aeMenu, KEY.team]);
+  if (!window.confirm('Clear all Electric MC data in this browser: the Seen list, your notes, the To EIC list, the roles and flags learned, who is logged in, the log, AE assignment counts, the Opinions roster, the AE profiles, the team database, the AE menu config, the activity times and this browser\'s note-signing keys (a new key is made the next time you post)? Your settings are kept. This cannot be undone.')) return;
+  await chrome.storage.local.remove(LOCAL_DATA_KEYS);
   const session = await chrome.storage.session.get(null);
   await chrome.storage.session.remove(Object.keys(session).filter((k) => k.startsWith('tab:')));
+  await forgetKeys().catch(() => {});
+  await forgetTeamFile().catch(() => {});
 }
 
 function SettingsView({ flash }: { flash: (s: string) => void }) {
@@ -756,7 +798,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
     setS(next);
     void saveSettings(next);
   };
-  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount', label: string) => (
+  const box = (k: 'developer' | 'rewriteTitle' | 'autoLogin' | 'loginToCoChair' | 'autoTakeAction' | 'highlightRevisions' | 'flagLabels' | 'oneButtonReject' | 'lookupEarlierVersions' | 'autoAttach' | 'keepAlive' | 'autoAdvance' | 'backPages' | 'pdfWordCount' | 'backLinkExperiment', label: string) => (
     <label class="chk"><input type="checkbox" checked={s[k]} onChange={(e) => update({ [k]: (e.target as HTMLInputElement).checked })} />{label}</label>
   );
   const adv = s.showAdvanced;
@@ -777,8 +819,19 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
         </select>
       </label>
       <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
+      <label class="chk"><input type="checkbox" checked={s.tightMode} onChange={(e) => update({ tightMode: (e.target as HTMLInputElement).checked })} />Tight mode: fold away the journal logo after a second, and drop MC's instructions line and empty space</label>
+      <label class="chk">
+        Web of Science Reviewer Locator{' '}
+        <select value={s.webOfScience} onChange={(e) => update({ webOfScience: (e.target as HTMLSelectElement).value as Settings['webOfScience'] })}>
+          <option value="closed">closed</option>
+          <option value="open">open</option>
+          <option value="removed">removed</option>
+        </select>
+      </label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
+      {box('oneButtonReject', 'One-button reject next to MC\'s Assign AE button (co-chairs)')}
+      {box('flagLabels', 'Name MC\'s flag icons (learned from the Flag This Manuscript panel)')}
       {box('pdfWordCount', "Count the words in manuscript PDFs (the body only: no cover page, line numbers or references)")}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
       {box('loginToCoChair', 'After I log in, go to the Co-Chair Center (when I could also pick the AE Center)')}
@@ -805,6 +858,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
         </label>
         <h2 style="margin-top:12px">Developer</h2>
         {box('developer', 'Developer mode: debug badge, full log, capture, raw data')}
+        {s.developer && canKeepBackPages() && box('backLinkExperiment', 'Back-link experiment: mark pages shown by Back and log what MC does with their links (needs "Back shows the page as it was")')}
         {s.developer && <label>
           Manuscript ID pattern (blank for default)
           <input style="width:100%" value={s.idPattern ?? ''} onChange={(e) => update({ idPattern: (e.target as HTMLInputElement).value || undefined })} />

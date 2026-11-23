@@ -40,6 +40,6 @@ export default defineContentScript({
       enabled = isEnabledFor(s, location.href);
       if (!enabled) observer.disconnect();
       tryAnnotate();
-    });
+    }, () => {});
   },
 });

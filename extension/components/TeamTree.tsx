@@ -5,10 +5,11 @@
 // no part of the tree. An AE in several sections appears in each. Clicking a
 // pill calls onPerson. With onChange it is the hierarchy editor: pills get
 // an ×, each list a + picker, and sections and columns can be added,
-// renamed, moved between sections and removed.
+// renamed, moved between sections and removed, and a section can be turned
+// into a column (lib/team.ts says exactly what each change does to whom).
 
 import type { ComponentChildren } from 'preact';
-import { LEADER_LABEL, fullName, newId, unassignedAes, unplaced, type LeaderRole, type Team, type TeamColumn, type TeamSection } from '../lib/team';
+import { LEADER_LABEL, fullName, newId, removeSection, removeSectionText, sectionToColumn, sectionToColumnText, unassignedAes, unplaced, type LeaderRole, type Team, type TeamColumn, type TeamSection } from '../lib/team';
 import './team.css';
 
 interface Props {
@@ -105,7 +106,8 @@ export function TeamTree({ team, onPerson, onChange, extra, hideColumns }: Props
           <div class="tree-card">
             <h3>
               {edit ? <input value={s.name} onChange={(e) => setSection(s.id, (x) => ({ ...x, name: (e.target as HTMLInputElement).value.trim() || x.name }))} /> : s.name}
-              {edit && <button class="x" title="Remove this section" onClick={() => window.confirm(`Remove the ${s.name} section? Its columns will report to the co-chairs.`) && change((t) => ({ ...t, sections: t.sections.filter((x) => x.id !== s.id), columns: t.columns.map(({ section, ...c }) => (section === s.id ? c : { ...c, ...(section ? { section } : {}) })) }))}>×</button>}
+              {edit && <button class="to-column" title="Turn this section into a column that reports to the co-chairs, with its heads as columnists" onClick={() => window.confirm(sectionToColumnText(team, s.id)) && change((t) => sectionToColumn(t, s.id))}>Make it a column</button>}
+              {edit && <button class="x" title="Remove this section" onClick={() => window.confirm(removeSectionText(team, s.id)) && change((t) => removeSection(t, s.id))}>×</button>}
             </h3>
             <div class="tree-sub">
               <span class="tree-title">{s.heads.length === 1 ? 'Head' : 'Heads'}</span>

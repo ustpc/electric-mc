@@ -3,7 +3,7 @@
 // whose page changed shows which fallback kicked in.
 
 import { findManuscriptIds, parseManuscriptId } from '../lib/ids';
-import { cellLines, labelKey, normalize, textOf, truncate, isLayoutRow } from '../lib/text';
+import { MC_DATE, cellLines, labelKey, normalize, textOf, truncate, isLayoutRow } from '../lib/text';
 import { queueEntries } from './classify';
 import { breadcrumb, dataTables, labeledValues, pick, type SimpleTable } from './dom';
 import type { ManuscriptDetails, Person, QueueCount, QueueRow } from './types';
@@ -105,16 +105,15 @@ const LABEL_WORDS = /^(date submitted|date|submitted|status|manuscript (id|type|
 export function looksLikeLabel(s: string): boolean {
   const t = s.trim();
   if (/:$/.test(t)) return true;
-  if (DATE.test(t) && t.length < 20) return true;
+  if (MC_DATE.test(t) && t.length < 20) return true;
   return LABEL_WORDS.test(t) && t.split(/\s+/).length <= 4;
 }
 
-const DATE = /\b\d{1,2}-[A-Z][a-z]{2}-\d{4}\b/;
 
 /** "09-Sep-2026; Last Updated: …" → "09-Sep-2026". */
 function firstDate(s: string | undefined): string | undefined {
   if (!s) return s;
-  return DATE.exec(s)?.[0] ?? s;
+  return MC_DATE.exec(s)?.[0] ?? s;
 }
 
 const F = {
@@ -166,7 +165,8 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
 
   let title = take('title');
   if (title && looksLikeLabel(title)) {
-    warnings.push(`manuscript: rejected title "${truncate(title, 40)}" (looks like a label)`);
+    // The title itself never goes into a warning (warnings reach the log); its length does.
+    warnings.push(`manuscript: rejected title (${title.length} chars, looks like a label)`);
     title = undefined;
   }
   if (!title) {

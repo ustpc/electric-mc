@@ -36,43 +36,67 @@ function URL). The rest of this document still applies.
 
 ## 2. Browser extension
 
+This section describes the extension as built (updated 2026-11-20, after the
+2026-11-19 system audit in `doc/audits/`). Planned parts are marked.
+
 ### 2.1 Stack
 
-- **Language:** TypeScript.
-- **Build:** WXT, a Vite-based extension framework. It builds Manifest V3 for
-  Chrome, and Edge and Firefox builds come from the same code. Chrome is the
-  only supported browser for now.
-- **UI:** Preact for the chat UI and options page, which keeps the bundle small.
-- **Restyling:** plain CSS injected into Manuscript Central pages. Any UI that
-  Electric MC adds to those pages, such as badges and buttons, is rendered
-  inside a Shadow DOM so the page's styles and ours can't interfere.
-- **Chat placement:** `chrome.sidePanel` for the docked chat and a
-  `chrome.windows` popup for the pop-out. Both serve the same page
-  (Goals 6.4).
-- **Activity sensing:** `chrome.idle` combined with window focus and mouse
-  movement (Goals 7.2).
-- **API types:** generated from the Rust backend, with `ts-rs` or an OpenAPI
-  schema, so the extension and the Lambda agree on request shapes.
-- **Tests:** Vitest for unit tests. Playwright, with the extension loaded,
-  runs end-to-end tests against saved copies of Manuscript Central pages.
+- **Language:** TypeScript (`tsgo`, TypeScript 7), strict, with no unused
+  locals or parameters. ESLint with type-aware rules runs from its own
+  package, `extension/tools/lint`.
+- **Build:** WXT, a Vite-based extension framework, building Manifest V3 for
+  Chrome. Two flavors: the Web Store build, and a test build that adds
+  `nativeMessaging` (the live log) and `declarativeNetRequestWithHostAccess`
+  (Back-button caching). `permissions.json` lists what each may ask for, and
+  `scripts/check-permissions.mjs` and `scripts/check-no-remote-code.mjs` run
+  after every build.
+- **UI:** Preact for the side panel (one panel per MC tab) and the pop-out
+  windows (matrix, team editor). Settings live in the side panel's Settings
+  tab; there is no options page.
+- **On MC pages:** restyling is inline styles and small elements added to
+  MC's own DOM, marked `data-electric-mc` and styled with `!important` so
+  MC's CSS can't override them. Only the developer-mode debug badge is in a
+  Shadow DOM.
+- **Page clicks:** MC's links are `javascript:` URLs that the content
+  script's isolated world can't run, so a small MAIN-world script
+  (`entrypoints/page-click.content.ts`, `lib/click.ts`) presses them.
+- **Activity sensing:** keyboard and mouse events in MC tabs, shared through
+  `chrome.storage.local`, for the keepalive (`lib/keepalive.ts`). No
+  `chrome.idle` and no `idle` permission. Opt-in time tracking is planned.
+- **Tests:** Vitest with jsdom over `lib/` and `parsers/`, on synthetic page
+  fixtures, with a coverage floor. Local-only tests on real MC data in the
+  git-ignored `var/` (`tests-real/`, `npm run test:real`), fed by weekly page
+  samples from test builds (`lib/pagesample.ts`). `tools/e2e/load-check.mjs`
+  only checks that the build loads in Chromium; there are no end-to-end tests
+  against MC pages yet.
+- **API types:** written by hand on both sides (`lib/notesClient.ts`,
+  `backend/notes`). Generated types (`ts-rs` or OpenAPI) are planned.
 
 ### 2.2 Components
 
-- **Content script** on Manuscript Central pages. It finds the manuscript being
-  viewed, applies restyling, and senses user activity.
-- **Service worker.** It holds the Cognito session, talks to the backend,
-  batches and retries writes, and tracks which tab and window have focus.
-- **Chat UI.** One web page used in two places, the side panel and the
-  pop-out window.
-- **Options page.** Sign-in, restyling preferences, and the activity-tracking
-  opt-in.
+- **Content script** (`entrypoints/content.ts`) on Manuscript Central pages.
+  It parses each page (`parsers/`) and runs the page features, each a module
+  in `lib/features/` with the same shape (`lib/features/feature.ts`): a
+  `start` that registers click handlers on the click bus (`lib/clickbus.ts`),
+  the stored values it follows (handed to it at start and on each change, so
+  features don't read storage themselves), an `onPage` for each run, and an
+  `off` that undoes it. It sends what it learns to the service worker.
+- **Service worker** (`entrypoints/background.ts`). It keeps each tab's latest
+  parse (session storage), the log, the Seen index and what content scripts
+  learn, writing storage through one queue. In test builds it also feeds the
+  live-log helper. It holds no sign-in session: Cognito was dropped, and the
+  notes server authenticates each request by a signature from the browser's
+  own key (`lib/notesClient.ts`).
+- **Side panel** (`entrypoints/sidepanel/`). The parse, notes, queues,
+  Suggested AEs, the log and Settings. The notes server is called from here.
+- **Pop-outs.** The editorial matrix, the team editor and the AE menu editor.
 
 ### 2.3 Permissions
 
-Host permissions are limited to `https://*.manuscriptcentral.com/*` and the
-backend's own URLs. The extension contains no remote code. Restyling rules
-fetched from the backend are data (selectors and style properties) and are
-validated before use.
+Host permissions are limited to `https://*.manuscriptcentral.com/*`; the
+notes server is reached by its function URL, set by the user. The extension
+contains no remote code, and the build checks that (see 2.1). The restyling
+rules are in the package; none are fetched.
 
 ## 3. Backend
 

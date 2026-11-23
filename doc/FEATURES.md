@@ -24,6 +24,14 @@ pitch to associate editors.
 - **The page title on top.** MC's left-column title ("Search Results",
   "View Manuscripts") can move to the top of the page, so the table gets
   the column's width back.
+- **Tight mode** (off unless you turn it on). The journal logo folds away
+  a second after each page opens, and MC's instructions line ("The tabs
+  below organize…") and its empty spacing rows go, so more of the
+  manuscript fits on the screen.
+- **Web of Science, your way.** MC's Web of Science Reviewer Locator box,
+  which pushes the rest of the reviewer page a screen down, starts closed
+  (MC shows it open). A setting keeps it open or removes it entirely; its
+  "View full interactive search" line shows only when the box is open.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the
@@ -33,6 +41,20 @@ pitch to associate editors.
   MC tabs only and stays out of the way on every other site.
 - **Click the ID to open a manuscript.** No more aiming for the
   little Take Action checkbox.
+- **One search result opens itself (optional).** When a search finds
+  exactly one manuscript, the extension presses its Take Action for you.
+- **Click anywhere in a choice row.** In MC's recommendation and decision
+  tables, a click anywhere on a row picks its choice, not just on the tiny
+  radio button.
+- **Arrows you can hit.** MC's previous/next manuscript arrows and the
+  list's page arrows are drawn larger.
+- **The Version History box stands out**, so a revision's earlier versions
+  are easy to find.
+- **Told when MC changes.** If a part of an MC page the extension relies on stops showing up, the side panel says so, and the automations that need it stay off there until it's back.
+- **Stay logged in (on by default; can be turned off).** After 10 minutes without
+  activity in any MC tab, the extension presses MC's own "+ Search" toggle so
+  MC doesn't log you out; it gives up after 48 hours, so an unattended
+  computer is still logged out. Ctrl+Shift+K sends one at once.
 
 ## For editors and reviewers
 
@@ -40,8 +62,8 @@ pitch to associate editors.
   .R2, …) are bold on light yellow, so the papers coming back to you are easy
   to spot. A switch turns it off.
 - **PDFs at a readable size (now).** Manuscript PDFs open in Chrome's
-  viewer at the zoom you pick in Settings (125 to 200%) instead of fit to
-  width; only that tab is zoomed.
+  viewer at 150% by default, or the zoom you pick in Settings (125 to 200%,
+  or Chrome's fit to width); only that tab is zoomed.
 - **Word counts on PDFs (now).** A manuscript PDF shows its body's word
   count in a box over the viewer: no cover page, line numbers, headers or
   references. A PDF with two copies of the article (clean and marked up) is
@@ -80,7 +102,24 @@ pitch to associate editors.
   Co-Chair Recommends and the extension keeps it in a To EIC list and marks
   the manuscript in the queue grid, which MC itself doesn't, until the EIC
   acts. One click copies the list for the EIC.
-- **The editorial matrix, with workloads (in development).** One window lists the
+- **One-button reject (testing).** Next to MC's Assign button, after you've
+  opened the PDF: check "reject" and press "one-button reject". The
+  extension assigns the paper to your own AE entry, takes you to the AE
+  recommendation with Reject picked, and after you write your comments and
+  press Submit it makes the co-chair recommendation with the same comments
+  and submits it. A banner shows each step; anything unexpected stops it.
+- **Flags, named (now).** MC's flag icons carry no words. The extension
+  learns each one's label from the "Flag This Manuscript" panel and writes
+  it beside the icon in italics: "(flagged: 3 or more rejections)".
+- **Decisions you made, marked in the queue (now).** An immediate decision made without
+  assigning an AE leaves the manuscript in MC's Assign AE list. The
+  extension notes the choice when you press Submit and, in queue lists and
+  search results, prints your choice and the role you made it in (as AE or
+  as co-chair) in blue under its ID until the decision letter goes out. Only
+  a decision made as co-chair with no AE assigned also shades the rows light
+  red.
+- **The Team window, with workloads (in development).** One window (the side
+  panel's Team button; it used to be called the Matrix) lists the
   whole section team (column heads, columnists and associate editors) with
   photos, roles, institutions and expertise, and shows next to each editor
   how many manuscripts they have right now, as MC's Assign Associate Editor
@@ -90,9 +129,14 @@ pitch to associate editors.
   
 - **One team database, with its tree (now).** The EIC and Deputy EIC,
   co-chairs, sections with their heads and AEs, and columns with their
-  columnists, shown as a tree of pills above the matrix and edited in its
-  own window. Every person's details, links and photo are editable, and
-  the matrix, the AE menu and Suggested AEs all use the same record.
+  columnists, shown as a tree of pills in the Team window and edited in its
+  own window (Edit team). A section can be turned into a column ("Make it a column"),
+  and removing one keeps its people on the tree. The Team window can save and load
+  the team as a file: the first save asks where, and later saves write over
+  that same file (Save as… picks another). The team is kept in the browser
+  either way; the file is a copy to share or restore, and Cmd-F there goes to its search box. Every person's details,
+  links and photo are editable, and
+  the Team window, the AE menu and Suggested AEs all use the same record.
 - **An AE menu you can read (now).** MC's Assign Associate Editor
   pull-down is one long alphabetical list of "Last, First". Electric MC
   regroups it under dividers (for the Opinions co-chair: column heads, then
@@ -112,8 +156,12 @@ pitch to associate editors.
 
 ## Privacy
 
-- Nothing leaves your browser in the test extension unless you set a notes
-  server. Once set, the only information that leaves your browser is your MC identity,  hash of each title, and GPG-encrypted per-manuscript notes that can only be read by specific individual
+- Nothing leaves your browser unless you set a notes server. Once set, what
+  leaves it is your MC identity and this browser's public key, a hash of
+  each manuscript's title (never the title), and your notes. Notes are
+  signed in your browser so the server and other readers can tell who wrote
+  them, but they are not encrypted: the notes server can read them.
+  End-to-end encryption is designed but not built.
 - Logs keep only problems unless you turn on developer mode, and the export
   meant for sharing strips names, titles, emails and manuscript IDs.
 - No manuscript content ever goes to a third-party AI service.

@@ -3,15 +3,15 @@
 // sections with their heads and AEs, columns and who they report to. A
 // pill opens the person form (components/PersonForm.tsx); "+ person" adds
 // someone. Changes are kept as a draft until Save, which stores the team
-// and the roster derived from it, so the Matrix, the AE menu and Suggested
+// and the roster derived from it, so the Team window, the AE menu and Suggested
 // AEs all update. It loads and saves the team as a JSON file (loading also
 // takes an older roster.json and converts it) and saves at once on load.
 // Nothing here leaves the browser.
 
 import { render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { newId, parseTeam, removePerson, type Team, type TeamPerson } from '../../lib/team';
-import { currentTeam, storeTeam, teamFromFile } from '../../lib/teamStore';
+import { newId, removePerson, type Team, type TeamPerson } from '../../lib/team';
+import { currentTeam, saveTeamFile, storeTeam, teamFileTarget, teamFromFile } from '../../lib/teamStore';
 import { openMatrix } from '../../lib/windows';
 import { TeamTree } from '../../components/TeamTree';
 import { PersonForm } from '../../components/PersonForm';
@@ -50,18 +50,23 @@ function App() {
     try {
       await storeTeam(team);
       setDirty(false);
-      say('Saved. The Matrix and the AE menu use it now.');
+      say('Saved in this browser. The Team window and the AE menu use it now.');
     } catch (e) {
       setError((e as Error).message);
     }
   };
-  const exportFile = () => {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(parseTeam(team), null, 1) + '\n'], { type: 'application/json' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `team-${(team.name || 'team').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  const [target, setTarget] = useState<string | undefined>();
+  useEffect(() => void teamFileTarget().then(setTarget, () => {}), []);
+  const exportFile = async (pick = false) => {
+    try {
+      const name = await saveTeamFile(team, { pick });
+      if (name) {
+        say(`Saved to ${name}.`);
+        void teamFileTarget().then(setTarget, () => {});
+      }
+    } catch (e) {
+      setError(`Couldn't save the file: ${(e as Error).message}`);
+    }
   };
   const importFile = async (f: File | undefined) => {
     if (!f) return;
@@ -82,15 +87,16 @@ function App() {
 
   return (
     <div class="wrap">
-      <h1>Team</h1>
-      <p class="muted">Who is on the team and how it's organized. The Matrix shows it, the AE menu labels and groups by it. Click a person to edit their details.</p>
+      <h1>Edit team</h1>
+      <p class="muted">Who is on the team and how it's organized. The Team window shows it, the AE menu labels and groups by it. Click a person to edit their details.</p>
       <div class="tools">
         <button class="primary" disabled={!dirty} onClick={() => void save()}>Save</button>
         <button disabled={!dirty} onClick={() => void reload()}>Revert</button>
         <button onClick={() => setEditing({ person: { id: '', given: '', family: '', affiliations: [], expertise: '', links: [] }, isNew: true })}>+ person</button>
-        <button onClick={exportFile}>Save to file…</button>
+        <button onClick={() => void exportFile()} title={target ? `Write the team over ${target}` : 'Choose a file to save the team to; later saves write over it'}>{target ? `Save to ${target}` : 'Save to file…'}</button>
+        {target && <button onClick={() => void exportFile(true)} title="Save the team to a different file">Save as…</button>}
         <label class="file">Load from file…<input type="file" accept=".json,application/json" onChange={(e) => void importFile((e.target as HTMLInputElement).files?.[0])} /></label>
-        <button onClick={() => void openMatrix()}>Matrix</button>
+        <button onClick={() => void openMatrix()}>Team window</button>
         <span class="status">{dirty ? 'Unsaved changes' : status}</span>
       </div>
       {error && <div class="error">{error}</div>}

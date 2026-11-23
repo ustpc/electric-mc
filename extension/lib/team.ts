@@ -10,7 +10,8 @@
 // chrome.storage.local (KEY.team). The older roster format (lib/roster.ts) is
 // derived from it, so existing readers keep working.
 
-import { fold, type GroupId, type Roster, type RosterPerson } from './roster';
+import { fold } from './text';
+import { type GroupId, type Roster, type RosterPerson } from './roster';
 
 export type LeaderRole = 'eic' | 'deputy-eic' | 'co-chair';
 export const LEADER_LABEL: Record<LeaderRole, string> = { eic: 'Editor-in-Chief', 'deputy-eic': 'Deputy Editor-in-Chief', 'co-chair': 'Co-Chair' };
@@ -385,4 +386,78 @@ export function removePerson(team: Team, id: string): Team {
     sections: team.sections.map((s) => ({ ...s, heads: s.heads.filter((x) => x !== id), aes: s.aes.filter((x) => x !== id) })),
     columns: team.columns.map((c) => ({ ...c, columnists: c.columnists.filter((x) => x !== id) })),
   };
+}
+
+/** People listed by name: "A", "A and B", "A, B and C". */
+function names(team: Team, ids: string[]): string {
+  const n = ids.map((id) => team.people.find((p) => p.id === id)).filter((p): p is TeamPerson => !!p).map(fullName);
+  return n.length <= 1 ? (n[0] ?? '') : `${n.slice(0, -1).join(', ')} and ${n[n.length - 1]}`;
+}
+
+/** Whether a person is still somewhere on the tree once section `gone` is removed. */
+function placedWithout(team: Team, id: string, gone: string): boolean {
+  const at = placementOf(team, id);
+  return at.leader.length > 0 || at.columns.length > 0 || [...at.heads, ...at.aeIn].some((s) => s.id !== gone);
+}
+
+/**
+ * Remove a section. Its columns report to the co-chairs. Its heads and AEs
+ * who are on no other part of the tree become AEs in no section (who
+ * report to the co-chairs), so nobody drops off the tree.
+ */
+export function removeSection(team: Team, id: string): Team {
+  const s = team.sections.find((x) => x.id === id);
+  if (!s) return team;
+  const keep = new Set([...s.heads, ...s.aes].filter((p) => !placedWithout(team, p, id)));
+  return {
+    ...team,
+    sections: team.sections.filter((x) => x.id !== id),
+    columns: team.columns.map(({ section, ...c }) => (section === id || !section ? c : { ...c, section })),
+    people: team.people.map((p) => (keep.has(p.id) ? { ...p, ae: true } : p)),
+  };
+}
+
+/**
+ * Turn a section into a column of the same name that reports to the
+ * co-chairs, with its heads as the columnists. Its AEs become AEs in no
+ * section and its columns report to the co-chairs.
+ */
+export function sectionToColumn(team: Team, id: string): Team {
+  const s = team.sections.find((x) => x.id === id);
+  if (!s) return team;
+  const column: TeamColumn = { id: newId('c', s.name, team.columns.map((c) => c.id)), name: s.name, columnists: [...s.heads] };
+  // With the column in place the heads are on the tree, so only the AEs move.
+  return removeSection({ ...team, columns: [...team.columns, column] }, id);
+}
+
+/** The confirm text for removing a section: exactly what happens to its heads, AEs and columns. */
+export function removeSectionText(team: Team, id: string): string {
+  const s = team.sections.find((x) => x.id === id);
+  if (!s) return '';
+  const lines: string[] = [];
+  const moved = (ids: string[]) => ids.filter((p) => !placedWithout(team, p, id));
+  const stay = (ids: string[]) => ids.filter((p) => placedWithout(team, p, id));
+  const heads = moved(s.heads);
+  const aes = moved(s.aes.filter((p) => !s.heads.includes(p)));
+  if (heads.length) lines.push(`${names(team, heads)} (${heads.length === 1 ? 'its head' : 'its heads'}) will be in "AEs in no section", reporting to the co-chairs.`);
+  if (aes.length) lines.push(`${names(team, aes)} (${aes.length === 1 ? 'its AE' : 'its AEs'}) will be in "AEs in no section".`);
+  const elsewhere = stay([...new Set([...s.heads, ...s.aes])]);
+  if (elsewhere.length) lines.push(`${names(team, elsewhere)} ${elsewhere.length === 1 ? 'keeps their' : 'keep their'} other places on the tree.`);
+  const cols = team.columns.filter((c) => c.section === id).map((c) => c.name);
+  if (cols.length) lines.push(`${cols.length === 1 ? 'Its column' : 'Its columns'} ${cols.join(', ')} will report to the co-chairs.`);
+  if (!lines.length) lines.push('It has no heads, AEs or columns.');
+  const tip = s.heads.length ? `\n\nIf ${s.name} is really a column, press Cancel and use "Make it a column" instead.` : '';
+  return `Remove the ${s.name} section?\n\n${lines.map((l) => `• ${l}`).join('\n')}${tip}`;
+}
+
+/** The confirm text for turning a section into a column. */
+export function sectionToColumnText(team: Team, id: string): string {
+  const s = team.sections.find((x) => x.id === id);
+  if (!s) return '';
+  const lines = [s.heads.length ? `${names(team, s.heads)} will be ${s.heads.length === 1 ? 'its columnist' : 'its columnists'}.` : 'It will have no columnists yet.'];
+  const aes = s.aes.filter((p) => !s.heads.includes(p));
+  if (aes.length) lines.push(`${names(team, aes)} (${aes.length === 1 ? 'its AE' : 'its AEs'}) will be in "AEs in no section", unless on another section.`);
+  const cols = team.columns.filter((c) => c.section === id).map((c) => c.name);
+  if (cols.length) lines.push(`${cols.length === 1 ? 'Its column' : 'Its columns'} ${cols.join(', ')} will report to the co-chairs.`);
+  return `Make ${s.name} a column that reports to the co-chairs, instead of a section?\n\n${lines.map((l) => `• ${l}`).join('\n')}`;
 }

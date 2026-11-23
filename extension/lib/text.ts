@@ -8,7 +8,7 @@ export function normalize(s: string | null | undefined): string {
     .normalize('NFKC')
     .replace(/[‘’‛]/g, "'")
     .replace(/[“”‟]/g, '"')
-    .replace(/[  -​  　]/g, ' ')
+    .replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -125,3 +125,20 @@ export function cellLines(el: Element): string[] {
   flush();
   return lines;
 }
+
+/**
+ * Text folded for comparing names and searching: accents dropped, lower
+ * case. Keeps the length of plain text, so a match can be marked in the
+ * original (the matrix search does).
+ */
+export function fold(s: string): string {
+  return s.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+/** A name folded for comparing: fold() with runs of spaces made one, trimmed. */
+export function foldName(s: string): string {
+  return fold(s).replace(/\s+/g, ' ').trim();
+}
+
+/** MC's date format, "09-Sep-2026". */
+export const MC_DATE = /\b\d{1,2}-[A-Z][a-z]{2}-\d{4}\b/;

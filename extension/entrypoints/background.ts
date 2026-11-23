@@ -1,6 +1,8 @@
 // Background service worker: keeps the latest parse for each tab, the debug
-// log, and the "seen manuscripts" index that a later build will preload from
-// the backend in one query.
+// log (and the live log file in test builds), the "seen manuscripts" index,
+// and what content scripts learn (roles, identity, flags, AE loads, the To
+// EIC list). All storage writes go through one queue so tabs can't drop each
+// other's updates.
 
 import { defineBackground } from 'wxt/utils/define-background';
 import { appendCapped, type LogEntry } from '../lib/log';
@@ -8,7 +10,9 @@ import { PdfZoom } from '../lib/pdfzoom';
 import { KEY, SETTINGS_AREA, getSettings, isEnabledFor, panelEnabledFor, panelOptionsFor, setHostEnabled, type Msg, type SeenManuscript } from '../lib/messages';
 import type { VersionInfo } from '../lib/milestones';
 import { pruneSeen } from '../lib/seen';
-import { closeLiveLog, liveLog } from '../lib/livelog';
+import { closeLiveLog, liveLog, liveLogPage } from '../lib/livelog';
+import { sampleDue } from '../lib/pagesample';
+import { applyProbes, type ProbeResults, type ProbeStore } from '../lib/probes';
 import { makeQueue } from '../lib/queue';
 import { setBackPages } from '../lib/backcache';
 import { addRoles, type KnownRoles, type Role } from '../lib/roles';
@@ -16,8 +20,9 @@ import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
 import type { ParseResult } from '../parsers/types';
 import type { McIdentity } from '../lib/identity';
-import { migrateNotes, needsMigration, nowS } from '../lib/notes';
+import { applyNoteOpToStore, migrateNotes, needsMigration, nowS, type NoteOp, type NotesStore } from '../lib/notes';
 import { bg, isWorkerGone } from '../lib/worker';
+import { applyEic, mergeFlags, mergeSeen, mergeVersion, seenUpdates, type SeenStore } from '../lib/model';
 
 const BADGE: Record<string, string> = {
   login: 'LOG',
@@ -58,7 +63,7 @@ export default defineBackground(() => {
     })());
   });
 
-  // Keep the icon (blue on, grey off) and the menu label in step with the current tab.
+  // Keep the icon (brown on, grey off) and the menu label in step with the current tab.
   chrome.tabs.onActivated.addListener(({ tabId }) => bg(refreshTab(tabId)));
   chrome.tabs.onUpdated.addListener((tabId, change) => {
     if (change.url || change.status === 'complete') bg(refreshTab(tabId));
@@ -80,8 +85,15 @@ export default defineBackground(() => {
   );
   chrome.tabs.onZoomChange.addListener((z) => pdfZoom.changed(z));
   chrome.tabs.onRemoved.addListener((id) => pdfZoom.closed(id));
-  chrome.runtime.onMessage.addListener((msg: Msg, sender) => {
+  chrome.runtime.onMessage.addListener((msg: Msg, sender, reply) => {
     const tabId = sender.tab?.id;
+    if (msg.type === 'notes') {
+      updateNotes(msg.m, msg.op).then(
+        () => reply({ ok: true }),
+        (e: unknown) => reply({ error: String(e) }),
+      );
+      return true; // reply comes later
+    }
     if (msg.type === 'parsed' && tabId !== undefined) {
       bg(onParsed(tabId, msg.result, msg.reason, msg.title));
     } else if (msg.type === 'roles') {
@@ -90,12 +102,18 @@ export default defineBackground(() => {
       bg(rememberIdentity(msg.site, msg.identity));
     } else if (msg.type === 'eic') {
       bg(updateEic(msg.set, msg.remove));
+    } else if (msg.type === 'flags') {
+      bg(rememberFlags(msg.journal, msg.map));
     } else if (msg.type === 'version-info') {
       bg(rememberVersion(msg.baseId, msg.id, msg.ae, msg.status, msg.info));
     } else if (msg.type === 'ae-load') {
       bg(rememberAeLoad(msg.journal, msg.entries));
     } else if (msg.type === 'pdf-opened' && tabId !== undefined) {
       bg(getSettings().then((s) => pdfZoom.opened(tabId, s.pdfZoom)));
+    } else if (msg.type === 'probes') {
+      bg(rememberProbes(msg.page, msg.results));
+    } else if (msg.type === 'page-sample') {
+      bg(savePageSample(msg.name, msg.url, msg.html));
     } else if (msg.type === 'disabled' && tabId !== undefined) {
       bg(chrome.storage.session.remove(KEY.tab(tabId)));
     } else if (msg.type === 'log') {
@@ -146,21 +164,29 @@ function rememberIdentity(site: string, identity: McIdentity): Promise<void> {
   });
 }
 
+/** Merge flag labels learned from a Flag This Manuscript panel (lib/flags.ts). */
+function rememberFlags(journal: string, map: Record<string, string>): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.flags))[KEY.flags] as Record<string, Record<string, string>> | undefined) ?? {};
+    const next = mergeFlags(all, journal, map);
+    if (next) await chrome.storage.local.set({ [KEY.flags]: next });
+  });
+}
+
 /** Add or update one To EIC item, or remove one. */
 function updateEic(set?: EicItem, remove?: string): Promise<void> {
   return serial(async () => {
     const all = ((await chrome.storage.local.get(KEY.eic))[KEY.eic] as Record<string, EicItem> | undefined) ?? {};
-    if (set) {
-      const prev = all[set.id];
-      // Keep the first date seen; a changed recommendation replaces the old one.
-      if (prev && prev.recommendation === set.recommendation && prev.title === set.title) return;
-      all[set.id] = { ...set, seen: prev?.seen ?? set.seen };
-    }
-    if (remove) {
-      if (!all[remove]) return;
-      delete all[remove];
-    }
-    await chrome.storage.local.set({ [KEY.eic]: all });
+    const next = applyEic(all, set, remove);
+    if (next) await chrome.storage.local.set({ [KEY.eic]: next });
+  });
+}
+
+/** One change to a manuscript's notes, in the storage queue (lib/notes.ts NoteOp). */
+function updateNotes(m: string, op: NoteOp): Promise<void> {
+  return serial(async () => {
+    const all = ((await chrome.storage.local.get(KEY.notes))[KEY.notes] as NotesStore | undefined) ?? {};
+    await chrome.storage.local.set({ [KEY.notes]: applyNoteOpToStore(all, m, op) });
   });
 }
 
@@ -222,22 +248,11 @@ async function onParsed(tabId: number, result: ParseResult, reason: string, titl
 
 /** AE (and status) of an earlier version, looked up by the content script. */
 function rememberVersion(baseId: string, id: string, ae?: string, status?: string, info?: VersionInfo): Promise<void> {
-  if (ae && /not assigned/i.test(ae)) ae = undefined;
-  if (info?.ae && /not assigned/i.test(info.ae)) info = { ...info, ae: undefined };
   if (!ae && !status && !info) return Promise.resolve();
   return serial(async () => {
-    const got = await chrome.storage.local.get(KEY.seen);
-    const seen = (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {};
-    const now = new Date().toISOString();
-    const prev = seen[baseId] ?? { baseId, latestId: id, site: null, firstSeen: now, lastSeen: now, seenOn: [] };
-    seen[baseId] = {
-      ...prev,
-      aeByVersion: ae ? { ...prev.aeByVersion, [id]: ae } : prev.aeByVersion,
-      statusByVersion: status ? { ...prev.statusByVersion, [id]: status } : prev.statusByVersion,
-      // Merge, so a later partial update (just the decision date) keeps what we knew.
-      versionInfo: info ? { ...prev.versionInfo, [id]: { ...prev.versionInfo?.[id], ...defined(info) } } : prev.versionInfo,
-    };
-    await chrome.storage.local.set({ [KEY.seen]: seen });
+    const seen = ((await chrome.storage.local.get(KEY.seen))[KEY.seen] as SeenStore | undefined) ?? {};
+    const next = mergeVersion(seen, baseId, id, new Date().toISOString(), ae, status, info);
+    if (next) await chrome.storage.local.set({ [KEY.seen]: next });
   });
 }
 
@@ -251,9 +266,6 @@ function rememberAeLoad(journal: string, entries: AeLoadEntry[]): Promise<void> 
   });
 }
 
-function defined<T extends object>(o: T): T {
-  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
-}
 
 // Storage writes are serialized so concurrent tabs don't drop each other's
 // entries. The log has its own queue, so data tasks can log (lib/queue.ts).
@@ -271,46 +283,41 @@ function log(e: Omit<LogEntry, 'ts'>): Promise<void> {
   });
 }
 
+/** Count one page load's probe results; log when MC seems to have changed a page, or changed it back. */
+function rememberProbes(page: string, results: ProbeResults): Promise<void> {
+  return serial(async () => {
+    const store = ((await chrome.storage.local.get(KEY.probes))[KEY.probes] as ProbeStore | undefined) ?? {};
+    const next = applyProbes(store, page, results);
+    await chrome.storage.local.set({ [KEY.probes]: next.store });
+    for (const probe of next.broke) bg(log({ level: 'warn', source: 'background', event: 'MC changed', data: { page, probe } }));
+    for (const probe of next.recovered) bg(log({ level: 'info', source: 'background', event: 'MC page part back', data: { page, probe } }));
+  });
+}
+
+/** A weekly page sample to the live-log helper, in a test build in developer mode (lib/pagesample.ts). */
+function savePageSample(name: string, url: string, html: string): Promise<void> {
+  return serial(async () => {
+    if (!liveLogAllowed() || !(await getSettings()).developer) return;
+    const last = (await chrome.storage.local.get(KEY.pageSamples))[KEY.pageSamples] as Record<string, number> | undefined;
+    const now = Date.now();
+    if (!sampleDue(last, name, now)) return;
+    if (!liveLogPage({ name, url, html })) return;
+    await chrome.storage.local.set({ [KEY.pageSamples]: { ...last, [name]: now } });
+    bg(log({ level: 'debug', source: 'background', event: 'page sample saved', data: { name } }));
+  });
+}
+
 /** Test builds only: the Web Store build has no nativeMessaging permission. */
 function liveLogAllowed(): boolean {
   return chrome.runtime.getManifest().permissions?.includes('nativeMessaging') ?? false;
 }
 
 function remember(r: ParseResult): Promise<void> {
-  const updates: Array<Partial<SeenManuscript> & { baseId: string; latestId: string }> = [];
-  if (r.manuscript) {
-    const m = r.manuscript;
-    const ae = m.handlingEditor && !/not assigned/i.test(m.handlingEditor) ? m.handlingEditor : undefined;
-    updates.push({ baseId: m.baseId, latestId: m.id, title: m.title, status: m.status, reviewers: m.reviewers.length, aeByVersion: ae ? { [m.id]: ae } : undefined });
-  }
-  // Only real queue lists: a manuscript page's Notes table also lists IDs.
-  for (const row of r.pageType === 'queue-list' ? r.rows ?? [] : []) {
-    updates.push({ baseId: row.baseId, latestId: row.id, title: row.title, status: row.status, queue: r.heading ?? undefined });
-  }
+  const updates = seenUpdates(r);
   if (!updates.length) return Promise.resolve();
   return serial(async () => {
-    const got = await chrome.storage.local.get(KEY.seen);
-    const seen = (got[KEY.seen] as Record<string, SeenManuscript> | undefined) ?? {};
-    const now = new Date().toISOString();
-    for (const u of updates) {
-      const prev = seen[u.baseId];
-      const merged: SeenManuscript = {
-        ...(prev ?? { baseId: u.baseId, latestId: u.latestId, site: r.site, firstSeen: now, lastSeen: now, seenOn: [] }),
-      };
-      const { aeByVersion, latestId, ...rest } = u;
-      for (const [k, v] of Object.entries(rest)) if (v !== undefined && v !== '') (merged as unknown as Record<string, unknown>)[k] = v;
-      // Keep the highest revision seen, and every version's AE.
-      if (!prev || revisionOf(latestId) >= revisionOf(prev.latestId)) merged.latestId = latestId;
-      if (aeByVersion) merged.aeByVersion = { ...prev?.aeByVersion, ...aeByVersion };
-      merged.lastSeen = now;
-      if (!merged.seenOn.includes(r.pageType)) merged.seenOn = [...merged.seenOn, r.pageType];
-      seen[u.baseId] = merged;
-    }
-    await chrome.storage.local.set({ [KEY.seen]: seen });
+    const seen = ((await chrome.storage.local.get(KEY.seen))[KEY.seen] as SeenStore | undefined) ?? {};
+    await chrome.storage.local.set({ [KEY.seen]: mergeSeen(seen, updates, r.site, r.pageType, new Date().toISOString()) });
   });
 }
 
-function revisionOf(id: string): number {
-  const m = /\.R(\d+)$/.exec(id);
-  return m ? Number(m[1]) : 0;
-}

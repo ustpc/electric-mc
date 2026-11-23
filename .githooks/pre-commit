@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stop real Manuscript Central data at the commit (AGENTS.md). Installed by
+# "make install-hooks". Prints where, never what.
+exec node "$(git rev-parse --show-toplevel)/tools/privacy/check-no-real-data.mjs" --staged

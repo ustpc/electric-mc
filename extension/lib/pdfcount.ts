@@ -9,7 +9,7 @@
 
 import { countPdfWords, type WordCount } from './wordcount';
 import { pdfPages } from './pdftext';
-import { EMC_COLOR } from './milestones';
+import { EMC_COLOR } from './ui';
 
 type PdfJs = Parameters<typeof pdfPages>[0];
 
@@ -35,7 +35,7 @@ async function loadPdfJs(): Promise<PdfJs> {
   const url = (f: string) => chrome.runtime.getURL(`pdfjs/${f}`);
   // pdf.js runs its worker code in this thread when it finds it here, so
   // no Worker (which a content script couldn't start from the extension).
-  const worker = await import(/* @vite-ignore */ url('pdf.worker.min.mjs'));
+  const worker: unknown = await import(/* @vite-ignore */ url('pdf.worker.min.mjs'));
   (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = worker;
   return (await import(/* @vite-ignore */ url('pdf.min.mjs'))) as PdfJs;
 }

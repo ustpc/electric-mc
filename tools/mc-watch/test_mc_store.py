@@ -7,10 +7,10 @@ printer, and every path is under pytest's tmp_path. All IDs are made up.
 
 import os
 import stat
-
-import pytest
+from pathlib import Path
 
 import mc_store
+import pytest
 
 
 def fake_lp(tmp_path, ok=True):
@@ -55,10 +55,12 @@ def test_config_overrides(tmp_path):
 
 def test_config_path_order(tmp_path):
     repo, old = str(tmp_path / "var" / "config.toml"), str(tmp_path / "old.toml")
-    kw = dict(repo_config=repo, old_config=old, log=lambda m: None)
-    assert mc_store.config_path("/x/cli.toml", "/x/env.toml", **kw) == "/x/cli.toml"
-    assert mc_store.config_path(None, "/x/env.toml", **kw) == "/x/env.toml"
-    assert mc_store.config_path(None, "", **kw) == repo
+    def path(cli, env):
+        return mc_store.config_path(cli, env, repo_config=repo, old_config=old, log=lambda m: None)
+
+    assert path("/x/cli.toml", "/x/env.toml") == "/x/cli.toml"
+    assert path(None, "/x/env.toml") == "/x/env.toml"
+    assert path(None, "") == repo
     assert not os.path.exists(repo)  # nothing to move, nothing written yet
 
 
@@ -105,7 +107,7 @@ def test_print_moves_file_and_records_job(tmp_path, cfg):
     lp, args = fake_lp(tmp_path)
     s = mc_store.Store(str(tmp_path / "db.sqlite"))
     pdf = os.path.join(cfg["downloads_dir"], "TEST-26-10-9001.pdf")
-    open(pdf, "wb").write(b"%PDF-1.4 fake")
+    Path(pdf).write_bytes(b"%PDF-1.4 fake")
     s.seen("TEST-26-10-9001")
     s.downloaded("TEST-26-10-9001", pdf)
     assert not s.needs_download("TEST-26-10-9001")
@@ -124,7 +126,7 @@ def test_print_failure_leaves_file_and_retries(tmp_path, cfg):
     bad, _ = fake_lp(tmp_path, ok=False)
     s = mc_store.Store(":memory:")
     pdf = os.path.join(cfg["downloads_dir"], "TEST-26-10-9003.pdf")
-    open(pdf, "wb").write(b"%PDF-1.4 fake")
+    Path(pdf).write_bytes(b"%PDF-1.4 fake")
     s.seen("TEST-26-10-9003")
     s.downloaded("TEST-26-10-9003", pdf)
     [row] = s.pending_print()
@@ -159,7 +161,7 @@ def test_role_queues_precedence():
 def test_save_pdf_is_atomic(tmp_path):
     dest = str(tmp_path / "d" / "TEST-26-10-9005.pdf")
     assert mc_store.save_pdf(b"%PDF-1.4 fake", dest) == dest
-    assert open(dest, "rb").read() == b"%PDF-1.4 fake"
+    assert Path(dest).read_bytes() == b"%PDF-1.4 fake"
     assert os.listdir(tmp_path / "d") == ["TEST-26-10-9005.pdf"]  # no .part left
     with pytest.raises(ValueError):
         mc_store.save_pdf(b"<html>Just a moment...</html>", str(tmp_path / "d" / "TEST-26-10-9006.pdf"))
@@ -191,7 +193,7 @@ def test_interrupted_print_is_not_sent_twice(tmp_path, cfg):
     lp, args = fake_lp(tmp_path)
     s = mc_store.Store(str(tmp_path / "db.sqlite"))
     pdf = os.path.join(cfg["downloads_dir"], "TEST-26-10-9010.pdf")
-    open(pdf, "wb").write(b"%PDF-1.4 fake")
+    Path(pdf).write_bytes(b"%PDF-1.4 fake")
     s.seen("TEST-26-10-9010")
     s.downloaded("TEST-26-10-9010", pdf)
     s.print_sent("TEST-26-10-9010", "Fake_Printer-41")  # lp ran, then ^C before the move
@@ -230,7 +232,9 @@ def test_force_targets(tmp_path, cfg):
     s.downloaded("TEST-26-10-9013", os.path.join(cfg["downloads_dir"], "TEST-26-10-9013.pdf"))
     filed = mc_store.printed_destination(cfg["printed_dir"], "TEST-26-10-9014")
     s.printed("TEST-26-10-9014", filed, "Fake_Printer-7")
-    dl = lambda m: (os.path.join(cfg["downloads_dir"], f"{m}.pdf"), False)
+    def dl(m):
+        return (os.path.join(cfg["downloads_dir"], f"{m}.pdf"), False)
+
     assert mc_store.force_target(s.get("TEST-26-10-9012"), cfg) == dl("TEST-26-10-9012")
     assert mc_store.force_target(s.get("TEST-26-10-9013"), cfg) == dl("TEST-26-10-9013")
     assert mc_store.force_target(s.get("TEST-26-10-9014"), cfg) == (filed, True)

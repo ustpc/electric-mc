@@ -5,6 +5,7 @@
 
 import type { ParseResult } from '../parsers/types';
 import { fnv1a } from './text';
+import { DEFAULT_ID_PATTERN } from './ids';
 
 export type Level = 'debug' | 'info' | 'warn' | 'error';
 
@@ -88,8 +89,19 @@ export function shape(s: string): string {
   return s.replace(/[A-Za-z]/g, 'x').replace(/\d/g, '9').slice(0, 80);
 }
 
+/**
+ * Text made safe for a shared export: emails, URL masks and quoted text
+ * (a rejected title, say) are replaced, and manuscript IDs become the same
+ * hashes the rest of the export uses.
+ */
 export function scrub(s: string): string {
-  return s.replace(EMAIL, '<email>').replace(URL_MASK, '$1<mask>');
+  return s
+    .replace(EMAIL, '<email>')
+    .replace(URL_MASK, '$1<mask>')
+    // A rejected title from older builds, whole: it can hold quotes of its own.
+    .replace(/(rejected title )".*"(?= \(looks like a label\))/g, '$1"<text>"')
+    .replace(/"[^"]*"/g, '"<text>"')
+    .replace(new RegExp(DEFAULT_ID_PATTERN, 'g'), (_m, base: string, rev?: string) => `${hashId(base)}${rev ? `.R${rev}` : ''}`);
 }
 
 function safeUrl(url: string): string {

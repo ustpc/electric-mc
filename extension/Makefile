@@ -1,7 +1,7 @@
 # Everyday commands for the Electric MC extension. Run "make" for the list.
 
 .DEFAULT_GOAL := help
-.PHONY: help update install build test coverage typecheck check dev zip store clean ae-profiles install-log-host uninstall-log-host
+.PHONY: help update install build test test-real lint coverage typecheck check dev zip store clean ae-profiles install-log-host uninstall-log-host
 
 help: ## List the commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-20s %s\n", $$1, $$2}'
@@ -21,8 +21,15 @@ install: node_modules/.package-lock.json ## Install packages if they changed
 build: install ## Build into build/chrome-mv3 (then reload it in chrome://extensions)
 	npm run build
 
-test: install ## Run the tests
+test: install ## Run the tests, then the local-only tests on real MC data in ../var (skipped without it)
 	npm test
+	npm run test:real
+
+test-real: install ## Only the local tests on real MC data in ../var (tests-real/README.md)
+	npm run test:real
+
+lint: install ## ESLint (its own packages in tools/lint)
+	npm run lint
 
 coverage: install ## Run the tests and write a coverage report to coverage/index.html
 	npm run coverage
@@ -30,7 +37,12 @@ coverage: install ## Run the tests and write a coverage report to coverage/index
 typecheck: install ## Check the TypeScript types
 	npm run typecheck
 
-check: typecheck test ## Typecheck and test
+check: typecheck lint coverage test-real build ## What CI checks: types, lint, tests with coverage floors, a fresh build and its checks, Chromium load and page tests, real data
+	npm run -s check:remote-code
+	npm run -s check:permissions
+	npm run test:load
+	npm run test:page
+	node ../tools/privacy/check-no-real-data.mjs
 
 dev: install ## Run WXT in watch mode
 	npm run dev

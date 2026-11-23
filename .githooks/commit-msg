@@ -1,0 +1,3 @@
+#!/bin/sh
+# The commit message too: no real IDs, names or emails (AGENTS.md).
+exec node "$(git rev-parse --show-toplevel)/tools/privacy/check-no-real-data.mjs" --message "$1"

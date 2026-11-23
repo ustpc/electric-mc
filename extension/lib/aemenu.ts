@@ -81,10 +81,14 @@ export function defaultAeMenu(): AeMenuConfig {
   return parseAeMenu(structuredClone(blank));
 }
 
-/** The config the menu uses now, or undefined when it's left alone. */
+/**
+ * The config the menu uses now, or undefined when it's left alone. With no
+ * config saved yet the shipped one is used: the menu is on by default.
+ */
 export function activeAeMenu(store: AeMenuStore | undefined): AeMenuConfig | undefined {
   const c = store?.source === 'server' ? store.server : store?.local;
-  return c?.enabled ? c : undefined;
+  if (!c) return { ...defaultAeMenu(), enabled: true };
+  return c.enabled ? c : undefined;
 }
 
 class Invalid extends Error {}

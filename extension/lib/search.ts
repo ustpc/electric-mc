@@ -3,11 +3,11 @@
 // Running a search reloads the page, so "then press Take Action" is carried
 // across the reload in sessionStorage, which is per tab.
 
-import { parseManuscriptId } from './ids';
+import { takeActionGrids } from './grid';
+import { tabSet, tabTake } from './tabstate';
 import { labelKey, textOf } from './text';
 import { pageClick } from './click';
 
-const PENDING = 'emc-open-manuscript';
 const PENDING_MS = 60_000;
 
 const isSearchButton = (el: Element) =>
@@ -71,26 +71,14 @@ export function runSearch(doc: Document, id: string): boolean {
 export function openManuscript(doc: Document, id: string): boolean {
   if (!findSearchForm(doc)) return false;
   // Set before the search runs, so the results page finds it.
-  try {
-    doc.defaultView?.sessionStorage.setItem(PENDING, JSON.stringify({ id, at: Date.now() }));
-  } catch {
-    /* storage blocked: the search still runs */
-  }
+  tabSet(doc, 'openManuscript', { id, at: Date.now() }); // storage blocked: the search still runs
   return runSearch(doc, id);
 }
 
 /** The ID we searched for from the side panel, if that was moments ago. Clears it. */
 export function takePending(doc: Document): string | null {
-  try {
-    const s = doc.defaultView?.sessionStorage;
-    const raw = s?.getItem(PENDING);
-    if (!raw) return null;
-    s!.removeItem(PENDING);
-    const p = JSON.parse(raw) as { id: string; at: number };
-    return Date.now() - p.at < PENDING_MS ? p.id : null;
-  } catch {
-    return null;
-  }
+  const p = tabTake<{ id: string; at: number }>(doc, 'openManuscript');
+  return p && Date.now() - p.at < PENDING_MS ? p.id : null;
 }
 
 /**
@@ -98,23 +86,10 @@ export function takePending(doc: Document): string | null {
  * link. Null for anything else, so we never act on a choice.
  */
 export function singleResultAction(doc: Document, idPattern?: string): { id: string; action: HTMLElement } | null {
-  for (const table of Array.from(doc.querySelectorAll('table'))) {
-    const rows = Array.from(table.rows).filter((tr) => tr.closest('table') === table);
-    const h = rows.findIndex((tr) => Array.from(tr.cells).some((c) => labelKey(textOf(c)) === 'take action'));
-    if (h < 0) continue;
-    const header = rows[h]!;
-    const col = Array.from(header.cells).findIndex((c) => labelKey(textOf(c)) === 'take action');
-    // Rows below the header only: a "Search Criteria" line above it quotes the ID too.
-    const hits = rows
-      .slice(h + 1)
-      .map((tr) => ({ tr, ref: parseManuscriptId(textOf(tr.cells[0] ?? null), idPattern) }))
-      .filter((x) => x.ref);
-    if (new Set(hits.map((x) => x.ref!.id)).size !== 1) continue;
-    for (const { tr, ref } of hits) {
-      const cell = tr.cells[col] ?? tr.cells[tr.cells.length - 1];
-      const action = cell?.querySelector<HTMLElement>('a, button, input[type=image]');
-      if (action) return { id: ref!.id, action };
-    }
+  for (const { rows } of takeActionGrids(doc, idPattern)) {
+    if (new Set(rows.map((r) => r.ref.id)).size !== 1) continue;
+    const hit = rows.find((r) => r.action);
+    if (hit) return { id: hit.ref.id, action: hit.action! };
   }
   return null;
 }

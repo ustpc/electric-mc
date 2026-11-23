@@ -9,7 +9,7 @@
 // script asks it first and only falls back to this.
 
 import { findManuscriptIds, type ManuscriptRef } from './ids';
-import { EMC_STYLE } from './milestones';
+import { EMC_STYLE } from './ui';
 import { labelKey, textOf } from './text';
 
 export interface VersionLink {

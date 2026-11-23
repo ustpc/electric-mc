@@ -76,7 +76,13 @@ pub trait Store: Send + Sync {
     async fn list_keys(&self) -> Result<Vec<KeyRec>, StoreError>;
     /// Whether a ban exists for this target ("key#<id>" or "email#<address>").
     async fn is_banned(&self, target: &str) -> Result<bool, StoreError>;
-    async fn set_ban(&self, target: &str, banned: bool, by: &str, at: i64) -> Result<(), StoreError>;
+    async fn set_ban(
+        &self,
+        target: &str,
+        banned: bool,
+        by: &str,
+        at: i64,
+    ) -> Result<(), StoreError>;
     async fn title_macs(&self, m: &str) -> Result<Vec<String>, StoreError>;
     async fn add_title_mac(&self, m: &str, mac: &str) -> Result<(), StoreError>;
     async fn list_notes(&self, m: &str) -> Result<Vec<Note>, StoreError>;
@@ -96,11 +102,16 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Config, String> {
-        let secret = std::env::var("NOTES_SECRET").map_err(|_| "NOTES_SECRET is not set".to_string())?;
+        let secret =
+            std::env::var("NOTES_SECRET").map_err(|_| "NOTES_SECRET is not set".to_string())?;
         if secret.len() < 32 {
             return Err("NOTES_SECRET must be at least 32 characters".into());
         }
-        Ok(Config { secret: secret.into_bytes(), owners: emails_env("OWNERS"), moderators: emails_env("MODERATORS") })
+        Ok(Config {
+            secret: secret.into_bytes(),
+            owners: emails_env("OWNERS"),
+            moderators: emails_env("MODERATORS"),
+        })
     }
 
     fn is_owner(&self, email: &str) -> bool {
@@ -113,7 +124,12 @@ impl Config {
 }
 
 fn emails_env(name: &str) -> Vec<String> {
-    std::env::var(name).unwrap_or_default().split(',').map(|s| s.trim().to_lowercase()).filter(|s| !s.is_empty()).collect()
+    std::env::var(name)
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 /// An HTTP status and JSON body.
@@ -163,7 +179,10 @@ pub fn title_mac(secret: &[u8], m: &str, h: &str) -> String {
 
 /// Check a WebCrypto ECDSA P-256 / SHA-256 signature (64 bytes, r||s).
 pub fn verify(spki_der: &[u8], message: &[u8], sig: &[u8]) -> bool {
-    let (Ok(key), Ok(sig)) = (VerifyingKey::from_public_key_der(spki_der), Signature::from_slice(sig)) else {
+    let (Ok(key), Ok(sig)) = (
+        VerifyingKey::from_public_key_der(spki_der),
+        Signature::from_slice(sig),
+    ) else {
         return false;
     };
     key.verify(message, &sig).is_ok()
@@ -171,15 +190,20 @@ pub fn verify(spki_der: &[u8], message: &[u8], sig: &[u8]) -> bool {
 
 /// A plausible manuscript ID ("XYZJ-26-01-9001"), as a key, not a check of the journal's format.
 pub fn valid_manuscript_id(m: &str) -> bool {
-    (3..=48).contains(&m.len()) && m.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_')
+    (3..=48).contains(&m.len())
+        && m.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_')
 }
 
 fn valid_hash(h: &str) -> bool {
-    h.len() == 64 && h.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+    h.len() == 64
+        && h.chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
 }
 
 fn clip(s: Option<String>, max: usize) -> Option<String> {
-    s.map(|s| s.trim().chars().take(max).collect::<String>()).filter(|s| !s.is_empty())
+    s.map(|s| s.trim().chars().take(max).collect::<String>())
+        .filter(|s| !s.is_empty())
 }
 
 macro_rules! tryst {
@@ -196,10 +220,16 @@ pub async fn handle(store: &dyn Store, cfg: &Config, body: &str, now: i64) -> Re
     if body.len() > MAX_BODY_BYTES {
         return err(413, "request too large");
     }
-    let Ok(env) = serde_json::from_str::<Envelope>(body) else { return err(400, "bad request") };
-    let Ok(p) = serde_json::from_str::<Payload>(&env.payload) else { return err(400, "bad payload") };
+    let Ok(env) = serde_json::from_str::<Envelope>(body) else {
+        return err(400, "bad request");
+    };
+    let Ok(p) = serde_json::from_str::<Payload>(&env.payload) else {
+        return err(400, "bad payload");
+    };
     let b64 = base64::engine::general_purpose::STANDARD;
-    let Ok(sig) = b64.decode(&env.sig) else { return err(400, "bad signature encoding") };
+    let Ok(sig) = b64.decode(&env.sig) else {
+        return err(400, "bad signature encoding");
+    };
     if (now - p.ts).abs() > MAX_SKEW_S {
         return err(401, "request time is too far from the server's clock");
     }
@@ -207,12 +237,18 @@ pub async fn handle(store: &dyn Store, cfg: &Config, body: &str, now: i64) -> Re
     if p.op == "register" {
         return register(store, &env, &p, &sig, now).await;
     }
-    let Some(me) = tryst!(store.get_key(&env.key).await) else { return err(401, "unknown key: register first") };
-    let Ok(spki) = b64.decode(&me.spki) else { return err(500, "stored key is unreadable") };
+    let Some(me) = tryst!(store.get_key(&env.key).await) else {
+        return err(401, "unknown key: register first");
+    };
+    let Ok(spki) = b64.decode(&me.spki) else {
+        return err(500, "stored key is unreadable");
+    };
     if !verify(&spki, env.payload.as_bytes(), &sig) {
         return err(401, "bad signature");
     }
-    if tryst!(store.is_banned(&format!("key#{}", me.key_id)).await) || tryst!(store.is_banned(&format!("email#{}", me.email)).await) {
+    if tryst!(store.is_banned(&format!("key#{}", me.key_id)).await)
+        || tryst!(store.is_banned(&format!("email#{}", me.email)).await)
+    {
         return err(403, "this key is banned");
     }
 
@@ -222,7 +258,11 @@ pub async fn handle(store: &dyn Store, cfg: &Config, body: &str, now: i64) -> Re
             if !cfg.is_owner(&me.email) {
                 return err(403, "only the project owner can ban keys");
             }
-            let Some(target) = p.key.map(|k| format!("key#{k}")).or(p.email.map(|e| format!("email#{}", e.to_lowercase()))) else {
+            let Some(target) = p
+                .key
+                .map(|k| format!("key#{k}"))
+                .or(p.email.map(|e| format!("email#{}", e.to_lowercase())))
+            else {
                 return err(400, "ban needs a key or an email");
             };
             tryst!(store.set_ban(&target, p.op == "ban", &me.email, now).await);
@@ -236,7 +276,8 @@ pub async fn handle(store: &dyn Store, cfg: &Config, body: &str, now: i64) -> Re
             keys.sort_by(|a, b| a.email.cmp(&b.email).then(a.registered.cmp(&b.registered)));
             let mut out = Vec::new();
             for k in keys {
-                let banned = tryst!(store.is_banned(&format!("key#{}", k.key_id)).await) || tryst!(store.is_banned(&format!("email#{}", k.email)).await);
+                let banned = tryst!(store.is_banned(&format!("key#{}", k.key_id)).await)
+                    || tryst!(store.is_banned(&format!("email#{}", k.email)).await);
                 out.push(json!({ "key": k, "banned": banned }));
             }
             (200, json!({ "ok": true, "keys": out }))
@@ -247,17 +288,24 @@ pub async fn handle(store: &dyn Store, cfg: &Config, body: &str, now: i64) -> Re
 
 async fn register(store: &dyn Store, env: &Envelope, p: &Payload, sig: &[u8], now: i64) -> Reply {
     let b64 = base64::engine::general_purpose::STANDARD;
-    let Some(spki) = env.spki.as_deref().and_then(|s| b64.decode(s).ok()) else { return err(400, "register needs the public key") };
+    let Some(spki) = env.spki.as_deref().and_then(|s| b64.decode(s).ok()) else {
+        return err(400, "register needs the public key");
+    };
     if key_id_of(&spki) != env.key {
         return err(400, "key ID doesn't match the public key");
     }
     if !verify(&spki, env.payload.as_bytes(), sig) {
         return err(401, "bad signature");
     }
-    let Some(email) = clip(p.email.clone(), 254).map(|e| e.to_lowercase()).filter(|e| e.contains('@')) else {
+    let Some(email) = clip(p.email.clone(), 254)
+        .map(|e| e.to_lowercase())
+        .filter(|e| e.contains('@'))
+    else {
         return err(400, "register needs the MC email");
     };
-    if tryst!(store.is_banned(&format!("key#{}", env.key)).await) || tryst!(store.is_banned(&format!("email#{email}")).await) {
+    if tryst!(store.is_banned(&format!("key#{}", env.key)).await)
+        || tryst!(store.is_banned(&format!("email#{email}")).await)
+    {
         return err(403, "this key is banned");
     }
     let prev = tryst!(store.get_key(&env.key).await);
@@ -284,7 +332,9 @@ async fn register(store: &dyn Store, env: &Envelope, p: &Payload, sig: &[u8], no
 }
 
 async fn notes_op(store: &dyn Store, cfg: &Config, me: &KeyRec, p: Payload, now: i64) -> Reply {
-    let (Some(m), Some(h)) = (p.m, p.h) else { return err(400, "needs the manuscript ID and title hash") };
+    let (Some(m), Some(h)) = (p.m, p.h) else {
+        return err(400, "needs the manuscript ID and title hash");
+    };
     if !valid_manuscript_id(&m) || !valid_hash(&h) {
         return err(400, "bad manuscript ID or title hash");
     }
@@ -306,9 +356,14 @@ async fn notes_op(store: &dyn Store, cfg: &Config, me: &KeyRec, p: Payload, now:
     }
 
     match p.op.as_str() {
-        "list" => (200, json!({ "ok": true, "notes": tryst!(store.list_notes(&m).await) })),
+        "list" => (
+            200,
+            json!({ "ok": true, "notes": tryst!(store.list_notes(&m).await) }),
+        ),
         "put" => {
-            let Some(t) = p.t.filter(|t| *t > 0 && *t <= now + MAX_SKEW_S) else { return err(400, "bad session time") };
+            let Some(t) = p.t.filter(|t| *t > 0 && *t <= now + MAX_SKEW_S) else {
+                return err(400, "bad session time");
+            };
             let text = p.text.unwrap_or_default();
             if text.trim().is_empty() {
                 return err(400, "empty note: delete it instead");
@@ -317,14 +372,27 @@ async fn notes_op(store: &dyn Store, cfg: &Config, me: &KeyRec, p: Payload, now:
                 return err(413, "note too long");
             }
             // The author is whoever the key belongs to, never what the request says.
-            let n = Note { m, t, email: me.email.clone(), author: me.label.clone(), text, updated: now, key_id: me.key_id.clone() };
+            let n = Note {
+                m,
+                t,
+                email: me.email.clone(),
+                author: me.label.clone(),
+                text,
+                updated: now,
+                key_id: me.key_id.clone(),
+            };
             tryst!(store.put_note(&n).await);
             (200, json!({ "ok": true, "note": n }))
         }
         "delete" => {
-            let (Some(t), Some(email)) = (p.t, p.email.map(|e| e.to_lowercase())) else { return err(400, "delete needs the note's time and author") };
+            let (Some(t), Some(email)) = (p.t, p.email.map(|e| e.to_lowercase())) else {
+                return err(400, "delete needs the note's time and author");
+            };
             if email != me.email && !cfg.is_moderator(&me.email) {
-                return err(403, "only the author, a co-chair or the EIC can delete this note");
+                return err(
+                    403,
+                    "only the author, a co-chair or the EIC can delete this note",
+                );
             }
             if tryst!(store.get_note(&m, t, &email).await).is_none() {
                 return err(404, "no such note");
@@ -351,21 +419,42 @@ impl Store for MemStore {
         Ok(self.keys.lock().unwrap().get(key_id).cloned())
     }
     async fn put_key(&self, k: &KeyRec) -> Result<(), StoreError> {
-        self.keys.lock().unwrap().insert(k.key_id.clone(), k.clone());
+        self.keys
+            .lock()
+            .unwrap()
+            .insert(k.key_id.clone(), k.clone());
         Ok(())
     }
     async fn list_keys(&self) -> Result<Vec<KeyRec>, StoreError> {
         Ok(self.keys.lock().unwrap().values().cloned().collect())
     }
     async fn is_banned(&self, target: &str) -> Result<bool, StoreError> {
-        Ok(self.bans.lock().unwrap().get(target).copied().unwrap_or(false))
+        Ok(self
+            .bans
+            .lock()
+            .unwrap()
+            .get(target)
+            .copied()
+            .unwrap_or(false))
     }
-    async fn set_ban(&self, target: &str, banned: bool, _by: &str, _at: i64) -> Result<(), StoreError> {
+    async fn set_ban(
+        &self,
+        target: &str,
+        banned: bool,
+        _by: &str,
+        _at: i64,
+    ) -> Result<(), StoreError> {
         self.bans.lock().unwrap().insert(target.to_string(), banned);
         Ok(())
     }
     async fn title_macs(&self, m: &str) -> Result<Vec<String>, StoreError> {
-        Ok(self.macs.lock().unwrap().get(m).cloned().unwrap_or_default())
+        Ok(self
+            .macs
+            .lock()
+            .unwrap()
+            .get(m)
+            .cloned()
+            .unwrap_or_default())
     }
     async fn add_title_mac(&self, m: &str, mac: &str) -> Result<(), StoreError> {
         let mut all = self.macs.lock().unwrap();
@@ -376,19 +465,37 @@ impl Store for MemStore {
         Ok(())
     }
     async fn list_notes(&self, m: &str) -> Result<Vec<Note>, StoreError> {
-        let mut out: Vec<Note> = self.notes.lock().unwrap().values().filter(|n| n.m == m).cloned().collect();
+        let mut out: Vec<Note> = self
+            .notes
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|n| n.m == m)
+            .cloned()
+            .collect();
         out.sort_by(|a, b| a.t.cmp(&b.t).then(a.email.cmp(&b.email)));
         Ok(out)
     }
     async fn get_note(&self, m: &str, t: i64, email: &str) -> Result<Option<Note>, StoreError> {
-        Ok(self.notes.lock().unwrap().get(&(m.to_string(), t, email.to_string())).cloned())
+        Ok(self
+            .notes
+            .lock()
+            .unwrap()
+            .get(&(m.to_string(), t, email.to_string()))
+            .cloned())
     }
     async fn put_note(&self, n: &Note) -> Result<(), StoreError> {
-        self.notes.lock().unwrap().insert((n.m.clone(), n.t, n.email.clone()), n.clone());
+        self.notes
+            .lock()
+            .unwrap()
+            .insert((n.m.clone(), n.t, n.email.clone()), n.clone());
         Ok(())
     }
     async fn delete_note(&self, m: &str, t: i64, email: &str) -> Result<(), StoreError> {
-        self.notes.lock().unwrap().remove(&(m.to_string(), t, email.to_string()));
+        self.notes
+            .lock()
+            .unwrap()
+            .remove(&(m.to_string(), t, email.to_string()));
         Ok(())
     }
 }

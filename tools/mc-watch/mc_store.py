@@ -293,7 +293,7 @@ def lp_command(file, printer, options, lp="lp"):
 def print_file(file, printer, options, lp="lp"):
     """Send file to CUPS. Returns the job id ("High_Priestess-123"); raises
     RuntimeError if lp fails."""
-    r = subprocess.run(lp_command(file, printer, options, lp), capture_output=True, text=True)
+    r = subprocess.run(lp_command(file, printer, options, lp), check=False, capture_output=True, text=True)
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout).strip() or f"lp exited {r.returncode}")
     m = re.search(r"request id is (\S+)", r.stdout)
