@@ -2,6 +2,23 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.100 (2026-11-24)
+
+- New: the Team window has two tabs. Org chart holds the team tree. People & assignments holds the people tables, now in the order Editor-in-chief and co-chairs, Column heads, Associate Editors, Columnists. Under each person, one line per manuscript assigned to them: the manuscript ID and title, beside their expertise and notes. The list is built from the manuscripts E-MC has seen in MC, so it grows as you work. A manuscript belongs to the AE of its newest version, and finished ones (rejected, accepted, withdrawn) drop off. A title E-MC hasn't seen shows as the ID alone, and when MC's count is higher than what E-MC knows, the window says so. It stays in this browser and is never in the team file.
+- Docs: new doc/Permission Model.md, which says who can see what and how it's enforced. Team assignments are for the EIC and co-chairs only.
+
+## 0.0.99 (2026-11-24)
+
+- Fixed: text buttons weren't the same from page to page. Each took the font of the cell around it, so on the decision page they came out in a large serif font, and Commit Decision was drawn larger still. Every text button now has the same font and size everywhere (a little over your text size setting), and Commit Decision is the same size as the others, bold in the E-MC color.
+
+## 0.0.98 (2026-11-24)
+
+- New: text buttons (issue #2, on by default; Settings, Page layout). MC draws its buttons (Save, Commit Decision, Create Draft E-Mail, Close, Print, Edit, Search, Pick, Add a Note, Export to CSV, ...) as pictures with the words baked in, so they stayed small when the text got bigger. E-MC now draws each one it knows as a real text button that follows the text size, and Commit Decision is bigger and in the E-MC color. A click goes to MC's own button underneath, so MC sees the same click as before. Buttons E-MC doesn't know keep MC's picture. Turn it off to get MC's pictures back.
+
+## 0.0.97 (2026-11-24)
+
+- Fixed: MC still logged you out "due to inactivity" with keepalive on. The keepalives reach MC fine, also from background tabs (MC answers each one), but every MC page also runs its own logout countdown from when it loaded (about 3 hours), and a keepalive didn't reset it. The log showed logouts exactly 178 minutes after the last page load with every keepalive in between answered. Now, each time MC answers a keepalive, every open MC tab starts its countdown again, as a page load would. The keepalive log line says how many countdowns it restarted (0 would mean MC counts down some other way).
+
 ## 0.0.96 (2026-11-22)
 
 Fixes from Copilot's second review of the open pull request:

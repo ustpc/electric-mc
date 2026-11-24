@@ -176,8 +176,10 @@ them.
 **Keepalive** (on by default since 0.0.80; can be turned off). While it is on, after 10 minutes without
 keyboard or mouse activity in any MC tab the extension presses MC's own
 "+ Search" toggle, which sends MC a small request, so MC doesn't log you out;
-it stops after 48 hours without activity. The times of your last activity
-and last keepalive are kept in `chrome.storage.local`; Clear all data
+it stops after 48 hours without activity. When MC answers, each open MC
+page's own logout countdown is started again (0.0.97); nothing about the
+page is read or kept for that. The times of your last activity, last
+keepalive and last answered keepalive are kept in `chrome.storage.local`; Clear all data
 removes them. Nothing is sent anywhere but MC.
 
 Details: [Technical Stack and Architecture.md](planning/Technical%20Stack%20and%20Architecture.md)

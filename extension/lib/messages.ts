@@ -77,6 +77,8 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Tight mode (lib/tight.ts): fold away the journal logo after a second, drop MC's instructions row and empty spacing rows. Off by default. */
   tightMode: boolean;
+  /** Draw MC's picture buttons (Save, Commit Decision, ...) as text buttons that follow the text size (lib/textbuttons.ts). */
+  textButtons: boolean;
   /** MC's Web of Science Reviewer Locator box (lib/wos.ts): left open, closed (E-MC's default) or removed. */
   webOfScience: 'open' | 'closed' | 'removed';
   /** Press a file input's Attach control as soon as a file is chosen. */
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTakeAction: true,
   hidePageHeader: true,
   tightMode: false,
+  textButtons: true,
   webOfScience: 'closed',
   autoAttach: true,
   keepAlive: true,
@@ -208,6 +211,8 @@ export const KEY = {
   /** Last keyboard or mouse activity in any MC tab, and the last keepalive (ms since epoch). */
   lastActivity: 'lastActivity',
   lastKeepalive: 'lastKeepalive',
+  /** When MC last answered a keepalive; every MC tab restarts its logout countdown then (lib/pagetimer.ts). */
+  keepaliveAnswered: 'keepaliveAnswered',
   /** Recommendations the person sent to the EIC, by manuscript ID (lib/recommend.ts). */
   eic: 'eic',
   /** MC's flag icons and their labels, by journal (lib/flags.ts). */
@@ -234,7 +239,7 @@ export const KEY = {
  */
 export const LOCAL_DATA_KEYS: string[] = [
   KEY.log, KEY.seen, KEY.notes, KEY.lastPrune, KEY.aeLoad, KEY.team, KEY.roster, KEY.roles, KEY.lastActivity,
-  KEY.lastKeepalive, KEY.eic, KEY.flags, KEY.aeProfiles, KEY.aeMenu, KEY.identity, KEY.matrixHideColumnists, KEY.pageSamples, KEY.probes,
+  KEY.lastKeepalive, KEY.keepaliveAnswered, KEY.eic, KEY.flags, KEY.aeProfiles, KEY.aeMenu, KEY.identity, KEY.matrixHideColumnists, KEY.pageSamples, KEY.probes,
 ];
 
 /**

@@ -17,6 +17,7 @@ import { pageClick } from '../lib/click';
 import { watchFileAttach } from '../lib/attach';
 import { watchRadioRows } from '../lib/radiorow';
 import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive';
+import { RESTART_EVENT, RESTARTED_ATTR } from '../lib/pagetimer';
 import { watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
 import { watchAuthorComments } from '../lib/authorcomment';
@@ -262,6 +263,15 @@ async function start() {
   };
   for (const t of ['keydown', 'mousedown', 'mousemove', 'wheel', 'touchstart']) window.addEventListener(t, onActivity, { passive: true, capture: true });
   onActivity();
+  const restartPageTimers = (): number | undefined => {
+    document.documentElement.removeAttribute(RESTARTED_ATTR);
+    document.dispatchEvent(new CustomEvent(RESTART_EVENT));
+    const n = document.documentElement.getAttribute(RESTARTED_ATTR);
+    return n === null ? undefined : Number(n);
+  };
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes[KEY.keepaliveAnswered] && alive() && enabled() && settings.keepAlive) restartPageTimers();
+  });
   const keepalive = async (trigger: 'idle' | 'hotkey') => {
     if (!alive()) return;
     await store({ [KEY.lastKeepalive]: Date.now() });
@@ -272,7 +282,16 @@ async function start() {
     // compare with when MC logs them out.
     const idleMin = activity ? Math.round((Date.now() - activity) / 60_000) : undefined;
     const pageMin = Math.round(performance.now() / 60_000);
-    send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r, idleMin, pageMin } });
+    // MC answered: start this page's own logout countdown again too, as a
+    // page load would (lib/pagetimer.ts). Any MC tab whose countdown ran out
+    // would log the whole session out, so every tab does the same.
+    let timersRestarted: number | undefined;
+    if (r.requests > 0 && (r.statuses ?? []).every((s) => s === 0 || s === 200)) {
+      timersRestarted = restartPageTimers();
+      // The other MC tabs restart theirs when they see this (below).
+      await store({ [KEY.keepaliveAnswered]: Date.now() });
+    }
+    send({ type: 'log', level: r.found ? 'info' : 'warn', event: 'keepalive', data: { trigger, ...r, idleMin, pageMin, timersRestarted } });
     if (trigger === 'hotkey') toast(document, r.found ? `E-MC keepalive sent: ${r.requests} request${r.requests === 1 ? '' : 's'} to MC` : 'E-MC keepalive: no "+ Search" on this page');
   };
   window.setInterval(() => {

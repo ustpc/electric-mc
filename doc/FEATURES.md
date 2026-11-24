@@ -24,6 +24,10 @@ pitch to associate editors.
 - **The page title on top.** MC's left-column title ("Search Results",
   "View Manuscripts") can move to the top of the page, so the table gets
   the column's width back.
+- **Text buttons.** MC's picture buttons (Save, Commit Decision,
+  Create Draft E-Mail, Close, Print, ...) are drawn as real text buttons
+  that grow with the text size, all in one font and size on every page.
+  Commit Decision is bold in the E-MC color. Clicks still go to MC's own buttons. On by default.
 - **Tight mode** (off unless you turn it on). The journal logo folds away
   a second after each page opens, and MC's instructions line ("The tabs
   below organize…") and its empty spacing rows go, so more of the
@@ -53,7 +57,8 @@ pitch to associate editors.
 - **Told when MC changes.** If a part of an MC page the extension relies on stops showing up, the side panel says so, and the automations that need it stay off there until it's back.
 - **Stay logged in (on by default; can be turned off).** After 10 minutes without
   activity in any MC tab, the extension presses MC's own "+ Search" toggle so
-  MC doesn't log you out; it gives up after 48 hours, so an unattended
+  MC doesn't log you out, and restarts the logout countdown each MC page
+  runs from when it loaded; it gives up after 48 hours, so an unattended
   computer is still logged out. Ctrl+Shift+K sends one at once.
 
 ## For editors and reviewers
@@ -125,7 +130,10 @@ pitch to associate editors.
   how many manuscripts they have right now, as MC's Assign Associate Editor
   pull-down reports it. Search by name, column or expertise. "Hide
   columnists" leaves only the people who take assignments: the column
-  heads and the AEs.
+  heads and the AEs. Two tabs: Org chart (the team tree) and People &
+  assignments, which lists under each editor the manuscripts assigned to
+  them (ID and title), as E-MC has seen them in MC. For the EIC and
+  co-chairs; see [Permission Model](Permission%20Model.md).
   
 - **One team database, with its tree (now).** The EIC and Deputy EIC,
   co-chairs, sections with their heads and AEs, and columns with their
