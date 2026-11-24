@@ -819,7 +819,7 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
         </select>
       </label>
       <label class="chk"><input type="checkbox" checked={s.hidePageHeader} onChange={(e) => update({ hidePageHeader: (e.target as HTMLInputElement).checked })} />Put the page title ("View Manuscripts", "Search Results") on top, not in a left column</label>
-      <label class="chk"><input type="checkbox" checked={s.textButtons} onChange={(e) => update({ textButtons: (e.target as HTMLInputElement).checked })} />Text buttons: draw MC's picture buttons as text that follows the text size, with Commit Decision bigger and in the E-MC color</label>
+      <label class="chk"><input type="checkbox" checked={s.textButtons} onChange={(e) => update({ textButtons: (e.target as HTMLInputElement).checked })} />Text buttons: draw MC's picture buttons as text that follows the text size, with Commit Decision bold in the E-MC color</label>
       <label class="chk"><input type="checkbox" checked={s.tightMode} onChange={(e) => update({ tightMode: (e.target as HTMLInputElement).checked })} />Tight mode: fold away the journal logo after a second, and drop MC's instructions line and empty space</label>
       <label class="chk">
         Web of Science Reviewer Locator{' '}

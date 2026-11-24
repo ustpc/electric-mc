@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.99 (2026-11-24)
+
+- Fixed: text buttons weren't the same from page to page. Each took the font of the cell around it, so on the decision page they came out in a large serif font, and Commit Decision was drawn larger still. Every text button now has the same font and size everywhere (a little over your text size setting), and Commit Decision is the same size as the others, bold in the E-MC color.
+
 ## 0.0.98 (2026-11-24)
 
 - New: text buttons (issue #2, on by default; Settings, Page layout). MC draws its buttons (Save, Commit Decision, Create Draft E-Mail, Close, Print, Edit, Search, Pick, Add a Note, Export to CSV, ...) as pictures with the words baked in, so they stayed small when the text got bigger. E-MC now draws each one it knows as a real text button that follows the text size, and Commit Decision is bigger and in the E-MC color. A click goes to MC's own button underneath, so MC sees the same click as before. Buttons E-MC doesn't know keep MC's picture. Turn it off to get MC's pictures back.

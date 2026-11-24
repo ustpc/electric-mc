@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buttonName, textButtons } from '../lib/textbuttons';
+import { buttonFontPx, buttonName, textButtons } from '../lib/textbuttons';
 
 const btns = () => Array.from(document.querySelectorAll<HTMLElement>('[data-electric-mc="textbtn"]'));
 
@@ -28,6 +28,14 @@ describe('text buttons', () => {
     // Running again adds nothing more.
     textButtons(document, true);
     expect(btns()).toHaveLength(2);
+  });
+
+  it('gives every button one size from the text size setting', () => {
+    expect(buttonFontPx(0)).toBe(13);
+    expect(buttonFontPx(16)).toBe(18);
+    document.body.innerHTML = '<a href="#"><img src="/images/en_US/buttons/save.gif"></a>';
+    textButtons(document, true, 16);
+    expect(document.documentElement.style.getPropertyValue('--emc-textbtn-size')).toBe('18px');
   });
 
   it('passes a click on the text button to the image', () => {

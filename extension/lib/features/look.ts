@@ -21,7 +21,7 @@ export function pageLook(): Feature {
         tightLogged = tightKey;
         send({ type: 'log', level: 'debug', event: 'tight mode', data: tight });
       }
-      textButtons(doc, settings.textButtons);
+      textButtons(doc, settings.textButtons, settings.fontSize);
       enlargeNavArrows(doc, true);
       const pager = enlargePagerArrows(doc, true);
       const key = `${doc.location?.href}|${pager.holders}|${pager.arrows}`;

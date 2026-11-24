@@ -2,8 +2,9 @@
 // words baked in (/images/en_US/buttons/save.gif and so on), so they don't
 // grow with E-MC's text size and can't be restyled. For each button image
 // we know, E-MC adds a real text button beside it, labelled from the
-// image's name, and hides the image. Commit Decision is drawn bigger, in
-// the E-MC color.
+// image's name, and hides the image. Every text button has the same font
+// and size on every page (a little over E-MC's text size, whatever font
+// the cell around it has); Commit Decision is bold in the E-MC color.
 //
 // The image stays in the page, hidden, inside MC's own link, and a click
 // on the text button is passed on to it, so MC sees the click it expects.
@@ -19,6 +20,9 @@ const MARK = 'data-emc-textbtn';
 const ON = 'data-emc-textbtn-on';
 const STYLE_ID = 'emc-textbtn-style';
 const KIND = 'textbtn';
+const SIZE_VAR = '--emc-textbtn-size';
+/** MC's own text size, in px. */
+const MC_FONT_PX = 11;
 
 /** MC button image name to the words drawn in it. */
 export const BUTTON_LABELS: Record<string, string> = {
@@ -45,14 +49,15 @@ html[${ON}] img[${MARK}] { display: none !important; }
 html:not([${ON}]) [data-electric-mc="${KIND}"] { display: none !important; }
 [data-electric-mc="${KIND}"] {
   display: inline-block; box-sizing: border-box; margin: 2px; padding: 0.25em 0.8em;
-  font: inherit; font-size: 1em; line-height: 1.3; white-space: nowrap; cursor: pointer;
+  font-family: Verdana, Arial, Helvetica, sans-serif; font-size: var(${SIZE_VAR}, 13px); font-weight: 400;
+  font-style: normal; line-height: 1.3; white-space: nowrap; cursor: pointer;
   color: #1f2937; background: #f3f4f6; border: 1px solid #9ca3af; border-radius: 0.35em;
   text-decoration: none !important; user-select: none; vertical-align: middle;
 }
 [data-electric-mc="${KIND}"]:hover { background: #e5e7eb; border-color: #6b7280; }
 [data-electric-mc="${KIND}"]:focus-visible { outline: 2px solid ${EMC_COLOR}; outline-offset: 2px; }
 [data-electric-mc="${KIND}"][data-primary] {
-  font-size: 1.3em; font-weight: 700; padding: 0.4em 1.2em;
+  font-weight: 700;
   color: #fff; background: ${EMC_COLOR}; border-color: ${EMC_COLOR};
 }
 [data-electric-mc="${KIND}"][data-primary]:hover { background: #92400e; border-color: #92400e; }
@@ -118,7 +123,12 @@ function sync(img: HTMLImageElement): boolean {
   return true;
 }
 
-export function textButtons(doc: Document, on: boolean): { buttons: number } {
+/** The text buttons' size in px for E-MC's text size setting (0: MC's own 11px). */
+export function buttonFontPx(fontSize: number): number {
+  return Math.max(12, Math.round((fontSize > 0 ? fontSize : MC_FONT_PX) * 1.15));
+}
+
+export function textButtons(doc: Document, on: boolean, fontSize = 0): { buttons: number } {
   if (!doc.getElementById(STYLE_ID)) {
     const style = doc.createElement('style');
     style.id = STYLE_ID;
@@ -129,6 +139,7 @@ export function textButtons(doc: Document, on: boolean): { buttons: number } {
   const html = doc.documentElement;
   if (!on) {
     html.removeAttribute(ON);
+    html.style.removeProperty(SIZE_VAR);
     observers.get(doc)?.disconnect();
     observers.delete(doc);
     for (const img of Array.from(doc.querySelectorAll<HTMLImageElement>(`img[${MARK}]`))) unmark(img);
@@ -145,6 +156,7 @@ export function textButtons(doc: Document, on: boolean): { buttons: number } {
     obs.observe(doc.documentElement, { subtree: true, attributes: true, attributeFilter: ['src'] });
     observers.set(doc, obs);
   }
+  html.style.setProperty(SIZE_VAR, `${buttonFontPx(fontSize)}px`);
   html.setAttribute(ON, '');
   return { buttons };
 }
