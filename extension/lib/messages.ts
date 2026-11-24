@@ -77,6 +77,8 @@ export interface Settings {
   hidePageHeader: boolean;
   /** Tight mode (lib/tight.ts): fold away the journal logo after a second, drop MC's instructions row and empty spacing rows. Off by default. */
   tightMode: boolean;
+  /** Draw MC's picture buttons (Save, Commit Decision, ...) as text buttons that follow the text size (lib/textbuttons.ts). */
+  textButtons: boolean;
   /** MC's Web of Science Reviewer Locator box (lib/wos.ts): left open, closed (E-MC's default) or removed. */
   webOfScience: 'open' | 'closed' | 'removed';
   /** Press a file input's Attach control as soon as a file is chosen. */
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoTakeAction: true,
   hidePageHeader: true,
   tightMode: false,
+  textButtons: true,
   webOfScience: 'closed',
   autoAttach: true,
   keepAlive: true,

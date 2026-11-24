@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.98 (2026-11-24)
+
+- New: text buttons (issue #2, on by default; Settings, Page layout). MC draws its buttons (Save, Commit Decision, Create Draft E-Mail, Close, Print, Edit, Search, Pick, Add a Note, Export to CSV, ...) as pictures with the words baked in, so they stayed small when the text got bigger. E-MC now draws each one it knows as a real text button that follows the text size, and Commit Decision is bigger and in the E-MC color. A click goes to MC's own button underneath, so MC sees the same click as before. Buttons E-MC doesn't know keep MC's picture. Turn it off to get MC's pictures back.
+
 ## 0.0.97 (2026-11-24)
 
 - Fixed: MC still logged you out "due to inactivity" with keepalive on. The keepalives reach MC fine, also from background tabs (MC answers each one), but every MC page also runs its own logout countdown from when it loaded (about 3 hours), and a keepalive didn't reset it. The log showed logouts exactly 178 minutes after the last page load with every keepalive in between answered. Now, each time MC answers a keepalive, every open MC tab starts its countdown again, as a page load would. The keepalive log line says how many countdowns it restarted (0 would mean MC counts down some other way).

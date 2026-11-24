@@ -1,7 +1,8 @@
 // How MC's pages look: full width and text size, the page title on top,
-// bigger arrows, the emphasized Version History box (lib/restyle.ts).
+// bigger arrows, text buttons for MC's picture buttons, the emphasized Version History box (lib/restyle.ts).
 
 import { applyRestyle, clearRestyle, emphasizeVersionHistory, enlargeNavArrows, enlargePagerArrows, hidePageHeader } from '../restyle';
+import { textButtons } from '../textbuttons';
 import { tightMode } from '../tight';
 import { applyWos } from '../wos';
 import type { Feature } from './feature';
@@ -20,6 +21,7 @@ export function pageLook(): Feature {
         tightLogged = tightKey;
         send({ type: 'log', level: 'debug', event: 'tight mode', data: tight });
       }
+      textButtons(doc, settings.textButtons);
       enlargeNavArrows(doc, true);
       const pager = enlargePagerArrows(doc, true);
       const key = `${doc.location?.href}|${pager.holders}|${pager.arrows}`;
@@ -35,6 +37,7 @@ export function pageLook(): Feature {
       clearRestyle(doc);
       hidePageHeader(doc, false);
       tightMode(doc, false);
+      textButtons(doc, false);
       applyWos(doc, null);
       enlargeNavArrows(doc, false);
       enlargePagerArrows(doc, false);

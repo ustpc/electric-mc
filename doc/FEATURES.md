@@ -24,6 +24,10 @@ pitch to associate editors.
 - **The page title on top.** MC's left-column title ("Search Results",
   "View Manuscripts") can move to the top of the page, so the table gets
   the column's width back.
+- **Text buttons.** MC's picture buttons (Save, Commit Decision,
+  Create Draft E-Mail, Close, Print, ...) are drawn as real text buttons
+  that grow with the text size, and Commit Decision is bigger and in the
+  E-MC color. Clicks still go to MC's own buttons. On by default.
 - **Tight mode** (off unless you turn it on). The journal logo folds away
   a second after each page opens, and MC's instructions line ("The tabs
   below organize…") and its empty spacing rows go, so more of the
