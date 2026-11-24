@@ -53,7 +53,8 @@ pitch to associate editors.
 - **Told when MC changes.** If a part of an MC page the extension relies on stops showing up, the side panel says so, and the automations that need it stay off there until it's back.
 - **Stay logged in (on by default; can be turned off).** After 10 minutes without
   activity in any MC tab, the extension presses MC's own "+ Search" toggle so
-  MC doesn't log you out; it gives up after 48 hours, so an unattended
+  MC doesn't log you out, and restarts the logout countdown each MC page
+  runs from when it loaded; it gives up after 48 hours, so an unattended
   computer is still logged out. Ctrl+Shift+K sends one at once.
 
 ## For editors and reviewers

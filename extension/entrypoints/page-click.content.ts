@@ -2,9 +2,11 @@
 // javascript: URLs, and Chrome blocks a javascript: URL that an extension's
 // content script clicks (it runs under the extension's CSP, not the page's).
 // The content script marks the element and asks this script to click it.
+// It also restarts MC's logout countdown after a keepalive (lib/pagetimer.ts).
 
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { CLICK_ATTR, CLICK_EVENT } from '../lib/click';
+import { RESTART_EVENT, RESTARTED_ATTR, watchLongTimers } from '../lib/pagetimer';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -12,6 +14,12 @@ export default defineContentScript({
   allFrames: false,
   world: 'MAIN',
   main() {
+    // MC's logout countdown (lib/pagetimer.ts): noted as the page sets it,
+    // started again when the content script says a keepalive got through.
+    const timers = watchLongTimers(window);
+    document.addEventListener(RESTART_EVENT, () => {
+      document.documentElement.setAttribute(RESTARTED_ATTR, String(timers.restart()));
+    });
     document.addEventListener(CLICK_EVENT, (e) => {
       const token = (e as CustomEvent<string>).detail;
       const el = document.querySelector<HTMLElement>(`[${CLICK_ATTR}="${CSS.escape(String(token))}"]`);
