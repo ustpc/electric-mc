@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.100 (2026-11-24)
+
+- New: the Team window has two tabs. Org chart holds the team tree. People & assignments holds the people tables, now in the order Editor-in-chief and co-chairs, Column heads, Associate Editors, Columnists. Under each person, one line per manuscript assigned to them: the manuscript ID and title, beside their expertise and notes. The list is built from the manuscripts E-MC has seen in MC, so it grows as you work. A manuscript belongs to the AE of its newest version, and finished ones (rejected, accepted, withdrawn) drop off. A title E-MC hasn't seen shows as the ID alone, and when MC's count is higher than what E-MC knows, the window says so. It stays in this browser and is never in the team file.
+- Docs: new doc/Permission Model.md, which says who can see what and how it's enforced. Team assignments are for the EIC and co-chairs only.
+
 ## 0.0.99 (2026-11-24)
 
 - Fixed: text buttons weren't the same from page to page. Each took the font of the cell around it, so on the decision page they came out in a large serif font, and Commit Decision was drawn larger still. Every text button now has the same font and size everywhere (a little over your text size setting), and Commit Decision is the same size as the others, bold in the E-MC color.

@@ -130,7 +130,10 @@ pitch to associate editors.
   how many manuscripts they have right now, as MC's Assign Associate Editor
   pull-down reports it. Search by name, column or expertise. "Hide
   columnists" leaves only the people who take assignments: the column
-  heads and the AEs.
+  heads and the AEs. Two tabs: Org chart (the team tree) and People &
+  assignments, which lists under each editor the manuscripts assigned to
+  them (ID and title), as E-MC has seen them in MC. For the EIC and
+  co-chairs; see [Permission Model](Permission%20Model.md).
   
 - **One team database, with its tree (now).** The EIC and Deputy EIC,
   co-chairs, sections with their heads and AEs, and columns with their

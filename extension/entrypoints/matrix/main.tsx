@@ -1,6 +1,8 @@
-// The Team window (once called the editorial matrix), in its own window. At the top, the team's
-// tree of pills (components/TeamTree.tsx); below, one row per person in four
-// sections, from the team database (lib/team.ts, through the roster derived
+// The Team window (once called the editorial matrix), in its own window, in
+// two tabs. Org chart: the team's tree of pills (components/TeamTree.tsx).
+// People: one row per person in four sections (leadership, column heads,
+// Associate Editors, columnists), each followed by one row per manuscript
+// assigned to them (ID and title, from the manuscripts E-MC has seen in MC), from the team database (lib/team.ts, through the roster derived
 // from it), with each editor's current assignment count read from MC's AE
 // pull-down (lib/aeload.ts). The matrix is for viewing: a person's name opens
 // their details form, + adds a person, and the hierarchy is edited in the
@@ -9,8 +11,8 @@
 import { render, type ComponentChildren } from 'preact';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { AeLoad } from '../../lib/aeload';
-import { assignedLabel, joinLoads, latestJournal } from '../../lib/matrix';
-import { KEY } from '../../lib/messages';
+import { assignedLabel, assignmentsByPerson, joinLoads, latestJournal } from '../../lib/matrix';
+import { KEY, type SeenManuscript } from '../../lib/messages';
 import { fold } from '../../lib/text';
 import { GROUPS, matchesSearch, type Roster, type RosterPerson } from '../../lib/roster';
 import { parseAeMenu, type AeMenuStore } from '../../lib/aemenu';
@@ -63,6 +65,9 @@ const when = (iso: string) => {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 };
 
+/** The People tab's sections, in order: Associate Editors before the columnists. */
+const ORDER = ['leadership', 'column_heads', 'associate_editors', 'columnists'] as const;
+
 function App() {
   const roster = useLocal<Roster | null>(KEY.roster, null);
   const loads = useLocal<Record<string, AeLoad>>(KEY.aeLoad, {});
@@ -74,6 +79,12 @@ function App() {
   const [editing, setEditing] = useState<{ person: TeamPerson; isNew: boolean } | null>(null);
   const [target, setTarget] = useState<string | undefined>();
   const [saved, setSaved] = useState('');
+  const seen = useLocal<Record<string, SeenManuscript>>(KEY.seen, {});
+  const [tab, setTabState] = useState<'chart' | 'people'>(() => (location.hash === '#people' ? 'people' : 'chart'));
+  const setTab = (t: 'chart' | 'people') => {
+    setTabState(t);
+    history.replaceState(null, '', t === 'people' ? '#people' : '#chart');
+  };
   useEffect(() => void teamFileTarget().then(setTarget, () => {}), []);
 
   const journals = Object.keys(loads);
@@ -82,6 +93,7 @@ function App() {
   const people = roster?.people ?? [];
   const joined = useMemo(() => joinLoads(people, load?.entries ?? []), [roster, load]);
   const words = fold(query).split(/\s+/).filter(Boolean);
+  const assigned = useMemo(() => assignmentsByPerson(people, seen), [roster, seen]);
 
   const loadFile = async (file: File | undefined) => {
     if (!file) return;
@@ -172,20 +184,27 @@ function App() {
           : <>No assignment counts yet. Open the Assign Associate Editor pull-down on any manuscript in MC, and the counts appear here.</>}
       </p>
       {error && <p class="error">{error}</p>}
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'chart'} class={tab === 'chart' ? 'tab on' : 'tab'} onClick={() => setTab('chart')}>Org chart</button>
+        <button role="tab" aria-selected={tab === 'people'} class={tab === 'people' ? 'tab on' : 'tab'} onClick={() => setTab('people')}>People &amp; assignments</button>
+      </div>
       {!roster && (
         <div class="intro">
           <p>Load your team to see it here: press <b>Load team or roster…</b> and choose a team file (or an older <code>roster.json</code>), or press <b>Edit team…</b> to build one. It stays in this browser only.</p>
         </div>
       )}
-      {team && team.people.length > 0 && (
+      {tab === 'chart' && team && team.people.length > 0 && (
         <TeamTree
           team={team}
-          onPerson={(id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          onPerson={(id) => {
+            setTab('people');
+            requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+          }}
           extra={(id) => { const n = joined.counts.get(id); return n !== undefined ? <span class="load">{n}</span> : null; }}
           hideColumns={hideColumnists}
         />
       )}
-      {roster && GROUPS.filter((g) => !(hideColumnists && g.id === 'columnists')).map((g) => {
+      {tab === 'people' && roster && ORDER.map((id) => GROUPS.find((g) => g.id === id)!).filter((g) => !(hideColumnists && g.id === 'columnists')).map((g) => {
         const members = people.filter((p) => p.group === g.id);
         const visible = members.filter((p) => matchesSearch(p, query, countOf(p) !== undefined ? assignedLabel(countOf(p)!) : ''));
         if (!members.length) return null;
@@ -201,8 +220,11 @@ function App() {
               <table>
                 <colgroup><col class="person" /><col class="role" /><col class="institution" /><col class="expertise" /></colgroup>
                 <thead><tr><th>Person &amp; profiles</th><th>Roles &amp; columns</th><th>Institutions</th><th>Expertise &amp; notes</th></tr></thead>
-                <tbody>
-                  {visible.map((p) => (
+                {visible.map((p) => {
+                  const mine = assigned.get(p.id) ?? [];
+                  const n = countOf(p);
+                  return (
+                  <tbody>
                     <tr id={p.id}>
                       <th scope="row">
                         <div class="identity">
@@ -229,19 +251,30 @@ function App() {
                         {p.affiliations.length ? p.affiliations.map((a) => <div>{hl(a, words)}</div>) : <span class="muted">Not verified</span>}
                         {p.mastheadAffiliation && <span class={`detail${p.affiliationMismatch ? ' mismatch' : ''}`} title={p.affiliationMismatch ? 'Differs from the current affiliation' : undefined}>Masthead: {hl(p.mastheadAffiliation, words)}</span>}
                       </td>
-                      <td class="exp">
+                      <td class="exp" rowSpan={1 + mine.length + (n !== undefined && n > mine.length ? 1 : 0)}>
                         <p class="expertise">{hl(p.expertise, words)}</p>
                         {p.notes && <p class="notes">{hl(p.notes, words)}</p>}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
+                    {mine.map((a) => (
+                      <tr class="ms">
+                        <td colSpan={3}><span class="ms-id">{hl(a.id, words)}</span> {a.title ? hl(a.title, words) : null}</td>
+                      </tr>
+                    ))}
+                    {n !== undefined && n > mine.length && (
+                      <tr class="ms">
+                        <td colSpan={3} class="muted">{mine.length ? `MC counts ${n}; E-MC has seen ${mine.length} of them.` : `MC counts ${n}; open each manuscript in MC once and E-MC lists it here.`}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                  );
+                })}
               </table>
             )}
           </section>
         );
       })}
-      {load && (joined.unmatched.length > 0 || !roster) && (
+      {tab === 'people' && load && (joined.unmatched.length > 0 || !roster) && (
         <section class="group">
           <div class="group-heading">
             <h2>{roster ? 'In MC but not in the roster' : 'Editors in MC'}</h2>
@@ -257,7 +290,7 @@ function App() {
           </table>
         </section>
       )}
-      {roster && (
+      {tab === 'people' && roster && (
         <p class="muted">
           Team updated {roster.exportedAt ? when(roster.exportedAt) : 'at an unknown time'}.{' '}
           {roster.mastheadSource && <a href={roster.mastheadSource} target="_blank" rel="noopener">Official CACM masthead</a>}
