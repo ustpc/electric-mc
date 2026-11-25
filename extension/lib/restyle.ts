@@ -184,9 +184,18 @@ export function hidePageHeader(doc: Document, on: boolean): void {
     const cell = img.closest('td');
     if (!cell) continue;
     const row = cell.parentElement as HTMLTableRowElement | null;
-    // The whole row goes when the image is all it holds.
+    // The whole row goes when the image is all it holds. Checked again on
+    // every run: on a popup such as Create Account On The Fly, MC writes its
+    // message (a duplicate account, a missing field) into the cell beside
+    // the image after the page loads, and a row hidden for being empty
+    // would keep that message out of sight (0.0.101).
     const rest = row ? Array.from(row.cells).filter((c) => c !== cell) : [];
-    (row && rest.every((c) => !textOf(c) && !c.querySelector('img, input, select, a')) ? row : cell).setAttribute(HIDE, 'header');
+    if (row && rest.every((c) => !textOf(c) && !c.querySelector('img, input, select, a'))) {
+      row.setAttribute(HIDE, 'header');
+    } else {
+      if (row?.getAttribute(HIDE) === 'header') row.removeAttribute(HIDE);
+      cell.setAttribute(HIDE, 'header');
+    }
   }
   // The empty spacer cell beside the page's content cell.
   for (const td of Array.from(doc.querySelectorAll<HTMLTableCellElement>('td[width$="%"]'))) {

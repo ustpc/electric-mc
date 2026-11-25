@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.101 (2026-11-25)
+
+- Fixed (likely): on MC's Create Account On The Fly popup (Add as reviewer, create account), pressing Create and Add a second time just redrew the popup with no message. With "Put the page title on top" on (the default), E-MC hid the popup's title row while it was empty and kept it hidden after MC wrote its message there, so MC's explanation (for example that the account already exists) never showed. The title row now comes back as soon as anything appears beside the title picture.
+- Log: on an MC popup, a "popup message" line says how many characters MC shows in its instructions and error areas and whether E-MC hides any of them (never the text itself).
+
 ## 0.0.100 (2026-11-24)
 
 - New: the Team window has two tabs. Org chart holds the team tree. People & assignments holds the people tables, now in the order Editor-in-chief and co-chairs, Column heads, Associate Editors, Columnists. Under each person, one line per manuscript assigned to them: the manuscript ID and title, beside their expertise and notes. The list is built from the manuscripts E-MC has seen in MC, so it grows as you work. A manuscript belongs to the AE of its newest version, and finished ones (rejected, accepted, withdrawn) drop off. A title E-MC hasn't seen shows as the ID alone, and when MC's count is higher than what E-MC knows, the window says so. It stays in this browser and is never in the team file.
