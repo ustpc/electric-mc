@@ -350,7 +350,8 @@ staff will be switched on later, and this page will say so.
 - Test builds only (extension 0.0.59): so that Back works, the extension
   replaces Manuscript Central's "Cache-Control: no-store" header on MC pages
   with "private", so Chrome keeps those pages in its own cache on your
-  computer. Nothing is sent anywhere. After you log out, Back can still show
+  computer. Since 0.0.103 this covers only pages reached by a form post in
+  the main MC tab, never popups. Nothing is sent anywhere. After you log out, Back can still show
   them until Chrome clears its cache. The setting "Back shows the page as it
   was" turns this off. The Web Store build does not do this.
 

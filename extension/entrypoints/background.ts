@@ -14,7 +14,7 @@ import { closeLiveLog, liveLog, liveLogPage } from '../lib/livelog';
 import { sampleDue } from '../lib/pagesample';
 import { applyProbes, type ProbeResults, type ProbeStore } from '../lib/probes';
 import { makeQueue } from '../lib/queue';
-import { setBackPages } from '../lib/backcache';
+import { AFTER_POPUP_MS, PopupTabs, setBackPages } from '../lib/backcache';
 import { addRoles, type KnownRoles, type Role } from '../lib/roles';
 import type { EicItem } from '../lib/recommend';
 import type { AeLoad, AeLoadEntry } from '../lib/aeload';
@@ -68,8 +68,26 @@ export default defineBackground(() => {
   chrome.tabs.onUpdated.addListener((tabId, change) => {
     if (change.url || change.status === 'complete') bg(refreshTab(tabId));
   });
-  const syncBackPages = () => bg(getSettings().then((s) => setBackPages(s.backPages)).catch(() => {}));
+  // Back's cache rule (lib/backcache.ts) leaves popups and their openers alone.
+  const popupTabs = new PopupTabs();
+  const syncBackPages = () => bg(getSettings().then((s) => setBackPages(s.backPages, popupTabs.excluded(Date.now()))).catch(() => {}));
   syncBackPages();
+  chrome.tabs.onCreated.addListener((tab) => {
+    if (tab.id === undefined) return;
+    const id = tab.id;
+    bg((async () => {
+      const win = await chrome.windows.get(tab.windowId).catch(() => null);
+      if (tab.openerTabId === undefined && win?.type !== 'popup') return;
+      popupTabs.opened(id, tab.openerTabId);
+      syncBackPages();
+    })());
+  });
+  chrome.tabs.onRemoved.addListener((id) => {
+    if (!popupTabs.closed(id, Date.now())) return;
+    syncBackPages();
+    // Let the opener back in once MC has reloaded it.
+    setTimeout(syncBackPages, AFTER_POPUP_MS + 1000);
+  });
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area === SETTINGS_AREA && ch[KEY.settings]) {
       syncBackPages();

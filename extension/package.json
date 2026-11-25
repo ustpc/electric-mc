@@ -1,7 +1,7 @@
 {
   "name": "electric-mc-extension",
   "private": true,
-  "version": "0.0.102",
+  "version": "0.0.103",
   "description": "Electric MC: a better Manuscript Central for editors, with notes, queues and checks, all in your browser",
   "type": "module",
   "scripts": {

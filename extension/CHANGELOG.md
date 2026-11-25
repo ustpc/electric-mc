@@ -2,13 +2,17 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.103 (2026-11-25)
+
+- Fixed: adding reviewers with Create Account On The Fly (Add as reviewer, create account) worked for the first person and then failed: each Create and Add just redrew the popup. The cause was the Back setting (test builds), which changes MC's "don't cache" header. After the first add, MC reloads the manuscript page, and that page came back without MC's hidden document code. The next popup took the empty code, and MC refused its Create and Add. The Back setting now applies only to form posts in the main MC tab. It never touches a popup, the tab that opened it while the popup is open, or that tab for a minute after the popup closes. Back still shows MC pages as they were.
+
 ## 0.0.102 (2026-11-25)
 
 - Fixed: the "popup message" log line from 0.0.101 said MC's message wasn't hidden when E-MC hid the row around it. It now checks the row as well.
 
 ## 0.0.101 (2026-11-25)
 
-- Fixed (likely): on MC's Create Account On The Fly popup (Add as reviewer, create account), pressing Create and Add a second time just redrew the popup with no message. With "Put the page title on top" on (the default), E-MC hid the popup's title row while it was empty and kept it hidden after MC wrote its message there, so MC's explanation (for example that the account already exists) never showed. The title row now comes back as soon as anything appears beside the title picture.
+- Fixed: E-MC hid the title row of an MC popup when it was empty and kept it hidden if MC later wrote a message there. The row now comes back as soon as anything appears beside the title picture. (This was a first guess at the Create and Add problem below; it wasn't the cause.)
 - Log: on an MC popup, a "popup message" line says how many characters MC shows in its instructions and error areas and whether E-MC hides any of them (never the text itself).
 
 ## 0.0.100 (2026-11-24)
