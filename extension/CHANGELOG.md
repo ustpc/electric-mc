@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.102 (2026-11-25)
+
+- Fixed: the "popup message" log line from 0.0.101 said MC's message wasn't hidden when E-MC hid the row around it. It now checks the row as well.
+
 ## 0.0.101 (2026-11-25)
 
 - Fixed (likely): on MC's Create Account On The Fly popup (Add as reviewer, create account), pressing Create and Add a second time just redrew the popup with no message. With "Put the page title on top" on (the default), E-MC hid the popup's title row while it was empty and kept it hidden after MC wrote its message there, so MC's explanation (for example that the account already exists) never showed. The title row now comes back as soon as anything appears beside the title picture.

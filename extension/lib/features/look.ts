@@ -67,7 +67,16 @@ export function popupMessage(doc: Document): { instructionsChars: number; errorC
   const err = doc.getElementById('MAIN_ERROR_DISPLAY_DIV');
   const view = doc.defaultView;
   const shown = (el: Element) => !view || view.getComputedStyle(el).display !== 'none';
-  const hiddenByUs = (el: Element) => !!el.closest('[data-emc-hide], [data-emc-tight]') && !shown(el);
+  // Hidden when it, or an element E-MC marked around it, isn't displayed.
+  const hiddenByUs = (el: Element) => {
+    const marked = el.closest('[data-emc-hide], [data-emc-tight]');
+    if (!marked) return false;
+    for (let e: Element | null = el; e; e = e.parentElement) {
+      if (!shown(e)) return true;
+      if (e === marked) break;
+    }
+    return false;
+  };
   const instructionsChars = instr.reduce((n, td) => n + textOf(td).length, 0);
   const errorChars = err ? textOf(err).length : 0;
   return {
