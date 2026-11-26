@@ -94,13 +94,6 @@ async function start() {
   startFeatures(features, { doc: document, clicks, current: live }, send);
   const watched = watchedKeys(features);
   deliverStored(features, await stored(watched), null, send);
-  const step0 = (name: string, fn: () => void) => {
-    try {
-      fn();
-    } catch (e) {
-      send({ type: 'log', level: 'error', event: `${name} failed`, data: String(e) });
-    }
-  };
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
     // until they are reloaded. Stop it so it can't fight the new version.
@@ -126,13 +119,9 @@ async function start() {
     // A popup MC opened (Create Account On The Fly, ...) is left as MC drew
     // it (0.0.104): no title rewrite, no recorders or actions, only the text
     // buttons (lib/features/look.ts) and the developer trace.
-    if (window.opener) {
-      if (settings.developer && (reason === 'load' || reason === 'bfcache')) step0('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
-      runFeatures(look.filter((f) => f.id === 'look'), ctx);
-      return;
-    }
-    const title = settings.rewriteTitle ? titleFor(r) : null;
-    if (settings.rewriteTitle) titles.set(title);
+    const popup = !!window.opener;
+    const title = settings.rewriteTitle && !popup ? titleFor(r) : null;
+    if (settings.rewriteTitle && !popup) titles.set(title);
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
     if (settings.developer) (overlay ??= new Overlay()).show(r, title);
     else overlay?.hide();
@@ -148,6 +137,11 @@ async function start() {
         send({ type: 'log', level: 'error', event: `${name} failed`, data: String(e) });
       }
     };
+    if (popup) {
+      if (settings.developer && reason === 'load') step('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
+      runFeatures(look.filter((f) => f.id === 'look'), ctx);
+      return;
+    }
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) step('login help', setUpLogin);
     runFeatures(recorders, ctx);
     if (reason === 'load') step('follow search', () => followSearch(r));
