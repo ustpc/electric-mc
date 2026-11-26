@@ -16,10 +16,13 @@ export default defineContentScript({
   main() {
     // MC's logout countdown (lib/pagetimer.ts): noted as the page sets it,
     // started again when the content script says a keepalive got through.
-    const timers = watchLongTimers(window);
-    document.addEventListener(RESTART_EVENT, () => {
-      document.documentElement.setAttribute(RESTARTED_ATTR, String(timers.restart()));
-    });
+    // Not in a popup MC opened: those are left as MC made them (0.0.104).
+    if (!window.opener) {
+      const timers = watchLongTimers(window);
+      document.addEventListener(RESTART_EVENT, () => {
+        document.documentElement.setAttribute(RESTARTED_ATTR, String(timers.restart()));
+      });
+    }
     document.addEventListener(CLICK_EVENT, (e) => {
       const token = (e as CustomEvent<string>).detail;
       const el = document.querySelector<HTMLElement>(`[${CLICK_ATTR}="${CSS.escape(String(token))}"]`);

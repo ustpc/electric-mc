@@ -20,6 +20,7 @@ import { findSearchToggle, keepaliveDue, sendKeepalive } from '../lib/keepalive'
 import { RESTART_EVENT, RESTARTED_ATTR } from '../lib/pagetimer';
 import { watchRecommendations } from '../lib/advance';
 import { watchMissingChoice } from '../lib/needchoice';
+import { markProphyAdd, watchProphyAdd } from '../lib/prophy';
 import { watchAuthorComments } from '../lib/authorcomment';
 import { describePage, watchClicks, watchRequests } from '../lib/devtrace';
 import { abstractAndKeywords } from '../parsers/extract';
@@ -46,11 +47,25 @@ export default defineContentScript({
   // Top frame only for now; frames would overwrite each other's tab state.
   allFrames: false,
   main() {
+    // Diagnostic builds only (0.0.106, Create and Add): built with
+    // WXT_EMC_DIAG=no-content, this script does nothing at all, so a test
+    // shows whether the problem is here or in the two early scripts
+    // (login.content.ts, page-click.content.ts). Never set for the store.
+    if (DIAG.has('no-content')) {
+      chrome.runtime.sendMessage({ type: 'log', level: 'warn', event: 'diagnostic build: main page script off', data: {} } satisfies Msg).catch(() => {});
+      return;
+    }
     void start();
   },
 });
 
 const MARK = 'data-electric-mc';
+
+// Diagnostic builds only (Create and Add, 0.0.106+): WXT_EMC_DIAG is a
+// comma-separated list of parts to leave out (no-content, no-features,
+// no-look, no-watchers). Empty in every normal and store build.
+const DIAG = new Set(String((import.meta.env as Record<string, string | undefined>).WXT_EMC_DIAG ?? '').split(',').filter(Boolean));
+const diagKeep = (fs: Feature[]): Feature[] => (DIAG.has('no-features') ? [] : DIAG.has('no-look') ? fs.filter((f) => f.id !== 'look') : fs);
 
 async function start() {
   // A PDF from MC opens in Chrome's viewer; the background sets its zoom.
@@ -81,11 +96,12 @@ async function start() {
   // Features as modules (lib/features/): those that record what the page
   // says run early in each run, the queue marks where they always did, and
   // those that change how the page looks last.
-  const recorders: Feature[] = [versionHistory(), aeAssignMenu(), recordRoles(), recordIdentity()];
-  const actions: Feature[] = [oneButtonReject()];
-  const navigation: Feature[] = [autoAdvance(), backLinkExperiment()];
-  const queue: Feature[] = [queueMarks(), eicList()];
-  const look: Feature[] = [flagLabels(), pageLook()];
+  const recorders: Feature[] = diagKeep([versionHistory(), aeAssignMenu(), recordRoles(), recordIdentity()]);
+  const actions: Feature[] = diagKeep([oneButtonReject()]);
+  const navigation: Feature[] = diagKeep([autoAdvance(), backLinkExperiment()]);
+  const queue: Feature[] = diagKeep([queueMarks(), eicList()]);
+  const look: Feature[] = diagKeep([flagLabels(), pageLook()]);
+  if (DIAG.size) send({ type: 'log', level: 'warn', event: 'diagnostic build', data: { off: [...DIAG] } });
   const features = [...recorders, ...actions, ...navigation, ...queue, ...look];
   // The latest run's context, for click handlers and stored-value changes.
   let current: PageContext | null = null;
@@ -116,8 +132,12 @@ async function start() {
     let letters: Map<string, string> | undefined;
     const ctx: PageContext = { doc: document, result: r, reason, settings, send, letters: () => (letters ??= decisionLettersIn(document, settings.idPattern)), get: getStored };
     current = ctx;
-    const title = settings.rewriteTitle ? titleFor(r) : null;
-    if (settings.rewriteTitle) titles.set(title);
+    // A popup MC opened (Create Account On The Fly, ...) is left as MC drew
+    // it (0.0.104): no title rewrite, no recorders or actions, only the text
+    // buttons (lib/features/look.ts) and the developer trace.
+    const popup = !!window.opener;
+    const title = settings.rewriteTitle && !popup ? titleFor(r) : null;
+    if (settings.rewriteTitle && !popup) titles.set(title);
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
     if (settings.developer) (overlay ??= new Overlay()).show(r, title);
     else overlay?.hide();
@@ -133,6 +153,13 @@ async function start() {
         send({ type: 'log', level: 'error', event: `${name} failed`, data: String(e) });
       }
     };
+    if (popup) {
+      if (settings.developer && reason === 'load') step('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
+      runFeatures(look.filter((f) => f.id === 'look'), ctx);
+      return;
+    }
+    // MC's broken Prophy create-account button gets a dashed outline (lib/prophy.ts).
+    if (!DIAG.has('no-watchers')) step('prophy add', () => markProphyAdd(document, true));
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) step('login help', setUpLogin);
     runFeatures(recorders, ctx);
     if (reason === 'load') step('follow search', () => followSearch(r));
@@ -212,6 +239,7 @@ async function start() {
     clearTimeout(timer);
     titles.restore();
     featuresOff(features, document);
+    markProphyAdd(document, false);
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
@@ -224,34 +252,40 @@ async function start() {
   else send({ type: 'disabled' });
 
   // Press Attach once a file is chosen. File names are never logged.
-  watchFileAttach(
+  if (!DIAG.has('no-watchers')) watchFileAttach(
     document,
     () => !!chrome.runtime?.id && enabled() && settings.autoAttach,
     (found) => send({ type: 'log', level: 'info', event: 'auto attach', data: { found } }),
   );
 
   // Developer trace: every click, for replaying a session from the log.
-  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }), clicks);
+  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: { ...c, hashLen: hashLen() } }), clicks);
   watchRequests(window, () => !!chrome.runtime?.id && enabled() && settings.developer, (r) => send({ type: 'log', level: 'debug', event: 'request', data: r }));
 
   // Stop a recommendation or decision that has no choice picked
   // (lib/needchoice.ts). A guard: a stopped press reaches nothing else.
-  watchMissingChoice(document, () => !!chrome.runtime?.id && enabled(), (data) =>
+  if (!DIAG.has('no-watchers')) watchMissingChoice(document, () => !!chrome.runtime?.id && enabled(), (data) =>
     send({ type: 'log', level: 'info', event: 'no recommendation picked', data }),
+  clicks);
+
+  // Ask before MC's Prophy "Add as reviewer (create account)" opens its
+  // popup: MC gives that popup the wrong document ID (lib/prophy.ts).
+  if (!DIAG.has('no-watchers')) watchProphyAdd(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
+    send({ type: 'log', level: 'info', event: 'prophy add', data }),
   clicks);
 
   // Ask before a decision or recommendation goes out with no comment to the
   // author (lib/authorcomment.ts). A guard too, so a cancelled press doesn't count
   // as a recommendation for auto-advance.
-  watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
+  if (!DIAG.has('no-watchers')) watchAuthorComments(document, () => !!chrome.runtime?.id && enabled(), (m) => window.confirm(m), (data) =>
     send({ type: 'log', level: 'info', event: 'no comment to author', data }),
   clicks);
 
   // After a recommendation, go on to the next manuscript (lib/advance.ts).
-  watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance, clicks);
+  if (!DIAG.has('no-watchers')) watchRecommendations(document, () => last?.manuscript?.id, () => !!chrome.runtime?.id && enabled() && settings.autoAdvance, clicks);
 
   // Clicking anywhere in a radio-button row picks its radio button.
-  watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }), clicks);
+  if (!DIAG.has('no-watchers')) watchRadioRows(document, () => !!chrome.runtime?.id && enabled(), (data) => send({ type: 'log', level: data.picked ? 'debug' : 'warn', event: 'radio row', data }), clicks);
 
   // Keepalives (lib/keepalive.ts). Activity is shared through storage, at
   // most once a minute; our own clicks fire no mousedown, so they don't count.
@@ -387,6 +421,12 @@ async function store(items: Record<string, unknown>): Promise<void> {
   } catch {
     /* extension context invalidated */
   }
+}
+
+/** How long MC's DOCUMENT_HASHCODE value is right now (diagnosing Create and Add, 0.0.104); -1 when there is none. */
+function hashLen(): number {
+  const f = document.querySelector<HTMLInputElement>('input[name="DOCUMENT_HASHCODE"]');
+  return f ? f.value.length : -1;
 }
 
 function send(m: Msg) {

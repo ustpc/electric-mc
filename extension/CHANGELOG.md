@@ -2,6 +2,52 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.109 (2026-11-26)
+
+- Fixed (review): switching E-MC off for the site now takes the outline and tooltip off MC's Prophy "+Add" too.
+- Removed (review): the developer "page scripts" log line from 0.0.104 and 0.0.105, which copied snippets of MC's own scripts. Its scrubbing could let short names or field values through, and it ran even where E-MC was switched off. The Create and Add question it was for is answered (an MC bug), so it's gone rather than patched.
+
+## 0.0.108 (2026-11-26)
+
+- Release candidate. All open pull requests are folded into this one for review, and nothing new is added for users.
+- Updated: pdf.js 6.5.438 for word counts on PDFs. Development tools updated too: WXT 0.21.5, Vitest 5.1.1, jsdom 31, Playwright 1.65.1, Preact 11.2 and the Chrome types.
+- Notes server (backend/notes, not part of the extension): lambda_http 1.3.2 and base64 0.23.1, with a one-line fix for lambda_http 1.x. The server isn't redeployed by this release.
+- Docs: the plan for column-head assignment requests, a message board and AE last-seen dates (doc/planning), listed under "Coming" in FEATURES.md and marked "planned" in the Privacy Policy. None of it is built.
+- Left out: TypeScript 7 for the linter. typescript-eslint needs TypeScript 5, so the linter keeps it while the extension builds with TypeScript 7.
+
+## 0.0.107 (2026-11-26)
+
+- Found: the Create and Add problem is a bug in MC, not in E-MC. MC's Prophy reviewer suggestions have an "+Add" button (its full name is "Add as reviewer (create account)"). The Create Account popup it opens carries the wrong document ID: it holds a reviewer source code instead of the manuscript. After Create and Add, MC reloads the manuscript as "Details for null", and later adds fail. It happens the same way with E-MC switched off. MC's other two ways to add a new reviewer, "+Add" in the Web of Science Reviewer Locator box and "+ Add New Reviewer", carry the right ID and work.
+- New: E-MC outlines Prophy's create-account "+Add" in a dashed E-MC line, with a tooltip. Pressing it asks first and points to the Web of Science "+Add" or "+ Add New Reviewer". Answer OK to open the Prophy popup anyway. Nothing sent to MC changes.
+- Removed: 0.0.105's restore of MC's document code. It didn't help, since MC's server loses the manuscript, and E-MC shouldn't change MC's form values.
+
+## 0.0.106 (2026-11-26)
+
+- Diagnostic, for the Create and Add problem (MC's page says "Details for null" after the first add, and the second add fails). 0.0.105 didn't fix it: MC's server itself loses the manuscript, so putting the code back in the page can't help. Turning off every setting didn't help either, so the cause is in a part of E-MC that runs whatever the settings say. A build made with WXT_EMC_DIAG=no-content leaves out E-MC's main page script entirely (no restyling, no parsing, no side-panel page info, no click watchers); only the two small early scripts run. The test build sent for this version is that build. Store builds never set it.
+
+## 0.0.105 (2026-11-26)
+
+- Tried to fix: the second Create and Add. After the first add, MC reloads the manuscript page with its hidden document code blank (the page then says "Details for None"), and the next popup fails. E-MC now remembers the document code for each manuscript in this tab for 30 minutes, and if MC's manuscript page comes back with it blank, E-MC puts it back and logs "document code restored".
+- Log (developers): the "page scripts" line now catches what MC's scripts do with reloads, closing popups, the window that opened them and the document code, on every page as it loads, not only in popups. Code snippets only, with MC's tokens, addresses and text taken out.
+
+## 0.0.104 (2026-11-26)
+
+- Changed: E-MC leaves MC's popups (Create Account On The Fly and the rest) as MC drew them: no restyling, no Tight mode, no title changes, no page-timer watching, nothing recorded. The only exception is the text buttons. Create and Add is one of them now, big and in the E-MC color like Commit Decision.
+- Still open: a second Create and Add fails with E-MC on. 0.0.103's change to the Back setting didn't fix it. For developers, the log now shows how long MC's document code is at each click, and in a popup, what MC's own scripts do with the window that opened it. Code snippets only, with MC's tokens, addresses and text taken out.
+
+## 0.0.103 (2026-11-25)
+
+- Tried to fix: adding reviewers with Create Account On The Fly (Add as reviewer, create account) worked for the first person and then failed: each Create and Add just redrew the popup. The suspected cause was the Back setting (test builds), which changes MC's "don't cache" header. After the first add, MC reloads the manuscript page, and that page came back without MC's hidden document code. The next popup took the empty code, and MC refused its Create and Add. The Back setting now applies only to form posts in the main MC tab. It never touches a popup, the tab that opened it while the popup is open, or that tab for a minute after the popup closes. Back still shows MC pages as they were. (It didn't fix the problem; see 0.0.104.)
+
+## 0.0.102 (2026-11-25)
+
+- Fixed: the "popup message" log line from 0.0.101 said MC's message wasn't hidden when E-MC hid the row around it. It now checks the row as well.
+
+## 0.0.101 (2026-11-25)
+
+- Fixed: E-MC hid the title row of an MC popup when it was empty and kept it hidden if MC later wrote a message there. The row now comes back as soon as anything appears beside the title picture. (This was a first guess at the Create and Add problem below; it wasn't the cause.)
+- Log: on an MC popup, a "popup message" line says how many characters MC shows in its instructions and error areas and whether E-MC hides any of them (never the text itself).
+
 ## 0.0.100 (2026-11-24)
 
 - New: the Team window has two tabs. Org chart holds the team tree. People & assignments holds the people tables, now in the order Editor-in-chief and co-chairs, Column heads, Associate Editors, Columnists. Under each person, one line per manuscript assigned to them: the manuscript ID and title, beside their expertise and notes. The list is built from the manuscripts E-MC has seen in MC, so it grows as you work. A manuscript belongs to the AE of its newest version, and finished ones (rejected, accepted, withdrawn) drop off. A title E-MC hasn't seen shows as the ID alone, and when MC's count is higher than what E-MC knows, the window says so. It stays in this browser and is never in the team file.

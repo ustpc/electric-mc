@@ -19,7 +19,8 @@ async fn main() -> Result<(), Error> {
             let text = match req.body() {
                 Body::Text(t) => t.clone(),
                 Body::Binary(b) => String::from_utf8_lossy(b).into_owned(),
-                Body::Empty => String::new(),
+                // Body is non-exhaustive since lambda_http 1.x: Empty and anything new.
+                _ => String::new(),
             };
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

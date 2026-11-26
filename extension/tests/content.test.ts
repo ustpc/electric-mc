@@ -100,4 +100,20 @@ describe('content script linkage', () => {
     expect(replies).toHaveLength(3);
     expect(sent().some((m) => m.type === 'parsed' && m.reason === 'manual')).toBe(true);
   });
+
+  it("leaves a popup as MC drew it, except for its text buttons", async () => {
+    vi.stubGlobal('opener', {});
+    try {
+      await boot(`<head><title>ScholarOne Manuscripts</title></head><body><form><input type="hidden" name="CURRENT_PAGE" value="CREATE_ACC_ON_FLY_POPUP"><input type="hidden" name="DOCUMENT_HASHCODE" value="test12345"></form>
+        <table cellpadding="15"><tr><td></td></tr><tr><td><a href="#"><img src="/images/en_US/buttons/create_add.gif"></a></td></tr></table></body>`);
+      expect(document.title).toBe('ScholarOne Manuscripts');
+      const btn = document.querySelector('[data-electric-mc="textbtn"]');
+      expect(btn?.textContent).toBe('Create and Add');
+      expect(btn?.hasAttribute('data-primary')).toBe(true);
+      expect(document.querySelector('[data-emc-tight]')).toBeNull();
+      expect(document.body.getAttribute('data-emc-fs')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

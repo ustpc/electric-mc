@@ -82,6 +82,23 @@ describe('hide the page title column', () => {
   });
 });
 
+describe('page header message written after load', () => {
+  it('shows the header row again when MC writes a message beside the title image', async () => {
+    const { hidePageHeader } = await import('../lib/restyle');
+    // Shaped like MC's Create Account On The Fly popup; text is made up.
+    document.body.innerHTML = `<table width="100%"><tr>
+        <td width="8%"><img src="/images/en_US/page_headers/create_account_on_the_fly.gif"></td>
+        <td width="75%" class="instructions">&nbsp;</td></tr></table>`;
+    hidePageHeader(document, true);
+    const row = document.querySelector('img')!.closest('tr')!;
+    expect(row.getAttribute('data-emc-hide')).toBe('header');
+    document.querySelector('td.instructions')!.textContent = 'This is a test message.';
+    hidePageHeader(document, true);
+    expect(row.hasAttribute('data-emc-hide')).toBe(false);
+    expect(document.querySelector('img')!.closest('td')!.getAttribute('data-emc-hide')).toBe('header');
+  });
+});
+
 describe('hide a text page title', () => {
   it('hides a short title cell such as "View Manuscripts" beside the content', async () => {
     const { hidePageHeader } = await import('../lib/restyle');

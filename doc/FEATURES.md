@@ -36,6 +36,11 @@ pitch to associate editors.
   which pushes the rest of the reviewer page a screen down, starts closed
   (MC shows it open). A setting keeps it open or removes it entirely; its
   "View full interactive search" line shows only when the box is open.
+- **A warning on MC's broken Prophy button.** MC's Prophy reviewer
+  suggestions have a create-account "+Add" that loses the manuscript (MC
+  then shows "Details for null" and later adds fail). E-MC outlines it and
+  asks before it opens, pointing to the Web of Science "+Add" or
+  "+ Add New Reviewer", which work.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the
@@ -181,4 +186,10 @@ pitch to associate editors.
 - **Alerts** for overdue reviews, plagiarism-check results and decisions,
   from MC's own emails.
 - **Dashboards** of every manuscript each AE is handling, across journals.
+- **Assignment requests for column heads.** A column head picks the AE a
+  paper should go to, and the co-chairs and staff work through a queue of
+  those requests; the column head is told when it's done.
+- **A message board** in the side panel, with unseen counts and history
+  by week for 2 months.
+- **When each AE was last active**, next to their workload, when assigning.
 - **Optional time tracking** so editors can see where their hours go.
