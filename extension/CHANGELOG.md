@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.111 (2026-11-26)
+
+- Fixed: on a resubmitted manuscript, the side panel had no title and warned "manuscript: no title". MC puts a "Resubmitted" link beside the ID, which leaves the ID on a line of its own with nothing after it, so E-MC never reached the title on the next row. It now goes up to the row when the ID's own line has nothing after it.
+
 ## 0.0.110 (2026-11-26)
 
 Fixes from the terminology review against the ScholarOne Manuscripts Admin Guide (items 1 to 10; the rest are in issue #92).

@@ -183,7 +183,11 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
     // Newer layout: the ID on its own line, the title on the next one.
     const idEl = Array.from(doc.querySelectorAll('strong,b,span,div,li,td,h1,h2,h3,h4'))
       .find((e) => textOf(e) === ref!.id && e.children.length <= 1);
-    const item = idEl?.closest('li,tr,p,div');
+    // The nearest line that holds the ID and has a next line. A tag beside
+    // the ID, such as MC's "Resubmitted" link, leaves the ID in a <b> inside
+    // a <p> of its own with no next sibling: then go up to the row.
+    let item = idEl?.closest('li,tr,p,div') ?? null;
+    for (let up = 0; item && !item.nextElementSibling && up < 3; up++) item = item.parentElement?.closest('li,tr,p,div') ?? null;
     let next = item?.nextElementSibling;
     for (let i = 0; next && i < 3; i++, next = next.nextElementSibling) {
       const t = textOf(next);
