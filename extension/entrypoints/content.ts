@@ -94,6 +94,13 @@ async function start() {
   startFeatures(features, { doc: document, clicks, current: live }, send);
   const watched = watchedKeys(features);
   deliverStored(features, await stored(watched), null, send);
+  const step0 = (name: string, fn: () => void) => {
+    try {
+      fn();
+    } catch (e) {
+      send({ type: 'log', level: 'error', event: `${name} failed`, data: String(e) });
+    }
+  };
   const run = (reason: string) => {
     // After the extension is reloaded, this copy keeps running in open tabs
     // until they are reloaded. Stop it so it can't fight the new version.
@@ -116,6 +123,14 @@ async function start() {
     let letters: Map<string, string> | undefined;
     const ctx: PageContext = { doc: document, result: r, reason, settings, send, letters: () => (letters ??= decisionLettersIn(document, settings.idPattern)), get: getStored };
     current = ctx;
+    // A popup MC opened (Create Account On The Fly, ...) is left as MC drew
+    // it (0.0.104): no title rewrite, no recorders or actions, only the text
+    // buttons (lib/features/look.ts) and the developer trace.
+    if (window.opener) {
+      if (settings.developer && (reason === 'load' || reason === 'bfcache')) step0('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
+      runFeatures(look.filter((f) => f.id === 'look'), ctx);
+      return;
+    }
     const title = settings.rewriteTitle ? titleFor(r) : null;
     if (settings.rewriteTitle) titles.set(title);
     if (changed || reason !== 'mutation') send({ type: 'parsed', result: r, reason, title });
@@ -231,7 +246,7 @@ async function start() {
   );
 
   // Developer trace: every click, for replaying a session from the log.
-  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: c }), clicks);
+  watchClicks(document, () => !!chrome.runtime?.id && enabled() && settings.developer, (c) => send({ type: 'log', level: 'debug', event: 'click', data: { ...c, hashLen: hashLen() } }), clicks);
   watchRequests(window, () => !!chrome.runtime?.id && enabled() && settings.developer, (r) => send({ type: 'log', level: 'debug', event: 'request', data: r }));
 
   // Stop a recommendation or decision that has no choice picked
@@ -387,6 +402,12 @@ async function store(items: Record<string, unknown>): Promise<void> {
   } catch {
     /* extension context invalidated */
   }
+}
+
+/** How long MC's DOCUMENT_HASHCODE value is right now (diagnosing Create and Add, 0.0.104); -1 when there is none. */
+function hashLen(): number {
+  const f = document.querySelector<HTMLInputElement>('input[name="DOCUMENT_HASHCODE"]');
+  return f ? f.value.length : -1;
 }
 
 function send(m: Msg) {

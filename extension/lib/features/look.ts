@@ -16,6 +16,12 @@ export function pageLook(): Feature {
   return {
     id: 'look',
     onPage({ doc, settings, send }) {
+      // A popup MC opened (Create Account On The Fly, ...) is left as MC drew
+      // it, except for its text buttons (0.0.104).
+      if (doc.defaultView?.opener) {
+        textButtons(doc, settings.textButtons, settings.fontSize);
+        return;
+      }
       applyRestyle(doc, settings);
       hidePageHeader(doc, settings.hidePageHeader);
       const tight = tightMode(doc, settings.tightMode);

@@ -2,9 +2,14 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.104 (2026-11-26)
+
+- Changed: E-MC leaves MC's popups (Create Account On The Fly and the rest) as MC drew them: no restyling, no Tight mode, no title changes, no page-timer watching, nothing recorded. The only exception is the text buttons. Create and Add is one of them now, big and in the E-MC color like Commit Decision.
+- Still open: a second Create and Add fails with E-MC on. 0.0.103's change to the Back setting didn't fix it. For developers, the log now shows how long MC's document code is at each click, and in a popup, what MC's own scripts do with the window that opened it. Code snippets only, with MC's tokens, addresses and text taken out.
+
 ## 0.0.103 (2026-11-25)
 
-- Fixed: adding reviewers with Create Account On The Fly (Add as reviewer, create account) worked for the first person and then failed: each Create and Add just redrew the popup. The cause was the Back setting (test builds), which changes MC's "don't cache" header. After the first add, MC reloads the manuscript page, and that page came back without MC's hidden document code. The next popup took the empty code, and MC refused its Create and Add. The Back setting now applies only to form posts in the main MC tab. It never touches a popup, the tab that opened it while the popup is open, or that tab for a minute after the popup closes. Back still shows MC pages as they were.
+- Tried to fix: adding reviewers with Create Account On The Fly (Add as reviewer, create account) worked for the first person and then failed: each Create and Add just redrew the popup. The suspected cause was the Back setting (test builds), which changes MC's "don't cache" header. After the first add, MC reloads the manuscript page, and that page came back without MC's hidden document code. The next popup took the empty code, and MC refused its Create and Add. The Back setting now applies only to form posts in the main MC tab. It never touches a popup, the tab that opened it while the popup is open, or that tab for a minute after the popup closes. Back still shows MC pages as they were. (It didn't fix the problem; see 0.0.104.)
 
 ## 0.0.102 (2026-11-25)
 

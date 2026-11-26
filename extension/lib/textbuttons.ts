@@ -30,6 +30,7 @@ export const BUTTON_LABELS: Record<string, string> = {
   close_message: 'Close',
   close_window: 'Close Window',
   commit_decision: 'Commit Decision',
+  create_add: 'Create and Add',
   create_draft_email: 'Create Draft E-Mail',
   edit: 'Edit',
   export_to_csv: 'Export to CSV',
@@ -42,7 +43,7 @@ export const BUTTON_LABELS: Record<string, string> = {
 };
 
 /** Buttons drawn larger and in the E-MC color. */
-const PRIMARY = new Set(['commit_decision']);
+const PRIMARY = new Set(['commit_decision', 'create_add']);
 
 const CSS = `
 html[${ON}] img[${MARK}] { display: none !important; }
