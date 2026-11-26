@@ -2,6 +2,10 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.106 (2026-11-26)
+
+- Diagnostic, for the Create and Add problem (MC's page says "Details for null" after the first add, and the second add fails). 0.0.105 didn't fix it: MC's server itself loses the manuscript, so putting the code back in the page can't help. Turning off every setting didn't help either, so the cause is in a part of E-MC that runs whatever the settings say. A build made with WXT_EMC_DIAG=no-content leaves out E-MC's main page script entirely (no restyling, no parsing, no side-panel page info, no click watchers); only the two small early scripts run. The test build sent for this version is that build. Store builds never set it.
+
 ## 0.0.105 (2026-11-26)
 
 - Tried to fix: the second Create and Add. After the first add, MC reloads the manuscript page with its hidden document code blank (the page then says "Details for None"), and the next popup fails. E-MC now remembers the document code for each manuscript in this tab for 30 minutes, and if MC's manuscript page comes back with it blank, E-MC puts it back and logs "document code restored".

@@ -47,6 +47,14 @@ export default defineContentScript({
   // Top frame only for now; frames would overwrite each other's tab state.
   allFrames: false,
   main() {
+    // Diagnostic builds only (0.0.106, Create and Add): built with
+    // WXT_EMC_DIAG=no-content, this script does nothing at all, so a test
+    // shows whether the problem is here or in the two early scripts
+    // (login.content.ts, page-click.content.ts). Never set for the store.
+    if ((import.meta.env as Record<string, string | undefined>).WXT_EMC_DIAG === 'no-content') {
+      chrome.runtime.sendMessage({ type: 'log', level: 'warn', event: 'diagnostic build: main page script off', data: {} } satisfies Msg).catch(() => {});
+      return;
+    }
     void start();
   },
 });
