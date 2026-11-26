@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findManuscriptIds, parseManuscriptId } from '../lib/ids';
-import { appendCapped, buildExport, redactEntry, type LogEntry } from '../lib/log';
+import { appendCapped, buildExport, redactEntry, safeFieldLabels, type LogEntry } from '../lib/log';
 import { normalize } from '../lib/text';
 import { titleFor } from '../lib/title';
 import type { ParseResult } from '../parsers/types';
@@ -59,6 +59,14 @@ describe('log', () => {
     for (const secret of ['Secret Title', 'Robin', 'alex@example.org', 'CACM-26-03-9002', '0123456789abcdef']) expect(out).not.toContain(secret);
     expect(out).toContain('fieldLabels');
     expect(out).toContain('"pageType":"manuscript"');
+  });
+  it('keeps only MC field labels: half a title or a name read as a label stays out', () => {
+    const fields = { 'manuscript type': 'Opinion', 'in review': '8d 10h', 'an invented title': 'with a subtitle', 'sample, person': 'x', ae: 'Editor, Sample' };
+    const m = { ...base.manuscript!, fields };
+    const e: LogEntry = { ts: 'x', level: 'info', source: 'content', event: 'parsed', data: { ...base, manuscript: m } };
+    const out = JSON.stringify(buildExport([e], true, '0.1.0', 'ua'));
+    for (const secret of ['an invented title', 'subtitle', 'sample, person', 'Editor, Sample']) expect(out).not.toContain(secret);
+    expect(safeFieldLabels(fields)).toEqual({ fieldLabels: ['manuscript type', 'in review', 'ae'], otherFieldLabels: 2 });
   });
   it('hashes manuscript IDs in text, and drops quoted text', () => {
     // Events that log a bare ID as text (take action after search, no version links found).

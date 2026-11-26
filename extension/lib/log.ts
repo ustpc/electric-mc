@@ -37,9 +37,35 @@ export function hashId(id: string): string {
   return `ms_${fnv1a(id)}`;
 }
 
+// MC's own field names. On a page with few real labels, text with a colon
+// in it reads as "label: value" too: the first half of a title ("A Title:
+// The Subtitle"), or a name. So only these go into a redacted export as
+// labels; any other label is counted, never written out.
+const KNOWN_LABEL = new RegExp(
+  '^(?:' +
+    [
+      'manuscript (?:id|#|type|title|status)', 'title', 'status', 'current status', 'decision', 'type', 'article type',
+      'running head', 'keywords?', 'abstract', 'submitted', 'date submitted', 'submission date', 'last updated', 'in review',
+      'date to (?:admin|co-chair|editor-in-chief|associate editor|eic|ae|reviewers?)', 'due date', 'time in review',
+      'submitting author', 'current contact author', 'contact author', 'authors?', 'author\\(s\\)', 'authors & institutions',
+      'contributing authors?', 'number of (?:words|figures|tables)', 'funding information', "author's (?:cover letter|response)",
+      'computing classification systems', 'ae', 'eic', 'adm', 'cc', 'associate editor', 'handling editor', 'editor',
+      'editor-in-chief', 'co-chair', 'admin', 'notes', 'reviewer list', 'reviewers?',
+      '# (?:active selections|agreed|declined|in decision letter|invited|returned)',
+    ].join('|') +
+    ')$',
+);
+
+/** The field labels a redacted export may show, and how many others there were. */
+export function safeFieldLabels(fields: Record<string, string>): { fieldLabels: string[]; otherFieldLabels: number } {
+  const keys = Object.keys(fields);
+  const fieldLabels = keys.filter((k) => KNOWN_LABEL.test(k));
+  return { fieldLabels, otherFieldLabels: keys.length - fieldLabels.length };
+}
+
 /**
  * Keep what we need to debug parsers (page type, signals, which strategy
- * worked, structure fingerprint, counts, field labels) and drop what
+ * worked, structure fingerprint, counts, MC's field labels) and drop what
  * identifies people or papers (values, names, titles, IDs, query strings).
  */
 export function redactResult(r: ParseResult): unknown {
@@ -68,7 +94,7 @@ export function redactResult(r: ParseResult): unknown {
       },
       reviewerCount: r.manuscript.reviewers.length,
       reviewerStatuses: r.manuscript.reviewers.map((p) => p.status ?? null),
-      fieldLabels: Object.keys(r.manuscript.fields),
+      ...safeFieldLabels(r.manuscript.fields),
     },
     queues: r.queues?.map((q) => ({ name: q.name, count: q.count })),
     rows: r.rows && {

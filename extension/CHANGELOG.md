@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.112 (2026-11-26)
+
+- Fixed: the side panel showed no status, type or authors on MC's manuscript pages, only on the Manuscript Details tab. MC's header labels none of them: the status is the line beside the ID with its time ("In Review: 8d 10h …"), and the authors ("(contact)" after one of them) and the manuscript type are the two rows after the title. E-MC now reads them there, and falls back to labeled fields elsewhere. The status also goes into the Seen list, and the Team window already leaves out manuscripts whose status says they're finished.
+- Fixed (privacy): the redacted log export, which is meant to be safe to send, could include the first half of a title or a person's name. On MC's unlabeled header, text with a colon in it ("A Title: The Subtitle") reads as a field label, and the export listed every label. It now lists only MC's own field names and counts the rest.
+
 ## 0.0.111 (2026-11-26)
 
 - Fixed: on a resubmitted manuscript, the side panel had no title and warned "manuscript: no title". MC puts a "Resubmitted" link beside the ID, which leaves the ID on a line of its own with nothing after it, so E-MC never reached the title on the next row. It now goes up to the row when the ID's own line has nothing after it.
