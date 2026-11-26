@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: extension/coverage/lcov.info
@@ -121,7 +121,7 @@ jobs:
       - run: cargo llvm-cov --all-targets --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: backend/notes/lcov.info
@@ -141,7 +141,7 @@ jobs:
           pytest -q tools/mc-watch --cov=tools/mc-watch --cov-report=xml:coverage.xml
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           use_oidc: true
           files: coverage.xml
