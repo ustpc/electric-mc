@@ -36,6 +36,11 @@ pitch to associate editors.
   which pushes the rest of the reviewer page a screen down, starts closed
   (MC shows it open). A setting keeps it open or removes it entirely; its
   "View full interactive search" line shows only when the box is open.
+- **A warning on MC's broken Prophy button.** MC's Prophy reviewer
+  suggestions have a create-account "+Add" that loses the manuscript (MC
+  then shows "Details for null" and later adds fail). E-MC outlines it and
+  asks before it opens, pointing to the Web of Science "+Add" or
+  "+ Add New Reviewer", which work.
 - **Clearly marked.** Everything Electric MC adds to a page is bold brown,
   so you always know what came from MC and what came from us.
 - **One switch per site.** Right-click the toolbar icon, or use the

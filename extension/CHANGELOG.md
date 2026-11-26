@@ -2,6 +2,12 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.107 (2026-11-26)
+
+- Found: the Create and Add problem is a bug in MC, not in E-MC. MC's Prophy reviewer suggestions have an "+Add" button (its full name is "Add as reviewer (create account)"). The Create Account popup it opens carries the wrong document ID: it holds a reviewer source code instead of the manuscript. After Create and Add, MC reloads the manuscript as "Details for null", and later adds fail. It happens the same way with E-MC switched off. MC's other two ways to add a new reviewer, "+Add" in the Web of Science Reviewer Locator box and "+ Add New Reviewer", carry the right ID and work.
+- New: E-MC outlines Prophy's create-account "+Add" in a dashed E-MC line, with a tooltip. Pressing it asks first and points to the Web of Science "+Add" or "+ Add New Reviewer". Answer OK to open the Prophy popup anyway. Nothing sent to MC changes.
+- Removed: 0.0.105's restore of MC's document code. It didn't help, since MC's server loses the manuscript, and E-MC shouldn't change MC's form values.
+
 ## 0.0.106 (2026-11-26)
 
 - Diagnostic, for the Create and Add problem (MC's page says "Details for null" after the first add, and the second add fails). 0.0.105 didn't fix it: MC's server itself loses the manuscript, so putting the code back in the page can't help. Turning off every setting didn't help either, so the cause is in a part of E-MC that runs whatever the settings say. A build made with WXT_EMC_DIAG=no-content leaves out E-MC's main page script entirely (no restyling, no parsing, no side-panel page info, no click watchers); only the two small early scripts run. The test build sent for this version is that build. Store builds never set it.
