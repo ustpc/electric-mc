@@ -5,7 +5,7 @@
 // addresses and any long quoted text taken out, go to the local log. Never
 // page text, names or field values.
 
-const PATTERNS = [/opener[^;\n]{0,160}/g, /DOCUMENT_HASHCODE[^;\n]{0,120}/g, /location(?:\.href)?\s*=[^;\n]{0,160}/g, /\.submit\(\)[^;\n]{0,40}/g];
+const PATTERNS = [/opener[^;\n]{0,160}/g, /window\.close\(\)[^;\n]{0,40}/g, /reload\([^;\n]{0,60}/g, /DOCUMENT_HASHCODE[^;\n]{0,120}/g, /location(?:\.href)?\s*=[^;\n]{0,160}/g, /\.submit\(\)[^;\n]{0,40}/g];
 
 /** Scrub a code snippet: tokens, e-mail addresses and quoted text longer than 24 characters go. */
 export function scrubSnippet(s: string): string {

@@ -37,38 +37,32 @@ export default defineContentScript({
     const redraw = () => done && pictureAccountLinks(document);
     window.addEventListener('load', redraw);
     void document.fonts?.ready.then(redraw);
-    // Developer diagnostic (lib/scriptpeek.ts): in a popup, what MC's inline
-    // scripts do with the opener. Scripts are caught as MC's HTML adds them,
-    // since a page that closes itself never reaches document_idle.
-    const peeked: string[] = [];
-    let peekOn: boolean | null = null;
-    const flushPeek = () => {
-      if (!peekOn || !peeked.length) return;
-      const snippets = peeked.splice(0);
+    // Developer diagnostic (lib/scriptpeek.ts): what MC's inline scripts do
+    // with DOCUMENT_HASHCODE and, in a popup, with the window that opened it.
+    // Scripts are caught as MC's HTML adds them and sent at once, since a
+    // popup that closes itself never waits for settings; the background
+    // keeps them only in developer mode.
+    const seen = new Set<string>();
+    const peek = new MutationObserver((records) => {
+      const snippets: string[] = [];
+      for (const r of records)
+        for (const n of Array.from(r.addedNodes))
+          if (n instanceof HTMLScriptElement && !n.src && n.textContent)
+            for (const x of scriptSnippets(n.textContent)) {
+              if (seen.has(x) || (!window.opener && !x.includes('DOCUMENT_HASHCODE'))) continue;
+              seen.add(x);
+              snippets.push(x);
+            }
+      if (!snippets.length) return;
       try {
-        chrome.runtime.sendMessage({ type: 'log', level: 'info', event: 'popup scripts', data: { snippets } }).catch(() => {});
+        chrome.runtime.sendMessage({ type: 'log', level: 'info', event: 'page scripts', data: { popup: !!window.opener, snippets } }).catch(() => {});
       } catch {
         /* extension reloaded */
       }
-    };
-    if (window.opener) {
-      const peek = new MutationObserver((records) => {
-        for (const r of records)
-          for (const n of Array.from(r.addedNodes))
-            if (n instanceof HTMLScriptElement && !n.src && n.textContent) peeked.push(...scriptSnippets(n.textContent).filter((x) => !peeked.includes(x)));
-        if (peekOn) flushPeek();
-      });
-      peek.observe(document.documentElement, { childList: true, subtree: true });
-      document.addEventListener('DOMContentLoaded', () => {
-        peek.disconnect();
-        flushPeek();
-      });
-      window.addEventListener('pagehide', flushPeek);
-    }
+    });
+    peek.observe(document.documentElement, { childList: true, subtree: true });
+    document.addEventListener('DOMContentLoaded', () => peek.disconnect());
     void getSettings().then((s) => {
-      peekOn = s.developer && isEnabledFor(s, location.href);
-      if (!peekOn) peeked.length = 0;
-      flushPeek();
       enabled = isEnabledFor(s, location.href);
       if (!enabled) observer.disconnect();
       tryAnnotate();

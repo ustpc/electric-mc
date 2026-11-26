@@ -27,6 +27,8 @@ export const TAB_KEYS = {
   autoLoginAt: 'emc-auto-login-at',
   /** entrypoints/content.ts: a decision noted at Submit, kept once MC answers. */
   submittedChoice: 'emc-submitted-choice',
+  /** lib/dochash.ts: the manuscript's document code, to put back if MC blanks it. */
+  docHash: 'emc-doc-hash',
   /** lib/backexp.ts: the latest live page's name and hidden fields. */
   backExpLatest: 'emc-backexp-latest',
   /** lib/backexp.ts: a press on a page shown by Back, until MC answers. */

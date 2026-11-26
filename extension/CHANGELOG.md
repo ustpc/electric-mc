@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.105 (2026-11-26)
+
+- Tried to fix: the second Create and Add. After the first add, MC reloads the manuscript page with its hidden document code blank (the page then says "Details for None"), and the next popup fails. E-MC now remembers the document code for each manuscript in this tab for 30 minutes, and if MC's manuscript page comes back with it blank, E-MC puts it back and logs "document code restored".
+- Log (developers): the "page scripts" line now catches what MC's scripts do with reloads, closing popups, the window that opened them and the document code, on every page as it loads, not only in popups. Code snippets only, with MC's tokens, addresses and text taken out.
+
 ## 0.0.104 (2026-11-26)
 
 - Changed: E-MC leaves MC's popups (Create Account On The Fly and the rest) as MC drew them: no restyling, no Tight mode, no title changes, no page-timer watching, nothing recorded. The only exception is the text buttons. Create and Add is one of them now, big and in the E-MC color like Commit Decision.

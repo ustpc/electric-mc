@@ -39,6 +39,7 @@ import { queueMarks } from '../lib/features/queuemarks';
 import { recordIdentity, recordRoles } from '../lib/features/recorders';
 import { runProbes } from '../lib/probes';
 import { sampleDue, snapshotHtml } from '../lib/pagesample';
+import { keepDocHash } from '../lib/dochash';
 
 export default defineContentScript({
   matches: ['https://*.manuscriptcentral.com/*'],
@@ -141,6 +142,11 @@ async function start() {
       if (settings.developer && reason === 'load') step('page trace', () => send({ type: 'log', level: 'debug', event: 'page', data: describePage(document) }));
       runFeatures(look.filter((f) => f.id === 'look'), ctx);
       return;
+    }
+    if (reason === 'load' && /MANUSCRIPT_DETAILS/.test(currentPage(document) ?? '')) {
+      step('document code', () => {
+        if (keepDocHash(document, r.manuscript?.id) === 'restored') send({ type: 'log', level: 'warn', event: 'document code restored', data: { page: currentPage(document) } });
+      });
     }
     if (!stopLogin && (r.pageType === 'login' || document.querySelectorAll('input[type=password]').length === 1)) step('login help', setUpLogin);
     runFeatures(recorders, ctx);
