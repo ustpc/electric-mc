@@ -65,9 +65,9 @@ Everything AEs get, plus:
   pull-down.
 - **One team database.** The EIC and deputy, co-chairs, sections with their
   heads and AEs, and columns with their columnists, shown as a tree and
-  edited in its own window. The matrix, the AE menu and Suggested AEs all
+  edited in its own window. The Team window, the AE menu and Suggested AEs all
   use it.
-- **The editorial matrix, with workloads** (in development). The whole team
+- **The Team window, with workloads** (in development). The whole team
   with roles, institutions and expertise, and how many manuscripts each
   editor has now. "Hide columnists" leaves only the people who take
   assignments.

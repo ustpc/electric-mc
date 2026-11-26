@@ -2,8 +2,8 @@
 
 Everything needed to submit the Electric MC extension to the Chrome Web Store,
 field by field, in the order the developer dashboard asks for it. Paste the
-text blocks as they are. The first release is **Unlisted**: only people with
-the link can install it, and it doesn't appear in search.
+text blocks as they are. The listing is **Public** (it started out Unlisted;
+public since 2026-11-12).
 
 Publisher account: simsong@gmail.com (non-trader), created 2026-10-19.
 Dashboard: <https://chrome.google.com/webstore/devconsole>
@@ -51,12 +51,12 @@ For editors and associate editors:
 • Revisions (.R1, .R2, …) stand out in your queues.
 • Earlier versions at a glance: on a revision, who handled each earlier version, when it was submitted and when its decision went out, and a clearer Version History box.
 • On to the next manuscript: after you submit a recommendation or commit a decision, Electric MC opens the next manuscript in the list, on the same task you were on.
-• Signed notes per manuscript, kept in your browser.
+• Signed E-MC notes per manuscript, kept in your browser. They're separate from MC's own Notes and never appear in MC.
 
 For section editors (co-chairs):
 • A readable AE menu: the Assign Associate Editor pull-down regrouped under dividers, relabeled with each editor's section, and colored by group, with role accounts you choose pinned at the top. What Manuscript Central submits doesn't change.
 • On a revision's Assign AE task, the earlier version's AE is named in the Associate Editor List and listed first, so the revision can go back to them.
-• One team database and an editorial matrix with each editor's current load.
+• One team database, and a Team window with each editor's current load.
 • Suggested AEs: the side panel ranks your AEs by how close their published work is to the manuscript. The matching runs on your computer with a model bundled in the extension.
 • A To EIC list of the recommendations you've sent, marked in your queues until the EIC acts.
 
@@ -95,7 +95,7 @@ author and reviewer names are confidential.
 **Single purpose:**
 
 ```text
-Improves the ScholarOne Manuscripts (Manuscript Central) web pages for journal editors: clearer tab titles and navigation, highlighted revisions, information about earlier manuscript versions, a readable AE assignment menu, per-manuscript notes, and password-manager-friendly login.
+Improves the ScholarOne Manuscripts (Manuscript Central) web pages for journal editors: clearer tab titles and navigation, highlighted revisions, information about earlier manuscript versions, a readable AE assignment menu, its own per-manuscript notes, and password-manager-friendly login.
 ```
 
 **Permission justifications:**
@@ -104,7 +104,7 @@ Improves the ScholarOne Manuscripts (Manuscript Central) web pages for journal e
 |------------|------------------------|
 | `storage` | Saves the user's settings (synced through their Chrome profile) and, locally, the manuscripts they have viewed, their notes, the team database and AE menu layout, AE profiles for suggestions, and a debug log. Nothing is sent off the device unless the user sets a notes server. |
 | `sidePanel` | The extension's interface is a side panel that shows what it found on the current Manuscript Central page, the manuscripts seen so far, and settings. |
-| `tabs` | The side panel follows the active tab, so it needs to know which tab is active and when its URL changes, and it can reload the tab after a setting changes. It also opens the editorial matrix, team and AE-menu editors in their own windows. |
+| `tabs` | The side panel follows the active tab, so it needs to know which tab is active and when its URL changes, and it can reload the tab after a setting changes. It also opens the Team window and the team and AE-menu editors in their own windows. |
 | `downloads` | Lets the user save the extension's debug log to their Downloads folder so they can send it with a bug report. Only on an explicit button click. |
 | `contextMenus` | Adds "Turn off on this site" / "Turn on for this site" to the toolbar icon's right-click menu. |
 | Host permission `https://*.manuscriptcentral.com/*` | The extension only works on Manuscript Central. It reads those pages to find manuscript IDs, titles and assignments, and changes them (tab title, highlighting, extra rows). Journals each have their own subdomain, hence the wildcard. |
@@ -134,7 +134,7 @@ to determine creditworthiness.
 
 ## 4. Distribution tab
 
-- **Visibility:** Unlisted.
+- **Visibility:** Public.
 - **Regions:** All regions.
 - **Payment:** free.
 

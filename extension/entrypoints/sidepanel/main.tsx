@@ -27,7 +27,9 @@ const params = new URLSearchParams(location.search);
 const POPOUT = params.has('popout');
 
 type Tab = 'page' | 'seen' | 'eic' | 'notes' | 'log' | 'settings';
-const TAB_LABEL: Partial<Record<Tab, string>> = { eic: 'To EIC' };
+const TAB_LABEL: Partial<Record<Tab, string>> = { eic: 'To EIC', notes: 'E-MC notes' };
+// Test builds carry the native-messaging permission; Web Store builds don't.
+const TEST_BUILD = chrome.runtime.getManifest().permissions?.includes('nativeMessaging') ?? false;
 
 interface TabState {
   result: ParseResult;
@@ -226,7 +228,7 @@ function App() {
     <>
       <header>
         <div class="row">
-          <h1>Electric MC <span class="muted">test build v{chrome.runtime.getManifest().version}{dev && buildLabel()}</span></h1>
+          <h1>Electric MC <span class="muted">{TEST_BUILD ? 'test build ' : ''}v{chrome.runtime.getManifest().version}{dev && buildLabel()}</span></h1>
           {dev && state && <span class={`pill ${state.result.warnings.length ? 'warn' : ''}`}>{state.result.pageType}</span>}
           <button class="act" onClick={() => void openMatrix()} title="The team: each person's role, column and current assignments">Team</button>
           <button class="act" onClick={() => void openAeMenuEditor()} title="Edit how MC's Assign Associate Editor pull-down is grouped and labeled">AE menu</button>
@@ -424,7 +426,7 @@ function SeenView({ tabId, url, flash }: { tabId?: number; url?: string; flash: 
   return (
     <section>
       <h2>Manuscripts seen in this browser ({query.trim() ? `${list.length} of ${all.length}` : all.length})</h2>
-      <p class="muted">Built from the pages you visit. The real build fills this from the backend in one query when MC opens.</p>
+      <p class="muted">Built from the pages you visit.</p>
       <input
         class="search"
         type="search"
@@ -660,7 +662,8 @@ function NotesView({ current, title, site }: { current?: string; title?: string;
   const shown = list.filter((n) => !(n.email === email && n.t === session.current?.t));
   return (
     <section>
-      <h2>Notes on {current}</h2>
+      <h2>E-MC notes on {current}</h2>
+      <p class="muted">E-MC's own notes, separate from MC's Notes (Add a Note). They never appear in MC.</p>
       {shown.length === 0 && <p class="muted">No other notes yet.</p>}
       {shown.map((n) => (
         <div class="note">
@@ -831,11 +834,11 @@ function SettingsView({ flash }: { flash: (s: string) => void }) {
       </label>
       <h2 style="margin-top:12px">Features</h2>
       {box('highlightRevisions', 'Highlight revisions (bold, yellow row) in manuscript lists')}
-      {box('oneButtonReject', 'One-button reject next to MC\'s Assign AE button (co-chairs)')}
+      {box('oneButtonReject', 'One-button reject next to MC\'s Assign button (co-chairs)')}
       {box('flagLabels', 'Name MC\'s flag icons (learned from the Flag This Manuscript panel)')}
       {box('pdfWordCount', "Count the words in manuscript PDFs (the body only: no cover page, line numbers or references)")}
       {box('autoLogin', 'Log me in once my password manager fills the login form')}
-      {box('loginToCoChair', 'After I log in, go to the Co-Chair Center (when I could also pick the AE Center)')}
+      {box('loginToCoChair', 'After I log in, go to the Co-Chair Center (when I could also pick the Associate Editor Center)')}
       {box('autoAdvance', 'After I submit a recommendation or commit a decision, go on to the next manuscript in the list, on the same task')}
       {box('keepAlive', 'Keep me logged in (after 10 idle minutes, for up to 48 hours; Ctrl+Shift+K sends one now)')}
       <label>

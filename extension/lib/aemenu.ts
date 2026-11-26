@@ -1,7 +1,7 @@
 // The AE-assignment menu, regrouped, relabeled and restyled. MC's Assign
 // Associate Editor pull-down lists every editor in one alphabetical run as
 // "Last, First (n)". A config moves the options into groups (for the
-// Opinions co-chair: section heads, then AEs, then everyone else), each
+// Opinion Co-Chair: section heads, then AEs, then everyone else), each
 // under a labeled divider (an <optgroup>) with its own color and weight, and
 // relabels the people in the team database (lib/team.ts) with their
 // sections ("Research Pathways - Pat Editor (3)"). Option values and the
@@ -46,7 +46,7 @@ export interface AeMenuGroup extends AeMenuStyle {
 export interface AeMenuConfig {
   format: 'electric-mc-ae-menu';
   version: 1;
-  /** The config's name, such as "Opinions co-chair"; also its name on the server. */
+  /** The config's name, such as "Opinion Co-Chair"; also its name on the server. */
   profile: string;
   enabled: boolean;
   /** Menu text size in px; 0 keeps MC's. */
@@ -76,7 +76,7 @@ export interface AeMenuStore {
   serverFetchedAt?: string;
 }
 
-/** The config shipped with the extension: the Opinions co-chair layout. */
+/** The config shipped with the extension: the Opinion Co-Chair layout. */
 export function defaultAeMenu(): AeMenuConfig {
   return parseAeMenu(structuredClone(blank));
 }

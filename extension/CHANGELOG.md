@@ -2,6 +2,24 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.110 (2026-11-26)
+
+Fixes from the terminology review against the ScholarOne Manuscripts Admin Guide (items 1 to 10; the rest are in issue #92).
+
+- Fixed: the side panel said "test build" in Web Store builds too. It now says it only in test builds.
+- Changed: the side panel's Notes tab is now "E-MC notes", with a line saying they're separate from MC's own Notes (Add a Note) and never appear in MC. FEATURES, the store listing, the READMEs and the Privacy Policy say the same.
+- Changed wording:
+  - "Opinion Co-Chair", not "Opinions co-chair", in E-MC's own text. MC's role-account name is still quoted as MC writes it.
+  - "Take Action button", not "checkbox".
+  - "Editor-in-Chief" in the Team window.
+  - Settings now say "the Associate Editor Center" and "MC's Assign button".
+- Docs:
+  - The editorial matrix is called the Team window everywhere.
+  - The store listing says the listing is public.
+  - The extension README describes the Team window and notes as they are now.
+- Removed: a design note on the Seen tab that said a later build would fill the list from a server.
+- Development: lint is now Oxlint with tsgolint, the same type-aware rules (floating promises, misused promises, unsafe any, "[object Object]") running on TypeScript 7 itself. The separate TypeScript 5 package for ESLint (`tools/lint`) is gone, and with it Dependabot's TypeScript 7 pull request (#85).
+
 ## 0.0.109 (2026-11-26)
 
 - Fixed (review): switching E-MC off for the site now takes the outline and tooltip off MC's Prophy "+Add" too.
@@ -50,7 +68,7 @@ Newest first. Every version bump gets an entry here.
 
 ## 0.0.100 (2026-11-24)
 
-- New: the Team window has two tabs. Org chart holds the team tree. People & assignments holds the people tables, now in the order Editor-in-chief and co-chairs, Column heads, Associate Editors, Columnists. Under each person, one line per manuscript assigned to them: the manuscript ID and title, beside their expertise and notes. The list is built from the manuscripts E-MC has seen in MC, so it grows as you work. A manuscript belongs to the AE of its newest version, and finished ones (rejected, accepted, withdrawn) drop off. A title E-MC hasn't seen shows as the ID alone, and when MC's count is higher than what E-MC knows, the window says so. It stays in this browser and is never in the team file.
+- New: the Team window has two tabs. Org chart holds the team tree. People & assignments holds the people tables, now in the order Editor-in-Chief and co-chairs, Column heads, Associate Editors, Columnists. Under each person, one line per manuscript assigned to them: the manuscript ID and title, beside their expertise and notes. The list is built from the manuscripts E-MC has seen in MC, so it grows as you work. A manuscript belongs to the AE of its newest version, and finished ones (rejected, accepted, withdrawn) drop off. A title E-MC hasn't seen shows as the ID alone, and when MC's count is higher than what E-MC knows, the window says so. It stays in this browser and is never in the team file.
 - Docs: new doc/Permission Model.md, which says who can see what and how it's enforced. Team assignments are for the EIC and co-chairs only.
 
 ## 0.0.99 (2026-11-24)

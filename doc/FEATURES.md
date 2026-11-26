@@ -49,7 +49,7 @@ pitch to associate editors.
   manuscript on screen, which pops out into its own window. It shows on
   MC tabs only and stays out of the way on every other site.
 - **Click the ID to open a manuscript.** No more aiming for the
-  little Take Action checkbox.
+  little Take Action button.
 - **One search result opens itself (optional).** When a search finds
   exactly one manuscript, the extension presses its Take Action for you.
 - **Click anywhere in a choice row.** In MC's recommendation and decision
@@ -98,7 +98,9 @@ pitch to associate editors.
   commit a decision, the extension opens the next manuscript in the list, in
   the direction you're moving, on the same task you were on (Make
   Recommendation, say). A switch turns it off.
-- **Signed notes per manuscript (now).** Each note shows who wrote it and
+- **Signed E-MC notes per manuscript (now).** These are Electric MC's own
+  notes, separate from MC's Notes (Add a Note), and they never appear in MC.
+  Each note shows who wrote it and
   when. Keep typing and it updates the same note; come back after an hour
   and you start a new one. You can edit or delete your own notes, and
   co-chairs and the EIC can delete any note. Notes stay in your browser
@@ -152,8 +154,8 @@ pitch to associate editors.
   the Team window, the AE menu and Suggested AEs all use the same record.
 - **An AE menu you can read (now).** MC's Assign Associate Editor
   pull-down is one long alphabetical list of "Last, First". Electric MC
-  regroups it under dividers (for the Opinions co-chair: column heads, then
-  Opinions AEs, then everyone else), relabels people with their sections from the team
+  regroups it under dividers (for the Opinion Co-Chair: column heads, then
+  Opinion AEs, then everyone else), relabels people with their sections from the team
   database ("Example Column - Pat Editor" instead of "Editor, Pat"), and gives each
   group its own color, weight and font, using Chrome's new customizable
   select. What MC submits doesn't change. The layout is edited in the
