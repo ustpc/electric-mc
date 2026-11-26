@@ -2,6 +2,14 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.108 (2026-11-26)
+
+- Release candidate. All open pull requests are folded into this one for review, and nothing new is added for users.
+- Updated: pdf.js 6.5.438 for word counts on PDFs. Development tools updated too: WXT 0.21.5, Vitest 5.1.1, jsdom 31, Playwright 1.65.1, Preact 11.2 and the Chrome types.
+- Notes server (backend/notes, not part of the extension): lambda_http 1.3.2 and base64 0.23.1, with a one-line fix for lambda_http 1.x. The server isn't redeployed by this release.
+- Docs: the plan for column-head assignment requests, a message board and AE last-seen dates (doc/planning), listed under "Coming" in FEATURES.md and marked "planned" in the Privacy Policy. None of it is built.
+- Left out: TypeScript 7 for the linter. typescript-eslint needs TypeScript 5, so the linter keeps it while the extension builds with TypeScript 7.
+
 ## 0.0.107 (2026-11-26)
 
 - Found: the Create and Add problem is a bug in MC, not in E-MC. MC's Prophy reviewer suggestions have an "+Add" button (its full name is "Add as reviewer (create account)"). The Create Account popup it opens carries the wrong document ID: it holds a reviewer source code instead of the manuscript. After Create and Add, MC reloads the manuscript as "Details for null", and later adds fail. It happens the same way with E-MC switched off. MC's other two ways to add a new reviewer, "+Add" in the Web of Science Reviewer Locator box and "+ Add New Reviewer", carry the right ID and work.
