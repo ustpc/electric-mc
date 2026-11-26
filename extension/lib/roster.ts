@@ -5,7 +5,7 @@
 import { fold } from './text';
 
 export const GROUPS = [
-  { id: 'leadership', title: 'Editor-in-chief and co-chairs' },
+  { id: 'leadership', title: 'Editor-in-Chief and co-chairs' },
   { id: 'column_heads', title: 'Column heads' },
   { id: 'columnists', title: 'Columnists' },
   { id: 'associate_editors', title: 'Associate Editors' },

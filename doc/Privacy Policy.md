@@ -77,7 +77,7 @@ turn it off for a site, it:
 - restyles the page. Styling rules are data, never remote code;
 - reads the Assign Associate Editor pull-down when it is on the page, and
   keeps each editor's name and current number of assigned manuscripts, the
-  latest reading only, for the editorial matrix (extension 0.0.32);
+  latest reading only, for the Team window, formerly the editorial matrix (extension 0.0.32);
 - (planned) if you opt in, notes when the tab is visible and you are active (mouse,
   keyboard, focus, Chrome idle state). It never records keystrokes, page
   content, or screenshots.
@@ -102,10 +102,11 @@ Central sites where you turned the extension off. No manuscript data is
 synced: page data and logs stay in `chrome.storage.local`, in that browser
 only.
 
-**The editorial matrix's roster** (names, roles, affiliations, public
-contact links and headshots of the section's editors) is not part of the
-extension. You load it from a file, and it is kept in `chrome.storage.local`
-in that browser only, like the AE counts. Clear all data removes both.
+**The Team window** (formerly the editorial matrix) shows the people in the
+team database below, with their AE counts. The roster file the matrix used
+to load was replaced by the team database in extension 0.0.54. Any old
+roster is kept in `chrome.storage.local` in that browser only, like the AE
+counts, and Clear all data removes both.
 
 **The team database** (extension 0.0.54). The Team window, the AE menu
 and Suggested AEs read one record of the editorial team: names, MC account
@@ -213,7 +214,10 @@ When a message's visibility is changed later, the change is logged with who
 made it. Messages are capped at 2 KB. How long they are kept after a final
 decision is still to be decided (Design Goals open question 9).
 
-## 5.1 Notes (extension 0.0.40)
+## 5.1 E-MC notes (extension 0.0.40)
+
+These are Electric MC's own notes. They are separate from MC's Notes (the
+Add a Note icon in the manuscript header) and never appear in MC.
 
 Each note on a manuscript is signed with its author's name and the time its
 editing session began.
@@ -413,3 +417,4 @@ staff will be switched on later, and this page will say so.
 | 2026-11-20 | Page checks: per MC page name, counts of which page parts were found, no page text, local storage only; Clear all data removes them (extension 0.0.79). |
 | 2026-11-20 | Back-link experiment (test builds, developer mode, off unless turned on): this tab's sessionStorage holds the latest MC page's hidden form fields so a press on a page shown by Back can reuse them; the log gets MC page names, field names, a kind of link and yes/no results only (extension 0.0.80). |
 | 2026-11-22 | Saving the team to a file: the file goes where you choose, and a handle to it (no team data) is kept in the browser's IndexedDB so later saves overwrite it; Clear all data forgets it (extension 0.0.91). |
+| 2026-11-26 | Wording only: the extension's notes are called E-MC notes, separate from MC's own Notes; the editorial matrix is now the Team window, and its old roster file was replaced by the team database (0.0.54). Nothing collected or stored changed. |

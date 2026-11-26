@@ -28,7 +28,7 @@ test: install ## Run the tests, then the local-only tests on real MC data in ../
 test-real: install ## Only the local tests on real MC data in ../var (tests-real/README.md)
 	npm run test:real
 
-lint: install ## ESLint (its own packages in tools/lint)
+lint: install ## Oxlint with type-aware rules (tsgolint, .oxlintrc.json)
 	npm run lint
 
 coverage: install ## Run the tests and write a coverage report to coverage/index.html

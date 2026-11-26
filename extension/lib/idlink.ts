@@ -1,5 +1,5 @@
 // Clickable manuscript IDs on queue grids. MC's grids open a manuscript only
-// through the small Take Action checkbox at the end of the row; we turn the
+// through the small Take Action button at the end of the row; we turn the
 // ID at the start of the row into a link that presses that same control.
 // The click goes through pageClick, since MC's action is a javascript: link.
 

@@ -212,7 +212,7 @@ function App() {
       {valid instanceof Error && <div class="error">Not saved until fixed: {valid.message}</div>}
 
       <div class="row">
-        <label>Config name <input value={draft.profile} onInput={(e) => edit((c) => ({ ...c, profile: val(e) }))} placeholder="Opinions co-chair" /></label>
+        <label>Config name <input value={draft.profile} onInput={(e) => edit((c) => ({ ...c, profile: val(e) }))} placeholder="Opinion Co-Chair" /></label>
         <label><input type="checkbox" checked={draft.enabled} onChange={(e) => edit((c) => ({ ...c, enabled: checked(e) }))} /> Use it on MC pages</label>
       </div>
 

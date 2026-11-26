@@ -132,7 +132,7 @@ build instead.
 - **Radio-button rows.** In MC's choice tables (Co-Chair Recommends and
   the like), click anywhere in a row to pick it.
 - **Clickable IDs.** On MC's grids, the manuscript ID is a link that does
-  what the Take Action checkbox does.
+  what the Take Action button does.
 - **To EIC tab** (co-chairs only). When you recommend a decision under
   Co-Chair Recommends, the extension reads it from the manuscript's
   Recommendations box, adds it to the To EIC list, and notes it in brown in
@@ -145,19 +145,21 @@ build instead.
   AE, reviewer, author) from the role switcher and the pages you visit, and
   remembers them when you switch roles. The To EIC tab appears once it has
   seen that you're a co-chair.
-- **Notes tab.** Per-manuscript notes, stored only in this browser. They
-  save as you type; there's no Save button.
-- **Editorial matrix.** **Matrix** (top of the side panel) opens the
-  Opinions editorial matrix in its own window: every column head, columnist
-  and associate editor, with each one's current number of assigned
-  manuscripts in bold brown. The counts are read from MC's Assign Associate
-  Editor pull-down whenever it is on the page, and the window shows when they
-  were read. The extension ships no names: press **Load roster…** and choose
-  a `roster.json` file. Editors
-  in MC's list who aren't in the roster are listed at the bottom.
+- **E-MC notes tab.** Signed per-manuscript notes, kept in this browser
+  unless you set a notes server in Settings. They are separate from MC's own
+  Notes and never appear in MC. They save as you type; there's no Save button.
+- **Team window.** **Team** (top of the side panel) opens the team in its
+  own window, formerly the editorial matrix. Org chart shows the team tree,
+  and People & assignments lists every column head, columnist and associate
+  editor with each one's current number of assigned manuscripts in bold
+  brown. The counts are read from MC's Assign Associate Editor pull-down
+  whenever it is on the page, and the window shows when they were read. The
+  extension ships no names: the people come from the team database, which
+  you build in the extension (Edit team) or load from a file. Editors in
+  MC's list who aren't in the team are listed at the bottom.
 - **Stored data.** Manuscripts you haven't viewed in 2 years, and their
   notes, are removed automatically. **Clear all data** (bottom of Settings)
-  removes the Seen list, notes, log, AE counts and roster at once, and keeps
+  removes the Seen list, notes, log, AE counts and team at once, and keeps
   your settings.
 - **Log tab** (developer mode). The debug log. **Export for sharing (redacted)** saves a JSON
   file without names, titles, emails or manuscript IDs; send that one to us.

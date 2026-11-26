@@ -82,7 +82,7 @@ anything named there. It prints where, never what.
 `make check-all` runs everything CI runs, plus the local-only tests on real
 MC data (`extension/tests-real/`, skipped without `var/`):
 
-- extension: `tsc` (strict), ESLint (`npm run lint`), Vitest with a coverage
+- extension: `tsc` (strict), Oxlint with type-aware rules (`npm run lint`, `.oxlintrc.json`), Vitest with a coverage
   floor, `npm run test:real`, the real-data scan, and after a build the
   remote-code check and the permission guard (`extension/permissions.json`:
   a new permission fails the build until it is added there, after Simson

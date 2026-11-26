@@ -9,10 +9,6 @@ updates:
     groups:
       dev-tools:
         dependency-type: development
-  - package-ecosystem: npm
-    directory: /extension/tools/lint
-    schedule: { interval: monthly }
-    open-pull-requests-limit: 1
   - package-ecosystem: cargo
     directory: /backend/notes
     schedule: { interval: weekly }
