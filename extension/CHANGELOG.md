@@ -2,6 +2,11 @@
 
 Newest first. Every version bump gets an entry here.
 
+## 0.0.109 (2026-11-26)
+
+- Fixed (review): switching E-MC off for the site now takes the outline and tooltip off MC's Prophy "+Add" too.
+- Removed (review): the developer "page scripts" log line from 0.0.104 and 0.0.105, which copied snippets of MC's own scripts. Its scrubbing could let short names or field values through, and it ran even where E-MC was switched off. The Create and Add question it was for is answered (an MC bug), so it's gone rather than patched.
+
 ## 0.0.108 (2026-11-26)
 
 - Release candidate. All open pull requests are folded into this one for review, and nothing new is added for users.

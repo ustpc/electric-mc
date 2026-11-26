@@ -239,6 +239,7 @@ async function start() {
     clearTimeout(timer);
     titles.restore();
     featuresOff(features, document);
+    markProphyAdd(document, false);
     overlay?.hide();
     stopLogin?.();
     stopLogin = null;
