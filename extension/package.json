@@ -1,7 +1,7 @@
 {
   "name": "electric-mc-extension",
   "private": true,
-  "version": "0.0.109",
+  "version": "0.0.110",
   "description": "Electric MC: a better Manuscript Central for editors, with notes, queues and checks, all in your browser",
   "type": "module",
   "scripts": {
@@ -24,8 +24,8 @@
     "validate": "tsx tools/validate.ts",
     "coverage": "vitest run --coverage",
     "ae-profiles": "tsx tools/ae-profiles/build.ts",
-    "lint": "npm --prefix tools/lint ci --silent --no-audit --no-fund && tools/lint/node_modules/.bin/eslint -c tools/lint/eslint.config.mjs --max-warnings 0 .",
-    "lint:quick": "tools/lint/node_modules/.bin/eslint -c tools/lint/eslint.config.mjs --max-warnings 0 .",
+    "lint": "oxlint --type-aware --deny-warnings",
+    "lint:quick": "oxlint --type-aware --deny-warnings",
     "check:permissions": "node scripts/check-permissions.mjs",
     "check:real-data": "node ../tools/privacy/check-no-real-data.mjs",
     "test:real": "vitest run --config vitest.real.config.ts"
@@ -36,6 +36,8 @@
     "@types/jsdom": "^30.0.0",
     "@vitest/coverage-v8": "^5.1.1",
     "jsdom": "^31.0.1",
+    "oxlint": "^1.95.0",
+    "oxlint-tsgolint": "^7.0.2009",
     "playwright": "1.65.1",
     "preact": "^11.2.0",
     "tsx": "^4.23.15",

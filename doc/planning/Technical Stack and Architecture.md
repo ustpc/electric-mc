@@ -42,8 +42,8 @@ This section describes the extension as built (updated 2026-11-20, after the
 ### 2.1 Stack
 
 - **Language:** TypeScript (`tsgo`, TypeScript 7), strict, with no unused
-  locals or parameters. ESLint with type-aware rules runs from its own
-  package, `extension/tools/lint`.
+  locals or parameters. Oxlint with tsgolint runs the type-aware lint rules
+  on TypeScript 7 itself (`extension/.oxlintrc.json`).
 - **Build:** WXT, a Vite-based extension framework, building Manifest V3 for
   Chrome. Two flavors: the Web Store build, and a test build that adds
   `nativeMessaging` (the live log) and `declarativeNetRequestWithHostAccess`
