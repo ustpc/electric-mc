@@ -817,7 +817,7 @@ dependencies = [
  "async-trait",
  "aws-config",
  "aws-sdk-dynamodb",
- "base64 0.22.1",
+ "base64 0.23.1",
  "hex",
  "hmac 0.12.1",
  "lambda_http",
