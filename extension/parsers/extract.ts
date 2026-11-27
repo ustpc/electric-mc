@@ -183,7 +183,11 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
     // Newer layout: the ID on its own line, the title on the next one.
     const idEl = Array.from(doc.querySelectorAll('strong,b,span,div,li,td,h1,h2,h3,h4'))
       .find((e) => textOf(e) === ref!.id && e.children.length <= 1);
-    const item = idEl?.closest('li,tr,p,div');
+    // The nearest line that holds the ID and has a next line. A tag beside
+    // the ID, such as MC's "Resubmitted" link, leaves the ID in a <b> inside
+    // a <p> of its own with no next sibling: then go up to the row.
+    let item = idEl?.closest('li,tr,p,div') ?? null;
+    for (let up = 0; item && !item.nextElementSibling && up < 3; up++) item = item.parentElement?.closest('li,tr,p,div') ?? null;
     let next = item?.nextElementSibling;
     for (let i = 0; next && i < 3; i++, next = next.nextElementSibling) {
       const t = textOf(next);
@@ -197,18 +201,95 @@ export function extractManuscript(doc: Document, idPattern?: string): Extracted<
   }
   if (!title) warnings.push('manuscript: no title');
 
+  // MC's own header has no labels for these; a labeled field is the fallback.
+  const head = headerFields(doc, ref.id, idPattern);
+  const fromHeader = (k: 'status' | 'type' | 'authors'): string | undefined => {
+    const v = head[k];
+    if (!v) return take(k);
+    strategies[k] = 'header';
+    return truncate(v, 500);
+  };
+
   const value: ManuscriptDetails = {
     ...ref,
     title,
-    status: take('status'),
-    type: take('type'),
+    status: fromHeader('status'),
+    type: fromHeader('type'),
     submitted: firstDate(take('submitted')),
-    authors: take('authors'),
+    authors: fromHeader('authors'),
     handlingEditor: take('handlingEditor'),
     reviewers: extractReviewers(doc, strategies, warnings),
     fields: Object.fromEntries([...fields].slice(0, 80).map(([k, v]) => [k, truncate(v, 300)])),
   };
   return { value, strategies, warnings };
+}
+
+// A status with MC's time in it: "In Review: 8d 10h 25min 19sec".
+const TIMED_STATUS = /^(.{2,60}?):\s*(?:\d+\s*(?:d|h|min|sec)\b\s*)+$/i;
+// Lines beside the ID that are dates or tags, not the status.
+const NOT_STATUS = /^(submitted|last updated|resubmitted|date)\b/i;
+// MC's task rows ("Make Immediate Decision", "Assign AE (Due …)"), never a manuscript type.
+const TASK_WORDS = /\b(decision|assign|invite|due|overdue|scores?|recommend\w*|select\w*|unsubmit|take action|notes?)\b/i;
+
+/**
+ * Status, type and authors from MC's manuscript header, which labels none of
+ * them. The first row holds the ID in bold (with a "Resubmitted" link beside
+ * it on a resubmission) and, on the right, "Submitted: …", "Last Updated: …"
+ * and the status with its time ("In Review: 8d 10h 25min 19sec"). Then come
+ * a row each for the title, the authors ("(contact)" after the contact
+ * author) and the manuscript type, each one cell wide; MC's task rows and
+ * the editor list follow.
+ */
+export function headerFields(doc: Document, id: string, idPattern?: string): { status?: string; type?: string; authors?: string } {
+  // MC's header puts the ID in bold; a labeled "Manuscript ID" row is not the header.
+  const idEl = Array.from(doc.querySelectorAll('b,strong')).find((e) => textOf(e) === id);
+  const row = idEl?.closest('tr');
+  if (!row) return {};
+  const out: { status?: string; type?: string; authors?: string } = {};
+
+  for (const cell of Array.from(row.cells)) {
+    if (cell.contains(idEl!)) continue;
+    const lines = Array.from(cell.querySelectorAll('p'));
+    for (const t of (lines.length ? lines.map((e) => textOf(e)) : textOf(cell).split(/;\s*/)).map((x) => x.replace(/[;\s]+$/, ''))) {
+      if (!t || NOT_STATUS.test(t)) continue;
+      const timed = TIMED_STATUS.exec(t);
+      if (timed) out.status = normalize(timed[1]!);
+      else if (t.length <= 40 && !/[\d:]/.test(t) && !looksLikeLabel(t)) out.status = t;
+      if (out.status) break;
+    }
+    if (out.status) break;
+  }
+
+  // The rows after the title: one cell with text each, until MC's task rows.
+  const nextRow = (tr: Element | null | undefined): HTMLTableRowElement | null => {
+    for (let n = tr?.nextElementSibling; n; n = n.nextElementSibling) if (n.tagName === 'TR' && textOf(n)) return n as HTMLTableRowElement;
+    return null;
+  };
+  let tr = nextRow(nextRow(row));
+  for (let i = 0; tr && i < 2; i++, tr = nextRow(tr)) {
+    const cells = Array.from(tr.cells).filter((c) => textOf(c));
+    if (cells.length !== 1) break;
+    const cell = cells[0]!;
+    const t = textOf(cell);
+    if (!out.authors && isAuthorLine(cell)) {
+      out.authors = t;
+      continue;
+    }
+    if (t.length <= 60 && !/[\d:;]/.test(t) && !TASK_WORDS.test(t) && !findManuscriptIds(t, idPattern).length && !cell.querySelector('a')) out.type = t;
+    break;
+  }
+  return out;
+}
+
+/** Names that are links, with "(contact)" after one of them, and nothing else. */
+function isAuthorLine(cell: Element): boolean {
+  const t = textOf(cell);
+  if (/\(contact\)/i.test(t)) return true;
+  const links = Array.from(cell.querySelectorAll('a')).map((a) => textOf(a)).filter(Boolean);
+  if (!links.length) return false;
+  let rest = t;
+  for (const l of links) rest = rest.replace(l, '');
+  return rest.replace(/[\s,;&]|\band\b/gi, '') === '';
 }
 
 /**
